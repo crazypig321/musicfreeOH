@@ -6,8 +6,8 @@ import {
   HdsBarStyle,
   HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
-import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../model/TabsModels';
-import { ROUTE_SEARCH } from '../model/NavModels';
+import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
+import { ROUTE_SEARCH } from '../common/model/NavModels';
 import { Home } from './Home';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';

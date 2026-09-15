@@ -1,6 +1,6 @@
 import { KVStore } from '../infra/KVStore';
 import { JsonUtil, JsonRecord } from '../common/JsonUtil';
-import { MusicItem } from '../model/MediaTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 import { EventEmitter } from '../common/EventBus';
 
 /**

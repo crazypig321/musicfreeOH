@@ -2,7 +2,7 @@ import { KVStore } from '../infra/KVStore';
 import { JsonUtil, JsonRecord } from '../common/JsonUtil';
 import { EventEmitter, EventListenerFn } from '../common/EventBus';
 import { INTERNAL_SERIALIZE_KEY, LOCAL_PLUGIN_PLATFORM, SUPPORT_LOCAL_MEDIA_TYPE } from '../common/Consts';
-import { MusicItem } from '../model/MediaTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { FileUtils } from '../utils/FileUtils';
 import { CryptoUtil } from '../utils/CryptoUtil';

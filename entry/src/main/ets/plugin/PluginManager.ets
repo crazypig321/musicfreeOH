@@ -8,8 +8,8 @@ import { HttpClient } from '../infra/HttpClient';
 import { Delay } from '../utils/Delay';
 import { Log } from '../utils/Log';
 import { EventEmitter, EventListenerFn } from '../common/EventBus';
-import { MusicItem } from '../model/MediaTypes';
-import { SupportMediaType } from '../model/SheetTypes';
+import { MusicItem } from '../common/model/MediaTypes';
+import { SupportMediaType } from '../common/model/SheetTypes';
 import { appConfig } from '../core/AppConfig';
 import { MediaExtra } from '../core/MediaExtra';
 import { Plugin } from './Plugin';
@@ -474,11 +474,11 @@ export class PluginManager {
 
   /** 设置插件启用状态 */
   setPluginEnabled(plugin: Plugin, enabled: boolean): void {
+    PluginMeta.setPluginEnabled(plugin.name, enabled);
     const event = new PluginEnabledUpdatedEvent();
     event.pluginName = plugin.name;
     event.enabled = enabled;
     this.ee.emit('enabled-updated', event);
-    PluginMeta.setPluginEnabled(plugin.name, enabled);
   }
 
   /** 插件是否启用 */

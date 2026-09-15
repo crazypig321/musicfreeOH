@@ -1,5 +1,5 @@
 import { JsonRecord } from '../common/JsonUtil';
-import { MusicItem } from '../model/MediaTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 
 interface LyricParserOptions {
   musicItem?: MusicItem;

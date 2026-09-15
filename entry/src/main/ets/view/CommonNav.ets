@@ -1,6 +1,7 @@
 import { BlurStrategy,
   HdsNavDestination,
   HdsNavigationTitle,
+  HdsNavigationMenuItemOptions,
   HdsTabs,
   HdsTabsController,
   ScrollEffectType,
@@ -9,7 +10,8 @@ import { appState } from "../entryability/AppState";
 import { LengthMetrics } from "@kit.ArkUI";
 import { PlayBar } from "./PlayBar";
 
-export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr): TitleBarContentOptions {
+export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr,
+  menus?: Array<HdsNavigationMenuItemOptions>): TitleBarContentOptions {
   const title: HdsNavigationTitle = {
     mainTitle: mainTitle,
     subTitle: subTitle
@@ -17,17 +19,22 @@ export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr): Titl
   const options: TitleBarContentOptions = {
     title: title
   };
+  if (menus !== undefined && menus.length > 0) {
+    options.menu = {
+      value: menus
+    };
+  }
   return options;
 }
 
 @ComponentV2
 export struct CommonNav{
-  private scroller: Scroller = new Scroller()
   private tabsController: HdsTabsController = new HdsTabsController();
   @Param titleBarOp?: TitleBarContentOptions = undefined
   @Param isHideBackButton: boolean = false // 返回 true 拦截系统返回
   @Param avoidLayoutSafeArea: boolean = true
   @Param isShowPlayBar: boolean = false
+  @Param scroller: Scroller | undefined = undefined
   @Event backPressed: () => boolean = (): boolean => false
 
   @BuilderParam content: () => void;

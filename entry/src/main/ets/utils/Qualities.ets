@@ -1,4 +1,4 @@
-import { QualityKey, QUALITY_KEYS } from '../model/MediaTypes';
+import { QualityKey, QUALITY_KEYS } from '../common/model/MediaTypes';
 
 /** 音质顺序 */
 export class Qualities {

@@ -2,7 +2,7 @@ import { EventEmitter, EventListenerFn } from '../common/EventBus';
 import { INTERNAL_SERIALIZE_KEY, SUPPORT_LOCAL_MEDIA_TYPE } from '../common/Consts';
 import { PathConst } from '../common/PathConst';
 import { JsonUtil, JsonRecord } from '../common/JsonUtil';
-import { MusicItem, MediaSource, QualityKey } from '../model/MediaTypes';
+import { MusicItem, MediaSource, QualityKey } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { FileUtils } from '../utils/FileUtils';
 import { CryptoUtil } from '../utils/CryptoUtil';

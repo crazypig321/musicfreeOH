@@ -1,4 +1,4 @@
-import { MusicItem, LyricSource } from '../model/MediaTypes';
+import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { JsonRecord } from '../common/JsonUtil';
 
 /** 解析后的歌词项 */

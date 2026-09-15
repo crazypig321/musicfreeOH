@@ -1,4 +1,4 @@
-import { MusicItem } from '../model/MediaTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 import { trackPlayer } from '../core/TrackPlayer';
 import { PlayState } from '../core/PlayerEngine';
 

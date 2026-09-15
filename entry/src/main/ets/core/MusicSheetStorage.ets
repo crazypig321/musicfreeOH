@@ -1,8 +1,8 @@
 import { KVStore } from '../infra/KVStore';
 import { JsonUtil, JsonRecord } from '../common/JsonUtil';
 import { SortType } from '../common/Consts';
-import { MusicItem } from '../model/MediaTypes';
-import { SheetItem } from '../model/SheetTypes';
+import { MusicItem } from '../common/model/MediaTypes';
+import { SheetItem } from '../common/model/SheetTypes';
 
 /**
  * 歌单存储层（移植自 musicSheet/storage.ts）

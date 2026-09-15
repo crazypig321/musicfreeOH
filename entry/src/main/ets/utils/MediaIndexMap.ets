@@ -1,4 +1,4 @@
-import { MediaRefLike } from '../model/MediaTypes';
+import { MediaRefLike } from '../common/model/MediaTypes';
 
 /**
  * 媒体索引 Map：platform -> {id -> index}，O(1) 查找

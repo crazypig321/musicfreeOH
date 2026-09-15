@@ -1,5 +1,5 @@
-import { JsonUtil, JsonRecord, JsonArray } from '../common/JsonUtil';
-import { INTERNAL_SERIALIZE_KEY } from '../common/Consts';
+import { JsonUtil, JsonRecord, JsonArray } from '../JsonUtil';
+import { INTERNAL_SERIALIZE_KEY } from '../Consts';
 
 /** 音质键 */
 export type QualityKey = 'low' | 'standard' | 'high' | 'super';

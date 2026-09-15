@@ -1,11 +1,11 @@
 import util from '@ohos.util';
 import { JsonUtil, JsonRecord } from '../common/JsonUtil';
-import { MusicItem, MediaSource, LyricSource, QualityKey } from '../model/MediaTypes';
+import { MusicItem, MediaSource, LyricSource, QualityKey } from '../common/model/MediaTypes';
 import {
   SupportMediaType, SearchResult, AlbumItem, ArtistItem, SheetItem, MediaTag, SheetGroupItem,
   PageResult, AlbumInfoResult, SheetInfoResult, TopListInfoResult, RecommendSheetTagsResult,
   CommentsResult,
-} from '../model/SheetTypes';
+} from '../common/model/SheetTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { MediaCache } from '../core/MediaCache';
 import { MediaExtra, MediaExtraProperties } from '../core/MediaExtra';

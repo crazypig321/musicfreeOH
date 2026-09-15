@@ -7,8 +7,8 @@ import {
   ResumeMode,
   SortType,
 } from '../common/Consts';
-import { SheetItem } from '../model/SheetTypes';
-import { MusicItem } from '../model/MediaTypes';
+import { SheetItem } from '../common/model/SheetTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 import { SortedMusicList } from './SortedMusicList';
 import { MusicSheetStorage } from './MusicSheetStorage';
 import { appMeta } from './AppMeta';

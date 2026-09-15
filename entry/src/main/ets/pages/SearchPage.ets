@@ -1,7 +1,7 @@
 import { pasteboard } from '@kit.BasicServicesKit';
 import { promptAction } from '@kit.ArkUI';
-import { MusicItem, LyricSource } from '../model/MediaTypes';
-import { SearchResult, SupportMediaType, SheetItem } from '../model/SheetTypes';
+import { MusicItem, LyricSource } from '../common/model/MediaTypes';
+import { SearchResult, SupportMediaType, SheetItem } from '../common/model/SheetTypes';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { trackPlayer } from '../core/TrackPlayer';
@@ -11,7 +11,7 @@ import { appConfig } from '../core/AppConfig';
 import { ScheduleClose } from '../utils/ScheduleClose';
 import { MediaUtils } from '../utils/MediaUtils';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
-import { MusicDataSource } from '../view/MusicDataSource';
+import { MusicDataSource } from '../common/model/MusicDataSource';
 import { appState } from '../entryability/AppState';
 
 /** 搜索结果不足以铺满首屏时自动续拉的阈值 */
@@ -587,9 +587,9 @@ export struct SearchPage {
   @Builder
   PluginSelectorBuilder() {
     if (this.pluginNames.length > 0) {
-      Scroll() {
-        Row({ space: 8 }) {
-          ForEach(this.pluginNames, (name: string, index: number) => {
+      List({ space: 8 }) {
+        ForEach(this.pluginNames, (name: string, index: number) => {
+          ListItem() {
             Text(name)
               .fontSize(13)
               .fontColor(this.selectedPluginIndex === index ?
@@ -602,10 +602,10 @@ export struct SearchPage {
               .onClick(() => {
                 this.onSelectPlugin(index);
               })
-          }, (name: string, index: number) => name + '_' + index.toString())
-        }
+          }
+        }, (name: string, index: number) => name + '_' + index.toString())
       }
-      .scrollable(ScrollDirection.Horizontal)
+      .listDirection(Axis.Horizontal)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .width('100%')

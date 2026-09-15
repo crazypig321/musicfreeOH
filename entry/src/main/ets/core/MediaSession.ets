@@ -1,6 +1,6 @@
 import avSession from '@ohos.multimedia.avsession';
 import { ContextHolder } from '../common/ContextHolder';
-import { MusicItem } from '../model/MediaTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 import { Log } from '../utils/Log';
 import { trackPlayer } from './TrackPlayer';
 import { PlayState } from './PlayerEngine';

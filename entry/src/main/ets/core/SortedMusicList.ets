@@ -1,6 +1,6 @@
 import intl from '@ohos.intl';
 import { SortType } from '../common/Consts';
-import { MusicItem } from '../model/MediaTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 
 /**

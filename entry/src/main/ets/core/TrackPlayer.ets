@@ -1,7 +1,7 @@
 import { EventEmitter, EventListenerFn } from '../common/EventBus';
 import { JsonUtil, JsonRecord } from '../common/JsonUtil';
 import { MusicRepeatMode, MAX_PLAYLIST_SIZE } from '../common/Consts';
-import { MusicItem, MediaSource, QualityKey } from '../model/MediaTypes';
+import { MusicItem, MediaSource, QualityKey } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { MediaIndexMap } from '../utils/MediaIndexMap';
 import { Qualities } from '../utils/Qualities';
@@ -13,7 +13,7 @@ import { appConfig } from './AppConfig';
 import { musicHistory } from './MusicHistory';
 import { localMusicSheet } from './LocalMusicSheet';
 import { pluginManager } from '../plugin/PluginManager';
-import { SupportMediaType, SearchResult } from '../model/SheetTypes';
+import { SupportMediaType, SearchResult } from '../common/model/SheetTypes';
 import { Network } from '../infra/Network';
 import { playerEngine, PlayState } from './PlayerEngine';
 

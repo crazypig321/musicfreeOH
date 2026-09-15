@@ -1,6 +1,6 @@
 import { KVStore } from '../infra/KVStore';
 import { JsonUtil } from '../common/JsonUtil';
-import { MusicItem } from '../model/MediaTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appConfig } from './AppConfig';
 import { appMeta } from './AppMeta';

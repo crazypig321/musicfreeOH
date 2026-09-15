@@ -1,7 +1,7 @@
 import { BlurStrategy, HdsNavigationTitleBarOptions, ScrollEffectType } from "@kit.UIDesignKit";
 import { LengthMetrics } from "@kit.ArkUI";
-import { TimeTipUtils } from "../utils/TimeTipUtils";
-import { appState } from "../entryability/AppState";
+import { TimeTipUtils } from "../../utils/TimeTipUtils";
+import { appState } from "../../entryability/AppState";
 
 export const ROUTE_SEARCH: string = 'search';
 

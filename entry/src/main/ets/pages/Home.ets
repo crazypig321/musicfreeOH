@@ -1,5 +1,5 @@
-import { MusicItem } from '../model/MediaTypes';
-import { SheetItem, SheetGroupItem, MediaTag, PageResult } from '../model/SheetTypes';
+import { MusicItem } from '../common/model/MediaTypes';
+import { SheetItem, SheetGroupItem, MediaTag, PageResult } from '../common/model/SheetTypes';
 import { PluginAbility } from '../common/Consts';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
@@ -8,7 +8,7 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { appState } from '../entryability/AppState';
 import { TimeTipUtils } from '../utils/TimeTipUtils';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
-import { ROUTE_SEARCH } from '../model/NavModels';
+import { ROUTE_SEARCH } from '../common/model/NavModels';
 
 const TOP_LIST_MAX_GROUPS = 3;
 const LOCAL_PREVIEW_COUNT = 10;
@@ -184,12 +184,17 @@ export struct Home {
     CommonNav({
       titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle')),
       isHideBackButton: true,
-      avoidLayoutSafeArea: true
     }) {
-      Scroll(this.scroller) {
-        Column() {
-          this.SearchEntryBuilder()
-          if (!this.bootReady) {
+      List({ scroller: this.scroller }) {
+        ListItem() {
+          Column() {
+            this.SearchEntryBuilder()
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
+        if (!this.bootReady) {
+          ListItem() {
             Column({ space: 8 }) {
               LoadingProgress()
                 .width(28)
@@ -199,22 +204,38 @@ export struct Home {
             .width('100%')
             .margin({ top: 48 })
             .justifyContent(FlexAlign.Center)
-          } else {
-            this.TopListsBuilder()
-            this.RecommendSheetsBuilder()
-            this.LocalMusicBuilder()
+          }
+        } else {
+          ListItem() {
+            Column() {
+              this.TopListsBuilder()
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+          }
+          ListItem() {
+            Column() {
+              this.RecommendSheetsBuilder()
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+          }
+          ListItem() {
+            Column() {
+              this.LocalMusicBuilder()
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
           }
         }
-        .width('100%')
-        .padding({ left: 16, right: 16  })
-        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .height('100%')
-      .align(Alignment.Top)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .padding({ top: appState.topRect + 66, bottom: appState.bottomRect })
+      .contentStartOffset(appState.topRect + 66)
+      .contentEndOffset(appState.bottomRect + 60)
+      .padding({ left: 16, right: 16 })
     }
   }
 
@@ -319,17 +340,20 @@ export struct Home {
                 .fontWeight(FontWeight.Medium)
                 .fontColor($r('sys.color.font_secondary'))
             }
-            Scroll() {
-              Row({ space: 12 }) {
-                ForEach(group.data, (sheet: SheetItem, index: number) => {
-                  this.SheetCardBuilder(sheet)
-                }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
-              }
-              .alignItems(VerticalAlign.Top)
+            List({ space: 12 }) {
+              ForEach(group.data, (sheet: SheetItem, index: number) => {
+                ListItem() {
+                  Column() {
+                    this.SheetCardBuilder(sheet)
+                  }
+                  .alignItems(HorizontalAlign.Start)
+                }
+              }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
             }
-            .scrollable(ScrollDirection.Horizontal)
+            .listDirection(Axis.Horizontal)
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
+            .width('100%')
           }
           .width('100%')
           .alignItems(HorizontalAlign.Start)
@@ -383,9 +407,9 @@ export struct Home {
         this.EmptyHintBuilder($r('app.string.home_no_plugin'))
       } else {
         if (this.recommendTags.length > 0) {
-          Scroll() {
-            Row({ space: 8 }) {
-              ForEach(this.recommendTags, (tag: MediaTag, index: number) => {
+          List({ space: 8 }) {
+            ForEach(this.recommendTags, (tag: MediaTag, index: number) => {
+              ListItem() {
                 Text(tag.title)
                   .fontSize(13)
                   .fontColor(this.selectedTagIndex === index ? $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
@@ -396,10 +420,10 @@ export struct Home {
                   .onClick(() => {
                     this.onSelectTag(index);
                   })
-              }, (tag: MediaTag, index: number) => tag.id + '_' + index.toString())
-            }
+              }
+            }, (tag: MediaTag, index: number) => tag.id + '_' + index.toString())
           }
-          .scrollable(ScrollDirection.Horizontal)
+          .listDirection(Axis.Horizontal)
           .scrollBar(BarState.Off)
           .margin({ bottom: 12 })
         }
