@@ -9,6 +9,14 @@ export interface MenuItem {
   pressBgColor: ResourceColor;
 }
 
+export function tabBarSymbolOf(item: MenuItem): TabBarSymbol {
+  const symbol: TabBarSymbol = {
+    normal: item.symbolGlyph,
+    selected: item.symbolGlyph1
+  };
+  return symbol;
+}
+
 export const MENU_CONFIG: MenuItem[] = [
   {
     symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.house')).renderingStrategy(SymbolRenderingStrategy.MULTIPLE_COLOR)
@@ -21,11 +29,11 @@ export const MENU_CONFIG: MenuItem[] = [
     pressBgColor: $r('sys.color.interactive_pressed')
   },
   {
-    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.rectangle_stack')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.download')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
       .fontColor([$r('sys.color.icon_primary')]),
-    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.rectangle_stack')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.download')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
       .fontColor([$r('sys.color.icon_emphasize')]),
-    label: $r('app.string.tab_library'),
+    label: $r('app.string.tab_download'),
     defaultBgColor: Color.Transparent,
     hoverBgColor: $r('sys.color.interactive_hover'),
     pressBgColor: $r('sys.color.interactive_pressed')
@@ -36,16 +44,6 @@ export const MENU_CONFIG: MenuItem[] = [
     symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.AI_panels')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
       .fontColor([$r('sys.color.icon_emphasize')]),
     label: $r('app.string.tab_plugin'),
-    defaultBgColor: Color.Transparent,
-    hoverBgColor: $r('sys.color.interactive_hover'),
-    pressBgColor: $r('sys.color.interactive_pressed')
-  },
-  {
-    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.person')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
-      .fontColor([$r('sys.color.icon_primary')]),
-    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.person')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
-      .fontColor([$r('sys.color.icon_emphasize')]),
-    label: $r('app.string.mine_title'),
     defaultBgColor: Color.Transparent,
     hoverBgColor: $r('sys.color.interactive_hover'),
     pressBgColor: $r('sys.color.interactive_pressed')

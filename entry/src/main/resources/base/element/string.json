@@ -17,24 +17,52 @@
       "value": "主页"
     },
     {
-      "name": "tab_library",
-      "value": "书架"
-    },
-    {
-      "name": "tab_history",
-      "value": "历史"
+      "name": "tab_download",
+      "value": "下载管理"
     },
     {
       "name": "tab_plugin",
-      "value": "插件"
+      "value": "插件管理"
     },
     {
       "name": "tab_settings",
       "value": "设置"
     },
     {
-      "name": "mine_title",
-      "value": "我的"
+      "name": "home_search_placeholder",
+      "value": "搜索音乐、歌手、专辑"
+    },
+    {
+      "name": "home_toplists",
+      "value": "榜单"
+    },
+    {
+      "name": "home_recommend_sheets",
+      "value": "推荐歌单"
+    },
+    {
+      "name": "home_local_music",
+      "value": "本地音乐"
+    },
+    {
+      "name": "home_search_results",
+      "value": "搜索结果"
+    },
+    {
+      "name": "home_no_plugin",
+      "value": "暂无可用插件，请先在插件管理中安装"
+    },
+    {
+      "name": "home_no_local_music",
+      "value": "暂无本地音乐"
+    },
+    {
+      "name": "playbar_no_music",
+      "value": "暂无播放"
+    },
+    {
+      "name": "page_under_construction",
+      "value": "页面开发中"
     }
   ]
 }
