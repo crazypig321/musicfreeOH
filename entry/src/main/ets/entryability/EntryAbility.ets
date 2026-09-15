@@ -51,10 +51,8 @@ export default class EntryAbility extends UIAbility {
       try{
         // 全局上下文与路径初始化
         ContextHolder.initUiContext(windowStage.getMainWindowSync().getUIContext(), application.getApplicationContext())
-        // 初始化屏幕信息
-        screenInfo.init(windowStage)
         // 获取顶部 和底部避让以及断点
-        screenInfo.info()
+        screenInfo.info(windowStage)
       }catch (e) {
 
       }

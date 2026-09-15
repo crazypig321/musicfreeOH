@@ -1,20 +1,14 @@
 import window from '@ohos.window';
-import { appState } from '../common/AppState';
 import { ContextHolder } from '../common/ContextHolder';
+import { appState } from '../entryability/AppState';
 
 @ObservedV2
 class ScreenInfo{
-  winStage?: window.WindowStage = undefined;
-
-  init(windowStage: window.WindowStage){
-    this.winStage = windowStage;
-  }
-
-  async info(){
+  async info(windowStage: window.WindowStage){
     try {
-      if (this.winStage) {
-        const win = await this.winStage.getMainWindow();
-        const windowClass: window.Window = this.winStage.getMainWindowSync();
+      if (windowStage) {
+        const win = await windowStage.getMainWindow();
+        const windowClass: window.Window = windowStage.getMainWindowSync();
         await windowClass.setWindowLayoutFullScreen(true);
         if (win) {
           appState.topRect = ContextHolder.getUiContext().px2vp(win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height)
@@ -32,7 +26,7 @@ class ScreenInfo{
         });
 
         /* 断点获取 */
-        this.winStage.getMainWindow().then((data: window.Window) => {
+        windowStage.getMainWindow().then((data: window.Window) => {
           const uiContext = data.getUIContext()
           // 获取窗口断点
           appState.WidthBp = uiContext.getWindowWidthBreakpoint()

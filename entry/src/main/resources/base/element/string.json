@@ -11,6 +11,30 @@
     {
       "name": "EntryAbility_label",
       "value": "MusicFreeOH"
+    },
+    {
+      "name": "tab_home",
+      "value": "主页"
+    },
+    {
+      "name": "tab_library",
+      "value": "书架"
+    },
+    {
+      "name": "tab_history",
+      "value": "历史"
+    },
+    {
+      "name": "tab_plugin",
+      "value": "插件"
+    },
+    {
+      "name": "tab_settings",
+      "value": "设置"
+    },
+    {
+      "name": "mine_title",
+      "value": "我的"
     }
   ]
 }
