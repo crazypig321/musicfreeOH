@@ -1,19 +1,15 @@
 import web_webview from '@ohos.web.webview';
 import { WebPluginExecutor } from '../plugin/WebPluginExecutor';
 import { pluginManager } from '../plugin/PluginManager';
-import { PluginState, InstallPluginResult } from '../plugin/PluginTypes';
+import { PluginState } from '../plugin/PluginTypes';
 import { Bootstrap } from '../core/Bootstrap';
-import { trackPlayer } from '../core/TrackPlayer';
-import { PlayState } from '../core/PlayerEngine';
-import { lyricManager } from '../core/LyricManager';
-import { downloader, DownloadStatus, DownloadTaskInfo } from '../core/Downloader';
-import { appConfig } from '../core/AppConfig';
-import { SupportMediaType, SearchResult } from '../model/SheetTypes';
 import { MusicItem } from '../model/MediaTypes';
-import { ParsedLrcItem } from '../utils/LyricParser';
-import { HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@hms.hds.hdsBaseComponent';
+import {
+  HdsBarStyle,
+  HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@hms.hds.hdsBaseComponent';
 import { appState } from '../entryability/AppState';
-import { NavTitleBarOp } from '../model/NavModels';
+import { deviceInfo } from '@kit.BasicServicesKit';
+import { MENU_CONFIG, MenuItem } from '../model/TabsModels';
 
 /**
  * 链路验证演示页：
@@ -179,15 +175,18 @@ struct Index {
   }*/
   
   private tabsController: HdsTabsController = new HdsTabsController();
-  @Local currTabsIndex: number = 0
+
   
   build() {
     HdsNavigation(appState.pageInfos){
       HdsTabs({ controller: this.tabsController }){
-        ForEach([],()=>{
+        ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
           TabContent() {
            
           }
+          .tabBar(new BottomTabBarStyle({
+            normal: item.symbolGlyph, selected: item.symbolGlyph1
+          }, item.label))
         })
       }
       .barOverlap(true)
@@ -196,29 +195,47 @@ struct Index {
       .barPosition(BarPosition.End)
       .barFloatingStyle({
         barBottomMargin: 28,
-       // barWidth: { smallWidth: 200, mediumWidth: 300, largeWidth: 400 },
         systemMaterialEffect: {
           materialType: appState.materialType,
           materialLevel: appState.materialLevel
         },
         adaptToHandedness: true,
-        gradientMask: { maskColor: $r('sys.color.background_secondary'), maskHeight: 50 },
+       // gradientMask: { maskColor: appConfig.maskColor },
         miniBar: {
           miniBarBuilder: ()=>{ this.miniBarBuilder() },
-        //  barLayoutMode: appState.hdsBarLayoutMode,
+          barLayoutMode: IsApiVersion_24() ? appState.hdsBarLayoutMode : undefined,
+          miniBarStyle: appState.miniBarStyle,
+          onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
+            if (!IsApiVersion_24()) {
+              appState.miniBarStyle = miniBarStyle
+            }else{
+              if (miniBarStyle === HdsBarStyle.COLLAPSE) {
+                this.getUIContext().animateTo({duration: 300, curve: Curve.Smooth}, () => {
+                  appState.hdsBarLayoutMode = 1
+                  appState.miniBarStyle = miniBarStyle
+                })
+              }
+            }
+            console.info('miniBarStyle: ', miniBarStyle, appState.miniBarStyle, 'hdsBarLayoutMode：', appState.hdsBarLayoutMode)
+          },
         },
       })
-      .onAnimationStart((index: number, targetIndex: number) => {
-        console.info(`Succeeded in getting info.Index:${index},targetIndex:${targetIndex}.`);
-        this.currTabsIndex = targetIndex;// todo 要写动画
-      });
+      .animationDuration(500)// 不设置该属性或设置为异常值情况下，若存在BottomTabBarStyle样式的TabBar时，默认值为0。
+      .onSelected((index)=>{
+        appState.currTabsIndex = index
+        console.info(`当前tabs索引为：${appState.currTabsIndex}`)
+      })
     }
     .titleMode(HdsNavigationTitleMode.MINI)
+    .mode(NavigationMode.Stack)
+    .navBarWidth('40%')
     .hideBackButton(true)
+    .hideTitleBar(true)//防止分栏状态下顶部按钮失效
     .width('100%')
     .height('100%')
-    .titleBar(NavTitleBarOp())
     .backgroundColor($r('sys.color.background_secondary'))
+    .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
+      { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
     
     /*Scroll() {
       Column({ space: 10 }) {
@@ -375,7 +392,7 @@ struct Index {
     .align(Alignment.Top)
     .scrollBar(BarState.Auto)*/
   }
-  
+
   @Builder
     miniBarBuilder() {
       Row() {
@@ -403,4 +420,10 @@ struct Index {
         .justifyContent(FlexAlign.Center)
       }
     }
+}
+
+
+// api是否大于等于24
+export function IsApiVersion_24(): boolean {
+  return deviceInfo.distributionOSApiVersion >= 60101
 }
