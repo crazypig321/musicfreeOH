@@ -125,7 +125,7 @@ struct Index {
   @Builder
   pageMap(name: string) {
     if (name === ROUTE_SEARCH) {
-      SearchPage()
+      SearchPage({ bootReady: this.bootReady })
     }
   }
 

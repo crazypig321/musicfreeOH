@@ -4,6 +4,7 @@ import { PluginState } from '../plugin/PluginTypes';
 import { InstallPluginResult } from '../plugin/PluginTypes';
 import { appConfig } from '../core/AppConfig';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { appState } from '../entryability/AppState';
 
 interface PluginRow {
   name: string;
@@ -209,13 +210,14 @@ export struct PluginPage {
           }
         }
         .width('100%')
-        .padding({ left: 16, right: 16, bottom: 180 })
+        .padding({ left: 16, right: 16 })
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      .safeAreaPadding({ top: appState.topRect + 66 })
     }
   }
 }

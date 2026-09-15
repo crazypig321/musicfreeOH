@@ -81,7 +81,7 @@ export struct CommonNav{
             }
           },
         },
-        scrollEffectStyle: { backgroundStyle: { backgroundColor: '#19ffffff', maskExtraHeight: 0, blurRadius: 100 } },
+        scrollEffectStyle: { backgroundStyle: { backgroundColor: '#19ffffff', maskExtraHeight: 0, blurRadius: 80 } },
         systemMaterialEffect: {
           materialType: appState.materialType,
           materialLevel: appState.materialLevel

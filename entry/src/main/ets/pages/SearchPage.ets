@@ -116,6 +116,7 @@ struct ActionRowItem {
 @ComponentV2
 export struct SearchPage {
   scroller: Scroller = new Scroller();
+  @Param bootReady: boolean = false;
   @Local keyword: string = '';
   @Local searchStatus: string = '';
   @Local searching: boolean = false;
@@ -143,6 +144,13 @@ export struct SearchPage {
     pluginManager.onPluginEnabled((_name: string, _enabled: boolean): void => {
       this.refreshPlugins();
     });
+  }
+
+  @Monitor('bootReady')
+  onBootReadyChange(): void {
+    if (this.bootReady) {
+      this.refreshPlugins();
+    }
   }
 
   private refreshPlugins(): void {
@@ -516,7 +524,9 @@ export struct SearchPage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .safeAreaPadding({ top: appState.topRect + 66, bottom: appState.bottomRect, right: 16, left: 16 })
+      .contentStartOffset(appState.topRect + 66)
+      .contentEndOffset(appState.bottomRect)
+      .padding({ left: 16, right: 16 })
       .onReachEnd(() => {
         this.loadMore();
       })
@@ -577,7 +587,7 @@ export struct SearchPage {
 
   @Builder
   PluginSelectorBuilder() {
-    if (this.pluginNames.length > 1) {
+    if (this.pluginNames.length > 0) {
       Scroll() {
         Row({ space: 8 }) {
           ForEach(this.pluginNames, (name: string, index: number) => {
@@ -601,6 +611,12 @@ export struct SearchPage {
       .edgeEffect(EdgeEffect.Spring)
       .width('100%')
       .margin({ top: 10 })
+    } else {
+      Text('无可用音乐插件，请先在「插件管理」中安装并启用')
+        .fontSize(12)
+        .fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
+        .margin({ top: 10 })
     }
   }
 

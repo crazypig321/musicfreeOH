@@ -207,7 +207,7 @@ export struct Home {
           }
         }
         .width('100%')
-        .padding({ left: 16, right: 16, bottom: 180 })
+        .padding({ left: 16, right: 16  })
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
@@ -215,7 +215,7 @@ export struct Home {
       .align(Alignment.Top)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .safeAreaPadding({ top: appState.topRect + 66 })
+      .padding({ top: appState.topRect + 66, bottom: appState.bottomRect })
     }
   }
 
