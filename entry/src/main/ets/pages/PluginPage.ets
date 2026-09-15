@@ -115,43 +115,48 @@ export struct PluginPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_plugin')),
       isHideBackButton: true,
-      scroller: this.scroller
     }) {
-      Scroll(this.scroller) {
-        Column() {
-          Row({ space: 8 }) {
-            TextInput({ text: this.pluginUrl, placeholder: '插件 URL' })
-              .layoutWeight(1)
-              .height(40)
-              .backgroundColor($r('sys.color.comp_background_tertiary'))
-              .borderRadius(20)
-              .fontSize(12)
-              .onChange((v: string) => {
-                this.pluginUrl = v;
-              })
-            Button(this.installing ? '...' : '安装')
-              .height(40)
-              .fontSize(14)
-              .borderRadius(20)
-              .backgroundColor($r('sys.color.background_emphasize'))
-              .onClick(() => {
-                this.installPlugin();
-              })
+      List({ scroller: this.scroller }) {
+        ListItem() {
+          Column() {
+            Row({ space: 8 }) {
+              TextInput({ text: this.pluginUrl, placeholder: '插件 URL' })
+                .layoutWeight(1)
+                .height(40)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .borderRadius(20)
+                .fontSize(12)
+                .onChange((v: string) => {
+                  this.pluginUrl = v;
+                })
+              Button(this.installing ? '...' : '安装')
+                .height(40)
+                .fontSize(14)
+                .borderRadius(20)
+                .backgroundColor($r('sys.color.background_emphasize'))
+                .onClick(() => {
+                  this.installPlugin();
+                })
+            }
+            .width('100%')
+
+            if (this.installStatus.length > 0) {
+              Text(this.installStatus)
+                .fontSize(12)
+                .fontColor($r('sys.color.font_secondary'))
+                .width('100%')
+                .margin({ top: 8 })
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
           }
           .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
 
-          if (this.installStatus.length > 0) {
-            Text(this.installStatus)
-              .fontSize(12)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-              .margin({ top: 8 })
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-
-          if (this.pluginRows.length > 0) {
-            ForEach(this.pluginRows, (row: PluginRow, index: number) => {
+        if (this.pluginRows.length > 0) {
+          ForEach(this.pluginRows, (row: PluginRow, index: number) => {
+            ListItem() {
               Row({ space: 12 }) {
                 Column() {
                   SymbolGlyph($r('sys.symbol.AI_panels'))
@@ -199,8 +204,10 @@ export struct PluginPage {
               .onClick(() => {
                 this.refreshPlugins();
               })
-            }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString())
-          } else {
+            }
+          }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString())
+        } else {
+          ListItem() {
             Text($r('app.string.home_no_plugin'))
               .fontSize(13)
               .fontColor($r('sys.color.font_tertiary'))
@@ -209,15 +216,12 @@ export struct PluginPage {
               .margin({ top: 32 })
           }
         }
-        .width('100%')
-        .padding({ left: 16, right: 16 })
-        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .safeAreaPadding({ top: appState.topRect + 66 })
+      .safeAreaPadding({ top: appState.topRect + 66, bottom: appState.bottomRect, left: 16, right: 16 })
     }
   }
 }

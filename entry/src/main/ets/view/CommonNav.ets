@@ -22,12 +22,12 @@ export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr): Titl
 
 @ComponentV2
 export struct CommonNav{
+  private scroller: Scroller = new Scroller()
   private tabsController: HdsTabsController = new HdsTabsController();
   @Param titleBarOp?: TitleBarContentOptions = undefined
   @Param isHideBackButton: boolean = false // 返回 true 拦截系统返回
   @Param avoidLayoutSafeArea: boolean = true
   @Param isShowPlayBar: boolean = false
-  @Param scroller: Scroller | undefined = undefined
   @Event backPressed: () => boolean = (): boolean => false
 
   @BuilderParam content: () => void;

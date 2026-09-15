@@ -461,7 +461,6 @@ export struct SearchPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.search_title')),
       isShowPlayBar: false,
-      scroller: this.scroller,
       backPressed: (): boolean => false
     }) {
       List({ scroller: this.scroller }) {
@@ -532,7 +531,7 @@ export struct SearchPage {
       })
       .bindSheet(!!this.showOptions, this.OptionsSheetBuilder(), {
         detents: [600, SheetSize.LARGE],
-        dragBar: false,
+        dragBar: true,
         preferType: SheetType.CENTER,
         onWillDisappear: () => {
           this.showOptions = false;
@@ -689,6 +688,7 @@ export struct SearchPage {
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1)
+            .width('70%')
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Text(this.optionsItem.artist)
             .fontSize(12)
@@ -707,8 +707,7 @@ export struct SearchPage {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      List({ space: 4 }) {
-        ListItem() {
+      Row({space: 4}){
           QuickActionItem({
             icon: this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
             label: this.isFavorited ? '取消收藏' : '收藏',
@@ -717,8 +716,6 @@ export struct SearchPage {
               this.toggleFavorite();
             }
           })
-        }
-        ListItem() {
           QuickActionItem({
             icon: $r('sys.symbol.plus_square_on_square'),
             label: '添加到歌单',
@@ -726,8 +723,6 @@ export struct SearchPage {
               this.openSheetPicker();
             }
           })
-        }
-        ListItem() {
           QuickActionItem({
             icon: $r('sys.symbol.forward_end_fill'),
             label: '下一首播放',
@@ -735,8 +730,6 @@ export struct SearchPage {
               this.playNext();
             }
           })
-        }
-        ListItem() {
           QuickActionItem({
             icon: $r('sys.symbol.share'),
             label: '分享',
@@ -744,13 +737,10 @@ export struct SearchPage {
               this.shareCurrent();
             }
           })
-        }
       }
-      .listDirection(Axis.Horizontal)
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
       .width('100%')
       .margin({ top: 20 })
+      .justifyContent(FlexAlign.SpaceBetween)
 
       Divider()
         .width('100%')

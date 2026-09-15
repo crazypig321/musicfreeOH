@@ -184,7 +184,6 @@ export struct Home {
     CommonNav({
       titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle')),
       isHideBackButton: true,
-      scroller: this.scroller,
       avoidLayoutSafeArea: true
     }) {
       Scroll(this.scroller) {
