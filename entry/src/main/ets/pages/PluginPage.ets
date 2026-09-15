@@ -1,9 +1,9 @@
-import { appState } from '../entryability/AppState';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { PluginState } from '../plugin/PluginTypes';
 import { InstallPluginResult } from '../plugin/PluginTypes';
 import { appConfig } from '../core/AppConfig';
+import { CommonNav, titleBarOf } from '../view/CommonNav';
 
 interface PluginRow {
   name: string;
@@ -15,6 +15,7 @@ interface PluginRow {
 
 @ComponentV2
 export struct PluginPage {
+  scroller: Scroller = new Scroller();
   @Local pluginUrl: string = '';
   @Local installStatus: string = '';
   @Local installing: boolean = false;
@@ -110,112 +111,111 @@ export struct PluginPage {
   }
 
   build() {
-    Scroll() {
-      Column() {
-        Text($r('app.string.tab_plugin'))
-          .fontSize(24)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
+    CommonNav({
+      titleBarOp: titleBarOf($r('app.string.tab_plugin')),
+      isHideBackButton: true,
+      scroller: this.scroller
+    }) {
+      Scroll(this.scroller) {
+        Column() {
+          Row({ space: 8 }) {
+            TextInput({ text: this.pluginUrl, placeholder: '插件 URL' })
+              .layoutWeight(1)
+              .height(40)
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
+              .borderRadius(20)
+              .fontSize(12)
+              .onChange((v: string) => {
+                this.pluginUrl = v;
+              })
+            Button(this.installing ? '...' : '安装')
+              .height(40)
+              .fontSize(14)
+              .borderRadius(20)
+              .backgroundColor($r('sys.color.background_emphasize'))
+              .onClick(() => {
+                this.installPlugin();
+              })
+          }
           .width('100%')
-          .margin({ top: 12, bottom: 16 })
 
-        Row({ space: 8 }) {
-          TextInput({ text: this.pluginUrl, placeholder: '插件 URL' })
-            .layoutWeight(1)
-            .height(40)
-            .backgroundColor($r('sys.color.comp_background_tertiary'))
-            .borderRadius(20)
-            .fontSize(12)
-            .onChange((v: string) => {
-              this.pluginUrl = v;
-            })
-          Button(this.installing ? '...' : '安装')
-            .height(40)
-            .fontSize(14)
-            .borderRadius(20)
-            .backgroundColor($r('sys.color.background_emphasize'))
-            .onClick(() => {
-              this.installPlugin();
-            })
+          if (this.installStatus.length > 0) {
+            Text(this.installStatus)
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+              .margin({ top: 8 })
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+
+          if (this.pluginRows.length > 0) {
+            ForEach(this.pluginRows, (row: PluginRow, index: number) => {
+              Row({ space: 12 }) {
+                Column() {
+                  SymbolGlyph($r('sys.symbol.AI_panels'))
+                    .fontSize(22)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                .width(40)
+                .height(40)
+                .borderRadius(10)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .justifyContent(FlexAlign.Center)
+
+                Column({ space: 2 }) {
+                  Text(row.name)
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text((row.version.length > 0 ? 'v' + row.version : '') +
+                    (row.author.length > 0 ? ' · ' + row.author : ''))
+                    .fontSize(12)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+
+                Text(PluginPage.stateText(row.state))
+                  .fontSize(12)
+                  .fontColor(row.state === PluginState.Mounted ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
+
+                if (row.name !== '本地') {
+                  SymbolGlyph($r('sys.symbol.trash'))
+                    .fontSize(18)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                    .onClick(() => {
+                      this.uninstall(row);
+                    })
+                }
+              }
+              .width('100%')
+              .height(56)
+              .borderRadius(12)
+              .onClick(() => {
+                this.refreshPlugins();
+              })
+            }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString())
+          } else {
+            Text($r('app.string.home_no_plugin'))
+              .fontSize(13)
+              .fontColor($r('sys.color.font_tertiary'))
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .margin({ top: 32 })
+          }
         }
         .width('100%')
-
-        if (this.installStatus.length > 0) {
-          Text(this.installStatus)
-            .fontSize(12)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
-            .margin({ top: 8 })
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-
-        if (this.pluginRows.length > 0) {
-          ForEach(this.pluginRows, (row: PluginRow, index: number) => {
-            Row({ space: 12 }) {
-              Column() {
-                SymbolGlyph($r('sys.symbol.AI_panels'))
-                  .fontSize(22)
-                  .fontColor([$r('sys.color.icon_secondary')])
-              }
-              .width(40)
-              .height(40)
-              .borderRadius(10)
-              .backgroundColor($r('sys.color.comp_background_tertiary'))
-              .justifyContent(FlexAlign.Center)
-
-              Column({ space: 2 }) {
-                Text(row.name)
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text((row.version.length > 0 ? 'v' + row.version : '') +
-                  (row.author.length > 0 ? ' · ' + row.author : ''))
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-              }
-              .layoutWeight(1)
-              .alignItems(HorizontalAlign.Start)
-
-              Text(PluginPage.stateText(row.state))
-                .fontSize(12)
-                .fontColor(row.state === PluginState.Mounted ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
-
-              if (row.name !== '本地') {
-                SymbolGlyph($r('sys.symbol.trash'))
-                  .fontSize(18)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-                  .onClick(() => {
-                    this.uninstall(row);
-                  })
-              }
-            }
-            .width('100%')
-            .height(56)
-            .borderRadius(12)
-            .onClick(() => {
-              this.refreshPlugins();
-            })
-          }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString())
-        } else {
-          Text($r('app.string.home_no_plugin'))
-            .fontSize(13)
-            .fontColor($r('sys.color.font_tertiary'))
-            .width('100%')
-            .textAlign(TextAlign.Center)
-            .margin({ top: 32 })
-        }
+        .padding({ left: 16, right: 16, bottom: 180 })
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: appState.topRect, bottom: 180 })
-      .alignItems(HorizontalAlign.Start)
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
-    .width('100%')
-    .height('100%')
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
   }
 }

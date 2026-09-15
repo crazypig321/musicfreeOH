@@ -3,6 +3,8 @@ import { LengthMetrics } from "@kit.ArkUI";
 import { TimeTipUtils } from "../utils/TimeTipUtils";
 import { appState } from "../entryability/AppState";
 
+export const ROUTE_SEARCH: string = 'search';
+
 export function NavTitleBarOp() : HdsNavigationTitleBarOptions {
 return {
 content: {

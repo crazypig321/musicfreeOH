@@ -1,5 +1,5 @@
 import { MusicItem } from '../model/MediaTypes';
-import { SheetItem, SheetGroupItem, MediaTag, SupportMediaType, SearchResult, PageResult } from '../model/SheetTypes';
+import { SheetItem, SheetGroupItem, MediaTag, PageResult } from '../model/SheetTypes';
 import { PluginAbility } from '../common/Consts';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
@@ -7,6 +7,8 @@ import { localMusicSheet } from '../core/LocalMusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 import { appState } from '../entryability/AppState';
 import { TimeTipUtils } from '../utils/TimeTipUtils';
+import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { ROUTE_SEARCH } from '../model/NavModels';
 
 const TOP_LIST_MAX_GROUPS = 3;
 const LOCAL_PREVIEW_COUNT = 10;
@@ -16,10 +18,6 @@ const GRID_COLUMNS = 3;
 export struct Home {
   scroller: Scroller = new Scroller();
   @Param bootReady: boolean = false;
-  @Local keyword: string = '';
-  @Local searchResults: Array<MusicItem> = [];
-  @Local searchStatus: string = '';
-  @Local searchPluginName: string = '';
   @Local topListPluginName: string = '';
   @Local topListGroups: Array<SheetGroupItem> = [];
   @Local recommendPluginName: string = '';
@@ -149,43 +147,8 @@ export struct Home {
     this.applyTagSheets(index);
   }
 
-  private doSearch(): void {
-    const kw = this.keyword.trim();
-    if (kw.length === 0) {
-      return;
-    }
-    const plugins = pluginManager.getSortedSearchablePlugins(SupportMediaType.Music);
-    if (plugins.length === 0) {
-      this.searchResults = [];
-      this.searchStatus = '无可用音乐插件';
-      return;
-    }
-    const plugin = plugins[0];
-    this.searchPluginName = plugin.name;
-    this.searchResults = [];
-    this.searchStatus = '搜索中...';
-    plugin.methods.search(kw, 1, SupportMediaType.Music).then((r: SearchResult) => {
-      this.searchResults = r.musicData;
-      this.searchStatus = r.musicData.length === 0 ? '未找到相关结果' : '共 ' + r.musicData.length.toString() + ' 条结果';
-    }).catch((_e: Object): void => {
-      this.searchResults = [];
-      this.searchStatus = '搜索失败，请重试';
-    });
-  }
-
-  private clearSearch(): void {
-    this.keyword = '';
-    this.searchResults = [];
-    this.searchStatus = '';
-  }
-
-  private playSearchResult(item: MusicItem): void {
-    if (this.searchResults.length === 0) {
-      return;
-    }
-    trackPlayer.playWithReplacePlayList(item, this.searchResults).catch((_e: Object): void => {
-      this.showToast('播放失败');
-    });
+  private openSearch(): void {
+    appState.pageInfos.pushPathByName(ROUTE_SEARCH, '');
   }
 
   private playLocal(item: MusicItem): void {
@@ -217,103 +180,64 @@ export struct Home {
     return rows;
   }
 
-  private static formatDuration(sec: number): string {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    const mStr = m < 10 ? '0' + m.toString() : m.toString();
-    const rStr = r < 10 ? '0' + r.toString() : r.toString();
-    return mStr + ':' + rStr;
-  }
-
   build() {
-    Scroll(this.scroller) {
-      Column() {
-        this.HeaderBuilder()
-        this.SearchBarBuilder()
-        if (!this.bootReady) {
-          Column({ space: 8 }) {
-            LoadingProgress()
-              .width(28)
-              .height(28)
-              .color($r('sys.color.icon_emphasize'))
+    CommonNav({
+      titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle')),
+      isHideBackButton: true,
+      scroller: this.scroller
+    }) {
+      Scroll(this.scroller) {
+        Column() {
+          this.SearchEntryBuilder()
+          if (!this.bootReady) {
+            Column({ space: 8 }) {
+              LoadingProgress()
+                .width(28)
+                .height(28)
+                .color($r('sys.color.icon_emphasize'))
+            }
+            .width('100%')
+            .margin({ top: 48 })
+            .justifyContent(FlexAlign.Center)
+          } else {
+            this.TopListsBuilder()
+            this.RecommendSheetsBuilder()
+            this.LocalMusicBuilder()
           }
-          .width('100%')
-          .margin({ top: 48 })
-          .justifyContent(FlexAlign.Center)
-        } else {
-          if (this.searchResults.length > 0 || this.searchStatus.length > 0) {
-            this.SearchResultsBuilder()
-          }
-          this.TopListsBuilder()
-          this.RecommendSheetsBuilder()
-          this.LocalMusicBuilder()
         }
+        .width('100%')
+        .padding({ left: 16, right: 16, bottom: 180 })
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: appState.topRect, bottom: 180 })
-      .alignItems(HorizontalAlign.Start)
+      .height('100%')
+      .align(Alignment.Top)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
-    .width('100%')
-    .height('100%')
-    .align(Alignment.Top)
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
   }
 
   @Builder
-  HeaderBuilder() {
-    Column({ space: 2 }) {
-      Text(TimeTipUtils())
-        .fontSize(28)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-        .maxLines(1)
-      Text('MusicFree')
-        .fontSize(13)
-        .fontColor($r('sys.color.font_tertiary'))
-    }
-    .alignItems(HorizontalAlign.Start)
-    .width('100%')
-    .margin({ top: 12, bottom: 16 })
-  }
-
-  @Builder
-  SearchBarBuilder() {
+  SearchEntryBuilder() {
     Row({ space: 8 }) {
       SymbolGlyph($r('sys.symbol.magnifyingglass'))
         .fontSize(20)
         .fontColor([$r('sys.color.icon_secondary')])
-      TextInput({ text: this.keyword, placeholder: $r('app.string.home_search_placeholder') })
-        .layoutWeight(1)
-        .height(44)
-        .backgroundColor(Color.Transparent)
-        .padding(0)
+      Text($r('app.string.home_search_placeholder'))
         .fontSize(15)
-        .fontColor($r('sys.color.font_primary'))
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .placeholderFont({ size: 15 })
-        .enterKeyType(EnterKeyType.Search)
-        .onChange((v: string) => {
-          this.keyword = v;
-        })
-        .onSubmit((_enterKey: EnterKeyType) => {
-          this.doSearch();
-        })
-      if (this.keyword.length > 0) {
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.icon_tertiary')])
-          .onClick(() => {
-            this.clearSearch();
-          })
-      }
+        .fontColor($r('sys.color.font_tertiary'))
+        .layoutWeight(1)
+        .maxLines(1)
     }
     .width('100%')
     .height(44)
     .padding({ left: 16, right: 16 })
     .borderRadius(22)
     .backgroundColor($r('sys.color.comp_background_tertiary'))
+    .margin({ top: 4, bottom: 4 })
+    .onClick(() => {
+      this.openSearch();
+    })
   }
 
   @Builder
@@ -344,37 +268,18 @@ export struct Home {
   }
 
   @Builder
-  SearchResultsBuilder() {
-    Column() {
-      this.SectionTitleBuilder($r('app.string.home_search_results'), this.searchPluginName, this.searchStatus)
-      ForEach(this.searchResults, (item: MusicItem, index: number) => {
-        this.MusicRowBuilder(item, index, true)
-      }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + index.toString())
-    }
-    .width('100%')
-  }
-
-  @Builder
-  MusicRowBuilder(item: MusicItem, index: number, showIndex: boolean) {
+  MusicRowBuilder(item: MusicItem) {
     Row({ space: 12 }) {
-      if (showIndex) {
-        Text((index + 1).toString())
-          .fontSize(14)
-          .fontColor(index < 3 ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
-          .width(24)
-          .textAlign(TextAlign.Center)
-      } else {
-        Column() {
-          SymbolGlyph($r('sys.symbol.music_note_list'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-        }
-        .width(40)
-        .height(40)
-        .borderRadius(10)
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .justifyContent(FlexAlign.Center)
+      Column() {
+        SymbolGlyph($r('sys.symbol.music_note_list'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
       }
+      .width(40)
+      .height(40)
+      .borderRadius(10)
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .justifyContent(FlexAlign.Center)
       Column({ space: 2 }) {
         Text(item.title)
           .fontSize(15)
@@ -389,19 +294,12 @@ export struct Home {
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
-      Text(Home.formatDuration(item.duration))
-        .fontSize(12)
-        .fontColor($r('sys.color.font_tertiary'))
     }
     .width('100%')
     .height(56)
     .borderRadius(12)
     .onClick(() => {
-      if (showIndex) {
-        this.playSearchResult(item);
-      } else {
-        this.playLocal(item);
-      }
+      this.playLocal(item);
     })
   }
 
@@ -568,7 +466,7 @@ export struct Home {
         this.EmptyHintBuilder($r('app.string.home_no_local_music'))
       } else {
         ForEach(this.localMusic.slice(0, LOCAL_PREVIEW_COUNT), (item: MusicItem, index: number) => {
-          this.MusicRowBuilder(item, index, false)
+          this.MusicRowBuilder(item)
         }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + index.toString())
       }
     }

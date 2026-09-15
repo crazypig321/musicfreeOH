@@ -916,13 +916,16 @@ export class TrackPlayer {
     this.ee.on('play-end', wrapper);
   }
 
-  onCurrentMusicChanged(cb: (music: MusicItem | null) => void): void {
+  onCurrentMusicChanged(cb: (music: MusicItem | null) => void): () => void {
     const wrapper: EventListenerFn = (payload?: Object) => {
       if (payload instanceof CurrentMusicChangedEvent) {
         cb(payload.music);
       }
     };
     this.ee.on('current-music-changed', wrapper);
+    return (): void => {
+      this.ee.off('current-music-changed', wrapper);
+    };
   }
 
   onProgressChanged(cb: (position: number, duration: number) => void): void {
@@ -934,13 +937,16 @@ export class TrackPlayer {
     this.ee.on('progress-changed', wrapper);
   }
 
-  onPlayStateChanged(cb: (state: PlayState) => void): void {
+  onPlayStateChanged(cb: (state: PlayState) => void): () => void {
     const wrapper: EventListenerFn = (payload?: Object) => {
       if (payload instanceof PlayStateChangedEvent) {
         cb(payload.state);
       }
     };
     this.ee.on('play-state-changed', wrapper);
+    return (): void => {
+      this.ee.off('play-state-changed', wrapper);
+    };
   }
 
   onPlayListChanged(cb: () => void): void {

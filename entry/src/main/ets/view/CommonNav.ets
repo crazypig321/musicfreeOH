@@ -1,11 +1,24 @@
 import { BlurStrategy,
   HdsNavDestination,
+  HdsNavigationTitle,
   HdsTabs,
   HdsTabsController,
   ScrollEffectType,
   TitleBarContentOptions } from "@kit.UIDesignKit";
 import { appState } from "../entryability/AppState";
 import { LengthMetrics } from "@kit.ArkUI";
+import { PlayBar } from "./PlayBar";
+
+export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr): TitleBarContentOptions {
+  const title: HdsNavigationTitle = {
+    mainTitle: mainTitle,
+    subTitle: subTitle
+  };
+  const options: TitleBarContentOptions = {
+    title: title
+  };
+  return options;
+}
 
 @ComponentV2
 export struct CommonNav{
@@ -15,7 +28,8 @@ export struct CommonNav{
   @Param isHideBackButton: boolean = false // 返回 true 拦截系统返回
   @Param avoidLayoutSafeArea: boolean = true
   @Param isShowPlayBar: boolean = false
-  @Event backPressed:() => boolean
+  @Param scroller: Scroller | undefined = undefined
+  @Event backPressed: () => boolean = (): boolean => false
 
   @BuilderParam content: () => void;
 
@@ -76,7 +90,7 @@ export struct CommonNav{
       },
       avoidLayoutSafeArea: this.avoidLayoutSafeArea,
     })
-    .bindToScrollable([this.scrollerForScroll])
+    .bindToScrollable(this.scroller !== undefined ? [this.scroller] : [])
     .hideBackButton(this.isHideBackButton)
     .backgroundColor($r('sys.color.background_secondary'))
     .width('100%')
@@ -94,6 +108,6 @@ export struct CommonNav{
 
   @Builder
   playBar(){
-
+    PlayBar()
   }
 }
