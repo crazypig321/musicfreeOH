@@ -1,4 +1,4 @@
-import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, application, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { ContextHolder } from '../common/ContextHolder';
@@ -6,6 +6,7 @@ import { PathConst } from '../common/PathConst';
 import { Network } from '../infra/Network';
 import { FileUtils } from '../utils/FileUtils';
 import { mediaSession } from '../core/MediaSession';
+import { screenInfo } from '../utils/ScreenInfo';
 
 const DOMAIN = 0x0000;
 
@@ -20,6 +21,7 @@ export default class EntryAbility extends UIAbility {
 
     // 全局上下文与路径初始化
     ContextHolder.init(this.context);
+
     PathConst.init();
     FileUtils.checkAndCreateDir(PathConst.pluginPath);
     FileUtils.checkAndCreateDir(PathConst.dataPath);
@@ -46,6 +48,16 @@ export default class EntryAbility extends UIAbility {
         return;
       }
       hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the content.');
+      try{
+        // 全局上下文与路径初始化
+        ContextHolder.initUiContext(windowStage.getMainWindowSync().getUIContext(), application.getApplicationContext())
+        // 初始化屏幕信息
+        screenInfo.init(windowStage)
+        // 获取顶部 和底部避让以及断点
+        screenInfo.info()
+      }catch (e) {
+
+      }
       // 解析公共下载目录（DOWNLOAD 模式免弹窗，失败自动回落沙箱）
       PathConst.bootstrapPublicDownloadDir();
     });

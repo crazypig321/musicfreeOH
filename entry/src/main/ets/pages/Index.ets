@@ -196,7 +196,7 @@ struct Index {
       .barPosition(BarPosition.End)
       .barFloatingStyle({
         barBottomMargin: 28,
-        barWidth: { smallWidth: 200, mediumWidth: 300, largeWidth: 400 },
+       // barWidth: { smallWidth: 200, mediumWidth: 300, largeWidth: 400 },
         systemMaterialEffect: {
           materialType: appState.materialType,
           materialLevel: appState.materialLevel
