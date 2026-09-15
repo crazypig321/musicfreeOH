@@ -3,16 +3,16 @@
     "signingConfigs": [
       {
         "name": "default",
+        "type": "HarmonyOS",
         "material": {
-          "storePassword": "000000201E3EADD46BAFBAA0C53F757F6C886D331B28CCD9FCBDF0A62AF128049FC479D2D8868B15DC77EFA3EE56D77A",
-          "certpath": "/storage/Users/currentUser/Documents/ohos/config/default_musicfreeOHGMQRlUGH6xiCtS9g2-BbUl6zoXX-Q1BC0Av6WA84E9Y.cer",
+          "certpath": "C:\\Users\\Administrator\\.ohos\\config\\default_MusicFreeOH_2q2TgEsyWcsNmbJqkEkTx4TPzntmUqChQfT5-BzMtb8=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "000000201E3EADD46BAFBAA0C53F757F6C886D331B28CCD9FCBDF0A62AF128049FC479D2D8868B15DC77EFA3EE56D77A",
-          "profile": "/storage/Users/currentUser/Documents/ohos/config/default_musicfreeOHGMQRlUGH6xiCtS9g2-BbUl6zoXX-Q1BC0Av6WA84E9Y.p7b",
+          "keyPassword": "0000001B7827EF8EA700E721C76FDD054F921DB0F18F455AC80C373E5509B4045342D341FCB2423601B915",
+          "profile": "C:\\Users\\Administrator\\.ohos\\config\\default_MusicFreeOH_2q2TgEsyWcsNmbJqkEkTx4TPzntmUqChQfT5-BzMtb8=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/storage/Users/currentUser/Documents/ohos/config/default_musicfreeOHGMQRlUGH6xiCtS9g2-BbUl6zoXX-Q1BC0Av6WA84E9Y.p12"
-        },
-        "type": "HarmonyOS"
+          "storeFile": "C:\\Users\\Administrator\\.ohos\\config\\default_MusicFreeOH_2q2TgEsyWcsNmbJqkEkTx4TPzntmUqChQfT5-BzMtb8=.p12",
+          "storePassword": "0000001BED1FF5FE001F1DAAF040324C45C8E18B7EA65BF2B1C17259150B18FA1DADBC76D864F1A3F4F697"
+        }
       }
     ],
     "products": [

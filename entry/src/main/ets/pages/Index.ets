@@ -40,7 +40,11 @@ struct Index {
       this.bootReady = true;
     } catch (e) {
       const message = e instanceof Error ? e.message : '未知错误';
-      this.getUIContext().getPromptAction().showToast({ message: '初始化失败: ' + message, duration: 3000 });
+      try {
+        this.getUIContext().getPromptAction().showToast({ message: '初始化失败: ' + message, duration: 3000 });
+      } catch (err) {
+        console.error('showToast failed: ' + (err instanceof Error ? err.message : String(err)));
+      }
     }
   }
 

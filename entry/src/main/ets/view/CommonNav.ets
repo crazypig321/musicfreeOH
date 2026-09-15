@@ -22,7 +22,6 @@ export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr): Titl
 
 @ComponentV2
 export struct CommonNav{
-  private scrollerForScroll: Scroller = new Scroller();
   private tabsController: HdsTabsController = new HdsTabsController();
   @Param titleBarOp?: TitleBarContentOptions = undefined
   @Param isHideBackButton: boolean = false // 返回 true 拦截系统返回

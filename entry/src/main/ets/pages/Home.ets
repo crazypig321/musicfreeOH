@@ -184,7 +184,8 @@ export struct Home {
     CommonNav({
       titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle')),
       isHideBackButton: true,
-      scroller: this.scroller
+      scroller: this.scroller,
+      avoidLayoutSafeArea: true
     }) {
       Scroll(this.scroller) {
         Column() {
@@ -214,6 +215,7 @@ export struct Home {
       .align(Alignment.Top)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      .safeAreaPadding({ top: appState.topRect + 66 })
     }
   }
 
