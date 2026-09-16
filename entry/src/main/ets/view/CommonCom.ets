@@ -1,4 +1,5 @@
 import { SymbolGlyphModifier } from "@kit.ArkUI"
+import { SheetItem } from "../common/model/SheetTypes"
 /**
  * 公共搜索组件
  */
@@ -64,7 +65,7 @@ export struct CommonNull{
 
 
 /**
- * 公共搜索组件
+ * 公共加载组件
  */
 @ComponentV2
 export struct CommonLoading{
@@ -75,5 +76,65 @@ export struct CommonLoading{
       .width(this.sizeValue)
       .height(this.sizeValue)
       .color($r('sys.color.icon'))
+  }
+}
+
+/**
+ * 公共封面组件：有封面显示图片，无封面显示占位图标（可配置宽、比例、圆角）
+ */
+@ComponentV2
+export struct CommonCover{
+  @Param src: string = ''
+  @Param widthValue: Length = 104
+  @Param aspect: number = 1
+  @Param radius: number = 12
+
+  build() {
+    if (this.src.length > 0) {
+      Image(this.src)
+        .width(this.widthValue)
+        .aspectRatio(this.aspect)
+        .borderRadius(this.radius)
+        .objectFit(ImageFit.Cover)
+        .alt($r('app.media.startIcon'))
+    } else {
+      Column() {
+        SymbolGlyph($r('sys.symbol.music_note_list'))
+          .fontSize(28)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      .width(this.widthValue)
+      .aspectRatio(this.aspect)
+      .borderRadius(this.radius)
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .justifyContent(FlexAlign.Center)
+    }
+  }
+}
+
+/**
+ * 公共歌单卡片：封面 + 标题（可配置宽度与标题行数）
+ */
+@ComponentV2
+export struct SheetCard{
+  @Param sheet: SheetItem = new SheetItem()
+  @Param widthValue: Length = 104
+  @Param titleLines: number = 2
+  @Event click: () => void = (): void => {}
+
+  build() {
+    Column({ space: 6 }) {
+      CommonCover({ src: this.sheet.coverImg, widthValue: this.widthValue })
+      Text(this.sheet.title)
+        .fontSize(12)
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(this.titleLines)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width(this.widthValue)
+    .alignItems(HorizontalAlign.Start)
+    .onClick(() => {
+      this.click()
+    })
   }
 }

@@ -1,17 +1,108 @@
 import { TimeTipUtils } from '../utils/TimeTipUtils'
 import { CommonNav, titleBarOf } from '../view/CommonNav'
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
-import { CommonLoading, CommonNull, CommonSearch } from '../view/CommonCom';
+import { CommonLoading, CommonNull, CommonSearch, SheetCard, CommonCover } from '../view/CommonCom';
 import { NavPathUtils } from '../utils/NavPathUtils';
-import { SheetGroupItem } from '../common/model/SheetTypes';
+import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
+import { MusicItem } from '../common/model/MediaTypes';
 import { appState } from '../entryability/AppState';
+import { HomeList, IconTextItem } from '../common/model/home/HomeModel';
+import { Plugin } from '../plugin/Plugin';
+import { pluginManager } from '../plugin/PluginManager';
+import { PluginAbility } from '../common/Consts';
+import { localMusicSheet } from '../core/LocalMusicSheet';
+import { trackPlayer } from '../core/TrackPlayer';
+import { ComponentContent } from '@kit.ArkUI';
+
+// ---------- 常量 ----------
+const TOP_LIST_MAX_GROUPS = 3;                 // 榜单最多展示的分组数
+const LOCAL_PREVIEW_COUNT = 10;                // 本地音乐预览条数
+const GRID_COLUMNS = 3;                        // 推荐歌单每行列数
+const HOME_MENU_ANCHOR_ID = 'home_menu_anchor';// 插件选择菜单的弹出锚点 id
+
+// ---------- 插件选择菜单（openMenu 参数与内容） ----------
+class HomeMenuItemParams {
+  icon: ResourceStr = '';
+  label: string = '';
+  onAction: () => void = (): void => {};
+}
+
+class HomeMenuParams {
+  items: Array<HomeMenuItemParams> = [];
+}
+
+@Builder
+function homeMenuBuilder(params: HomeMenuParams) {
+  Menu() {
+    ForEach(params.items, (item: HomeMenuItemParams) => {
+      if (typeof item.icon === 'string') {
+        MenuItem({ content: item.label })
+          .onClick(() => {
+            item.onAction();
+          })
+      } else {
+        MenuItem({ startIcon: item.icon, content: item.label })
+          .onClick(() => {
+            item.onAction();
+          })
+      }
+    }, (item: HomeMenuItemParams) => item.label)
+  }
+}
+
+const homeMenuWrapped: WrappedBuilder<[HomeMenuParams]> = wrapBuilder(homeMenuBuilder);
 
 @ComponentV2
 export struct HomePage{
   @Param bootReady: boolean = false;
 
+  // 榜单
   @Local topListGroups: Array<SheetGroupItem> = [];
+  @Local topListPluginName: string = '';
+  @Local topListSwiperIndex: number = 0;
+  // 推荐歌单
+  @Local recommendPluginName: string = '';
+  @Local recommendTags: Array<MediaTag> = [];
+  @Local selectedTagIndex: number = 0;
+  @Local recommendSheets: Array<SheetItem> = [];
+  // 本地音乐
+  @Local localMusic: Array<MusicItem> = [];
+  // 首页当前使用的插件（用户通过右上角菜单选择）
+  @Local homePluginName: string = '';
+
   private scroller: Scroller = new Scroller();
+  private menuContent: ComponentContent<HomeMenuParams> | null = null;
+  private recommendPlugin: Plugin | null = null;
+  private recommendGroups: Array<SheetGroupItem> = [];
+
+  aboutToAppear(): void {
+    // 本地音乐列表 + 变更监听
+    this.localMusic = localMusicSheet.musicList.slice();
+    localMusicSheet.onLocalSheetUpdated((): void => {
+      this.localMusic = localMusicSheet.musicList.slice();
+    });
+    // 插件顺序/启用状态变化时刷新首页
+    pluginManager.onOrderUpdated((): void => {
+      if (this.bootReady) {
+        this.refreshHome();
+      }
+    });
+    pluginManager.onPluginEnabled((_name: string, _enabled: boolean): void => {
+      if (this.bootReady) {
+        this.refreshHome();
+      }
+    });
+    if (this.bootReady) {
+      this.refreshHome();
+    }
+  }
+
+  @Monitor('bootReady')
+  onBootReadyChange(): void {
+    if (this.bootReady) {
+      this.refreshHome();
+    }
+  }
 
   /** 主体build */
   build() {
@@ -20,23 +111,290 @@ export struct HomePage{
       isHideBackButton: true,
       scroller: this.scroller
     }) {
-      List({scroller: this.scroller}) {
-        if (this.topListGroups.length === 0) {
-          ListItem() {
-            CommonNull({ message: $r('app.string.home_no_plugin') })
+      Stack({ alignContent: Alignment.Top }) {
+        List({ scroller: this.scroller, space: 12 }) {
+          if (!this.bootReady) {
+            // 插件尚未加载完成
+            ListItem() {
+              CommonLoading()
+            }
+          } else {
+            // 三个板块：榜单 / 推荐歌单 / 本地音乐
+            ForEach(HomeList, (g: IconTextItem, gi: number)=>{
+              ListItemGroup({ header: this.listGroupTitleBuilder(g, this.sectionTail(gi)), space: 12 }){
+                if (gi === 0) {
+                  this.TopListsBuilder()
+                } else if (gi === 1) {
+                  this.RecommendSheetsBuilder()
+                } else {
+                  this.LocalMusicBuilder()
+                }
+              }
+            }, (g: IconTextItem, gi: number) => 'home_section_' + gi.toString())
           }
-        } else {
-          if (!this.bootReady){
-            CommonLoading()
-          }else{
+        }.ListStyle()
 
-          }
+        // 插件选择菜单锚点（隐藏组件，仅用于 openMenu 定位，位于标题栏右上角按钮下方）
+        Row({ space: 12 }) {
+          Column()
+            .id(HOME_MENU_ANCHOR_ID)
+            .width(24)
+            .height(24)
         }
-      }.ListStyle()
+        .width('100%')
+        .justifyContent(FlexAlign.End)
+        .padding({ right: 16 })
+        .margin({ top: appState.topRect + 66 })
+      }
+      .width('100%')
+      .height('100%')
     }
   }
 
-  /** 搜索框 */
+  // ==================== 数据加载 ====================
+
+  /** 刷新首页全部板块 */
+  private refreshHome(): void {
+    this.loadTopLists();
+    this.loadRecommendSheets();
+  }
+
+  /** 加载榜单（使用当前选择的插件） */
+  private loadTopLists(): void {
+    const plugin = this.pickPlugin(pluginManager.getSortedPluginsWithAbility(PluginAbility.GetTopLists));
+    if (plugin === null) {
+      this.topListGroups = [];
+      this.topListPluginName = '';
+      return;
+    }
+    this.topListPluginName = plugin.name;
+    plugin.methods.getTopLists().then((groups: Array<SheetGroupItem>) => {
+      this.topListGroups = groups.slice(0, TOP_LIST_MAX_GROUPS);
+      this.topListSwiperIndex = 0;
+    }).catch((_e: Object): void => {
+      this.topListGroups = [];
+    });
+  }
+
+  /** 加载推荐歌单标签与歌单（使用当前选择的插件） */
+  private loadRecommendSheets(): void {
+    const plugin = this.pickPlugin(pluginManager.getSortedPluginsWithAbility(PluginAbility.GetRecommendSheetsByTag));
+    if (plugin === null) {
+      this.recommendPlugin = null;
+      this.recommendGroups = [];
+      this.recommendTags = [];
+      this.recommendSheets = [];
+      this.recommendPluginName = '';
+      return;
+    }
+    this.recommendPlugin = plugin;
+    this.recommendPluginName = plugin.name;
+    plugin.methods.getRecommendSheetTags().then((result) => {
+      this.recommendGroups = result.data;
+      const tags: Array<MediaTag> = [];
+      for (const group of result.data) {
+        const tag = new MediaTag();
+        tag.id = group.title;
+        tag.title = group.title;
+        tags.push(tag);
+      }
+      this.recommendTags = tags;
+      this.selectedTagIndex = 0;
+      if (result.data.length === 0 && result.pinned.length > 0) {
+        // 无标签但有固定推荐时直接展示
+        this.recommendSheets = result.pinned;
+      } else {
+        this.applyTagSheets(0);
+      }
+    }).catch((_e: Object): void => {
+      this.recommendTags = [];
+      this.recommendSheets = [];
+    });
+  }
+
+  /** 按标签下标展示推荐歌单：优先取已缓存的分组，否则请求插件 */
+  private applyTagSheets(index: number): void {
+    const group = index >= 0 && index < this.recommendGroups.length ? this.recommendGroups[index] : null;
+    if (group !== null && group.data.length > 0) {
+      this.recommendSheets = group.data;
+      return;
+    }
+    const plugin = this.recommendPlugin;
+    const tag = index >= 0 && index < this.recommendTags.length ? this.recommendTags[index] : null;
+    if (plugin === null || tag === null) {
+      this.recommendSheets = [];
+      return;
+    }
+    plugin.methods.getRecommendSheetsByTag(tag, 1).then((r: PageResult<SheetItem>) => {
+      this.recommendSheets = r.data;
+    }).catch((_e: Object): void => {
+      this.recommendSheets = [];
+    });
+  }
+
+  /** 首页可用的插件（支持榜单或推荐歌单，去重、按插件顺序） */
+  private homeCandidates(): Array<Plugin> {
+    const result: Array<Plugin> = [];
+    const seen: Record<string, boolean> = {};
+    const groups: Array<Array<Plugin>> = [
+      pluginManager.getSortedPluginsWithAbility(PluginAbility.GetTopLists),
+      pluginManager.getSortedPluginsWithAbility(PluginAbility.GetRecommendSheetsByTag)
+    ];
+    for (const list of groups) {
+      for (const p of list) {
+        if (!seen[p.name]) {
+          seen[p.name] = true;
+          result.push(p);
+        }
+      }
+    }
+    return result;
+  }
+
+  /** 在候选插件中选择当前使用的插件（优先用户选择，否则第一个） */
+  private pickPlugin(plugins: Array<Plugin>): Plugin | null {
+    if (plugins.length === 0) {
+      return null;
+    }
+    if (this.homePluginName.length > 0) {
+      for (const p of plugins) {
+        if (p.name === this.homePluginName) {
+          return p;
+        }
+      }
+    }
+    return plugins[0];
+  }
+
+  /** 推荐歌单按列数切分成行 */
+  private chunkRows(sheets: Array<SheetItem>): Array<Array<SheetItem>> {
+    const rows: Array<Array<SheetItem>> = [];
+    let row: Array<SheetItem> = [];
+    for (const sheet of sheets) {
+      row.push(sheet);
+      if (row.length === GRID_COLUMNS) {
+        rows.push(row);
+        row = [];
+      }
+    }
+    if (row.length > 0) {
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  // ==================== 交互 ====================
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
+    } catch (error) {
+      // TODO: Implement error handling.
+    }
+  }
+
+  /** 歌单卡片点击（歌单详情页开发中） */
+  private onSheetClick(): void {
+    this.showToast('歌单详情页开发中');
+  }
+
+  /** 播放本地音乐（以本地列表为播放队列） */
+  private playLocal(item: MusicItem): void {
+    if (this.localMusic.length === 0) {
+      return;
+    }
+    trackPlayer.playWithReplacePlayList(item, this.localMusic).catch((_e: Object): void => {
+      this.showToast('播放失败');
+    });
+  }
+
+  /** 切换推荐歌单标签 */
+  private onSelectTag(index: number): void {
+    if (index === this.selectedTagIndex) {
+      return;
+    }
+    this.selectedTagIndex = index;
+    this.applyTagSheets(index);
+  }
+
+  /** 关闭插件选择菜单 */
+  private dismissMenu(): void {
+    const content = this.menuContent;
+    this.menuContent = null;
+    if (content !== null) {
+      this.getUIContext().getPromptAction().closeMenu(content).catch((_e: Object): void => {
+      });
+    }
+  }
+
+  /** 弹出插件选择菜单（当前插件带勾选标记） */
+  private openPluginMenu(): void {
+    const candidates = this.homeCandidates();
+    if (candidates.length === 0) {
+      this.showToast('暂无可用插件');
+      return;
+    }
+    // 计算当前生效的插件名（用户选择 or 默认第一个）
+    let selectedName = '';
+    for (const p of candidates) {
+      if (p.name === this.homePluginName) {
+        selectedName = p.name;
+        break;
+      }
+    }
+    if (selectedName.length === 0) {
+      selectedName = candidates[0].name;
+    }
+    // 组装菜单项
+    const params = new HomeMenuParams();
+    for (const p of candidates) {
+      const item = new HomeMenuItemParams();
+      if (p.name === selectedName) {
+        item.icon = $r('sys.symbol.checkmark');
+      }
+      item.label = p.name;
+      const name = p.name;
+      item.onAction = (): void => {
+        this.dismissMenu();
+        if (this.homePluginName !== name) {
+          this.homePluginName = name;
+          this.refreshHome();
+        }
+      };
+      params.items.push(item);
+    }
+    this.dismissMenu();
+    const content = new ComponentContent<HomeMenuParams>(this.getUIContext(), homeMenuWrapped, params);
+    this.menuContent = content;
+    this.getUIContext().getPromptAction().openMenu(content, { id: HOME_MENU_ANCHOR_ID }, {
+      placement: Placement.BottomRight,
+      offset: { x: 0, y: -45 }
+    }).then((): void => {
+      if (this.menuContent === content) {
+        this.menuContent = null;
+      }
+    }).catch((_e: Object): void => {
+      this.showToast('菜单弹出失败');
+    });
+  }
+
+  /** titleBar 菜单按钮（选择插件） */
+  private titleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const menu: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.AI_panels'),
+        label: '选择插件',
+        action: (): void => {
+          this.openPluginMenu();
+        }
+      }
+    };
+    return [menu];
+  }
+
+  // ==================== UI 构建 ====================
+
+  /** 搜索框（挂在标题栏底部 bottomBuilder） */
   @Builder
   search(){
     CommonSearch({
@@ -49,18 +407,263 @@ export struct HomePage{
     }).padding({ left: 16, right: 16 })
   }
 
-  /** titleBar 菜单按钮（选择插件） */
-  private titleMenus(): Array<HdsNavigationMenuItemOptions> {
-    const menu: HdsNavigationMenuItemOptions = {
-      content: {
-        icon: $r('sys.symbol.AI_panels'),
-        label: '选择插件',
-        action: (): void => {
+  /** listgroup 顶部组件：图标 + 标题 + 右侧附加信息（插件名/数量） */
+  @Builder
+  listGroupTitleBuilder(g: IconTextItem, tail: string) {
+    Row({ space: 5 }){
+      SymbolGlyph(g.icon)
+        .fontColor([$r('sys.color.font_tertiary')])
+        .fontWeight(FontWeight.Bold)
+        .fontSize(18)
+        .padding(5)
+        .backgroundColor($r('sys.color.font_fourth'))
+        .borderRadius(5)
 
+      Text(g.text1)
+        .fontColor($r('sys.color.font_tertiary'))
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+
+      Blank()
+
+      if (tail.length > 0) {
+        Text(tail)
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+      }
+    }
+    .width('100%')
+  }
+
+  /** 板块标题右侧附加信息：榜单/推荐显示插件名，本地音乐显示总数 */
+  private sectionTail(gi: number): string {
+    if (gi === 0) {
+      return this.topListPluginName;
+    }
+    if (gi === 1) {
+      return this.recommendPluginName;
+    }
+    return this.localMusic.length > 0 ? '共 ' + this.localMusic.length.toString() + ' 首' : '';
+  }
+
+  /** 榜单板块：第一组为 Swiper 轮播（选中卡片放大），其余为横向卡片列表 */
+  @Builder
+  TopListsBuilder() {
+    if (this.topListGroups.length === 0) {
+      ListItem() {
+        CommonNull({ message: $r('app.string.home_no_plugin') })
+      }
+    } else {
+      ForEach(this.topListGroups, (l: SheetGroupItem, i: number)=>{
+        ListItem() {
+          Column({ space: 16 }) {
+            if (this.topListGroups.length > 1) {
+              Text(l.title)
+                .fontSize(15)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_secondary'))
+            }
+            if (i === 0) {
+              // 第一组：轮播卡片，选中的大、两侧的小
+              Swiper() {
+                ForEach(l.data, (sheet: SheetItem, index: number) => {
+                  Column() {
+                    this.TopListSwiperCardBuilder(sheet, index)
+                  }
+                  .width('100%')
+                  .height('100%')
+                }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
+              }
+              .loop(l.data.length > 1)
+              .indicator(new DotIndicator()
+                .color($r('sys.color.comp_background_tertiary'))
+                .selectedColor($r('sys.color.icon_emphasize')))
+              .prevMargin(48)
+              .nextMargin(48)
+              .width('100%')
+              .height(216)
+              .onChange((index: number) => {
+                this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseOut }, (): void => {
+                  this.topListSwiperIndex = index;
+                });
+              })
+            } else {
+              // 其余组：横向滑动的歌单卡片
+              List({ space: 12 }) {
+                ForEach(l.data, (sheet: SheetItem, index: number) => {
+                  ListItem() {
+                    Column() {
+                      SheetCard({
+                        sheet: sheet,
+                        click: (): void => {
+                          this.onSheetClick();
+                        }
+                      })
+                    }
+                    .alignItems(HorizontalAlign.Start)
+                  }
+                }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
+              }
+              .listDirection(Axis.Horizontal)
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+              .width('100%')
+            }
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
+      }, (l: SheetGroupItem, lIndex: number) => l.title + '_' + lIndex.toString())
+    }
+  }
+
+  /** 榜单轮播卡片：选中放大不透明，未选中缩小半透明 */
+  @Builder
+  TopListSwiperCardBuilder(sheet: SheetItem, index: number) {
+    Column({ space: 8 }) {
+      CommonCover({ src: sheet.coverImg, widthValue: '70%', aspect: 0.7, radius: 16 })
+      Text(sheet.title)
+        .fontSize(13)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .scale({
+      x: this.topListSwiperIndex === index ? 1 : 0.8,
+      y: this.topListSwiperIndex === index ? 1 : 0.8
+    })
+    .opacity(this.topListSwiperIndex === index ? 1 : 0.65)
+    .onClick(() => {
+      this.onSheetClick();
+    })
+  }
+
+  /** 推荐歌单板块：标签横向切换 + 三列网格 */
+  @Builder
+  RecommendSheetsBuilder() {
+    if (this.recommendTags.length === 0 && this.recommendSheets.length === 0) {
+      ListItem() {
+        CommonNull({ message: $r('app.string.home_no_plugin') })
+      }
+    } else {
+      // 标签条
+      if (this.recommendTags.length > 0) {
+        ListItem() {
+          List({ space: 8 }) {
+            ForEach(this.recommendTags, (tag: MediaTag, index: number) => {
+              ListItem() {
+                Text(tag.title)
+                  .fontSize(13)
+                  .fontColor(this.selectedTagIndex === index ? $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+                  .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                  .borderRadius(16)
+                  .backgroundColor(this.selectedTagIndex === index ? $r('sys.color.background_emphasize') : $r('sys.color.comp_background_tertiary'))
+                  .maxLines(1)
+                  .onClick(() => {
+                    this.onSelectTag(index);
+                  })
+              }
+            }, (tag: MediaTag, index: number) => tag.id + '_' + index.toString())
+          }
+          .listDirection(Axis.Horizontal)
+          .scrollBar(BarState.Off)
+          .width('100%')
         }
       }
-    };
-    return [menu];
+      // 歌单网格
+      if (this.recommendSheets.length === 0) {
+        ListItem() {
+          CommonNull({ message: '暂无推荐歌单' })
+        }
+      } else {
+        ForEach(this.chunkRows(this.recommendSheets), (rowItems: Array<SheetItem>, rowIndex: number) => {
+          ListItem() {
+            Row({ space: 8 }) {
+              ForEach(rowItems, (sheet: SheetItem, index: number) => {
+                Column() {
+                  SheetCard({
+                    sheet: sheet,
+                    widthValue: '100%',
+                    click: (): void => {
+                      this.onSheetClick();
+                    }
+                  })
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+              }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + rowIndex.toString() + '_' + index.toString())
+              // 不足整行时用 Blank 占位保持等宽
+              if (rowItems.length === 1) {
+                Blank().layoutWeight(1)
+                Blank().layoutWeight(1)
+              } else if (rowItems.length === 2) {
+                Blank().layoutWeight(1)
+              }
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Top)
+          }
+        }, (rowItems: Array<SheetItem>, rowIndex: number) => 'recommend_row_' + rowIndex.toString())
+      }
+    }
+  }
+
+  /** 本地音乐板块：预览前 N 条，点击播放 */
+  @Builder
+  LocalMusicBuilder() {
+    if (this.localMusic.length === 0) {
+      ListItem() {
+        CommonNull({ message: $r('app.string.home_no_local_music') })
+      }
+    } else {
+      ForEach(this.localMusic.slice(0, LOCAL_PREVIEW_COUNT), (item: MusicItem, index: number) => {
+        ListItem() {
+          this.MusicRowBuilder(item)
+        }
+      }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + index.toString())
+    }
+  }
+
+  /** 本地音乐行：图标 + 标题/歌手 + 专辑 */
+  @Builder
+  MusicRowBuilder(item: MusicItem) {
+    Row({ space: 12 }) {
+      Column() {
+        SymbolGlyph($r('sys.symbol.music_note_list'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      .width(40)
+      .height(40)
+      .borderRadius(10)
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .justifyContent(FlexAlign.Center)
+      Column({ space: 2 }) {
+        Text(item.title)
+          .fontSize(15)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .height(56)
+    .borderRadius(12)
+    .onClick(() => {
+      this.playLocal(item);
+    })
   }
 }
 

@@ -8,7 +8,6 @@ import {
 import { appState } from '../entryability/AppState';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
 import { ROUTE_SEARCH } from '../common/model/NavModels';
-import { Home } from './Home';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { SettingsPage } from './SettingsPage';
@@ -58,7 +57,7 @@ struct Index {
           ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
             TabContent() {
               if (i === 0) {
-                HomePage()
+                HomePage({ bootReady: this.bootReady })
               } else if (i === 1) {
                 DownloadPage()
               } else if (i === 2) {
