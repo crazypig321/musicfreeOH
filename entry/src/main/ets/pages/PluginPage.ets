@@ -697,6 +697,10 @@ export struct PluginPage {
           }
         }, (name: string, index: number) => name + '_' + index.toString())
       }
+      .divider({
+        strokeWidth: 0.5,
+        color: $r('sys.color.comp_divider'),
+      })
       .width('100%')
       .layoutWeight(1)
       .scrollBar(BarState.Off)
@@ -818,8 +822,7 @@ export struct PluginPage {
         })
 
         Divider()
-          .color($r('sys.color.comp_divider'))
-          .margin({ left: 48 })
+          .DividerStyle()
         Row({ space: 12 }) {
           SymbolGlyph($r('sys.symbol.share'))
             .fontSize(20)
@@ -844,9 +847,7 @@ export struct PluginPage {
           this.shareDetailSrc();
         })
 
-        Divider()
-          .color($r('sys.color.comp_divider'))
-          .margin({ left: 48 })
+        Divider().DividerStyle()
         Row({ space: 12 }) {
           SymbolGlyph($r('sys.symbol.trash'))
             .fontSize(20)
@@ -890,4 +891,10 @@ function ListStyle(){
   .contentStartOffset(appState.topRect + 66)
   .contentEndOffset(appState.bottomRect + 60)
   .padding({ left: 16, right: 16 })
+}
+
+@Extend(Divider)
+function DividerStyle(){
+  .color($r('sys.color.comp_divider'))
+  .margin({ left: 48, right: 12 })
 }
