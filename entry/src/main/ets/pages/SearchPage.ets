@@ -14,9 +14,17 @@ import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { appState } from '../entryability/AppState';
 import { CommonSearch } from '../view/CommonCom';
+import { KVStore } from '../infra/KVStore';
+import { JsonUtil } from '../common/JsonUtil';
 
 /** 搜索结果不足以铺满首屏时自动续拉的阈值 */
 const AUTO_LOAD_MORE_THRESHOLD = 30;
+
+/** 历史搜索词存储 */
+const HISTORY_STORE = 'storage';
+const HISTORY_KEY = 'searchHistory';
+/** 历史搜索词最大保存数量 */
+const MAX_HISTORY_SIZE = 20;
 
 /** 快捷操作按钮（横向） */
 @ComponentV2
@@ -131,6 +139,10 @@ export struct SearchPage {
   @Local showSheetPicker: boolean = false;
   @Local pickerInCreateMode: boolean = false;
   @Local newSheetTitle: string = '';
+  /** 历史搜索词（最多 20 个，仅搜索前展示） */
+  @Local searchHistory: Array<string> = [];
+  /** 是否已执行过搜索（搜索后隐藏历史词） */
+  @Local hasSearched: boolean = false;
 
   dataSource: MusicDataSource = new MusicDataSource();
   private searchPlugins: Array<Plugin> = [];
@@ -139,6 +151,7 @@ export struct SearchPage {
 
   aboutToAppear(): void {
     this.refreshPlugins();
+    this.loadSearchHistory();
     pluginManager.onOrderUpdated((): void => {
       this.refreshPlugins();
     });
@@ -196,6 +209,8 @@ export struct SearchPage {
     if (plugin === null) {
       return;
     }
+    this.hasSearched = true;
+    this.saveSearchHistory(kw);
     this.searching = true;
     this.loadingMore = false;
     this.page = 1;
@@ -253,11 +268,47 @@ export struct SearchPage {
     }
   }
 
-  private clearKeyword(): void {
+  /** 清除键：清空输入与结果，回到搜索前状态（恢复历史词展示） */
+  private resetSearch(): void {
     this.keyword = '';
     this.dataSource.clear();
     this.resultCount = 0;
     this.searchStatus = '';
+    this.hasSearched = false;
+  }
+
+  /** 从 KV 存储加载历史搜索词 */
+  private loadSearchHistory(): void {
+    const raw = KVStore.getOrCreate(HISTORY_STORE).get(HISTORY_KEY);
+    const parsed = JsonUtil.parseStringArray(raw);
+    if (parsed !== null) {
+      this.searchHistory = parsed.length > MAX_HISTORY_SIZE ? parsed.slice(0, MAX_HISTORY_SIZE) : parsed;
+    }
+  }
+
+  /** 保存搜索词：去重、新词置顶、最多 20 个 */
+  private saveSearchHistory(kw: string): void {
+    const next: Array<string> = [kw];
+    for (const h of this.searchHistory) {
+      if (h !== kw && next.length < MAX_HISTORY_SIZE) {
+        next.push(h);
+      }
+    }
+    this.searchHistory = next;
+    KVStore.getOrCreate(HISTORY_STORE).set(HISTORY_KEY, JSON.stringify(next));
+  }
+
+  /** 清空历史搜索词 */
+  private clearSearchHistory(): void {
+    this.searchHistory = [];
+    KVStore.getOrCreate(HISTORY_STORE).delete(HISTORY_KEY);
+    this.showToast('已清空历史搜索');
+  }
+
+  /** 点击历史词回填并搜索 */
+  private searchFromHistory(kw: string): void {
+    this.keyword = kw;
+    this.doSearch();
   }
 
   private playResult(item: MusicItem): void {
@@ -488,6 +539,12 @@ export struct SearchPage {
             }
           })
         }
+        // 历史搜索词（仅搜索前展示）
+        if (!this.hasSearched && this.searchHistory.length > 0) {
+          ListItem() {
+            this.HistoryBuilder()
+          }
+        }
         LazyForEach(this.dataSource, (item: MusicItem, index: number) => {
           ListItem() {
             this.ResultRowBuilder(item, index)
@@ -547,7 +604,7 @@ export struct SearchPage {
   @Builder
   SearchBarBuilder() {
     CommonSearch({
-      searchValue: '',
+      searchValue: this.keyword,
       placeholderValue: $r('app.string.home_search_placeholder'),
       change: (v) => {
         this.keyword = v;
@@ -556,9 +613,53 @@ export struct SearchPage {
         this.doSearch();
       },
       didDelete: ()=>{
-        this.clearKeyword()
+        // 清除键：清空输入与结果，回到搜索前状态（恢复历史词展示）
+        this.resetSearch()
       }
     }).padding({ left: 16, right: 16 })
+  }
+
+  /** 历史搜索词区块：标题 + 清空按钮 + 词标签 */
+  @Builder
+  HistoryBuilder() {
+    Column() {
+      Row() {
+        Text('历史搜索')
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_secondary'))
+          .layoutWeight(1)
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(18)
+          .fontColor([$r('sys.color.icon_tertiary')])
+          .onClick(() => {
+            this.clearSearchHistory();
+          })
+      }
+      .width('100%')
+      .margin({ top: 18, bottom: 10 })
+
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(this.searchHistory, (kw: string) => {
+          Text(kw)
+            .fontSize(13)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .constraintSize({ maxWidth: '80%' })
+            .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+            .borderRadius(16)
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+            .margin({ right: 8, bottom: 8 })
+            .onClick(() => {
+              this.searchFromHistory(kw);
+            })
+        }, (kw: string, index: number) => kw + '_' + index.toString())
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder

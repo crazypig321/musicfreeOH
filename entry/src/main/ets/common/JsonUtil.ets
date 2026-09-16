@@ -52,6 +52,29 @@ export class JsonUtil {
     }
   }
 
+  /** 解析为字符串数组（忽略非字符串元素），失败返回 null */
+  static parseStringArray(raw: string | null | undefined): Array<string> | null {
+    if (raw === null || raw === undefined || raw.length === 0) {
+      return null;
+    }
+    try {
+      const v: Object | null = JSON.parse(raw);
+      if (typeof v === 'object' && v !== null && Array.isArray(v)) {
+        const arr = v as Array<Object>;
+        const out: Array<string> = [];
+        for (const item of arr) {
+          if (typeof item === 'string' && item.length > 0) {
+            out.push(item);
+          }
+        }
+        return out;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /** 解析为字符串，失败返回 null */
   static parseString(raw: string | null | undefined): string | null {
     if (raw === null || raw === undefined || raw.length === 0) {

@@ -11,6 +11,7 @@ import { BlurStrategy,
 import { appState } from "../entryability/AppState";
 import { LengthMetrics } from "@kit.ArkUI";
 import { PlayBar } from "./PlayBar";
+import { themeUtils } from "../utils/ThemeUtils";
 
 export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr,
   menus?: Array<HdsNavigationMenuItemOptions>, bottomBuilder?: BottomBuilderParams): TitleBarContentOptions {
@@ -81,13 +82,14 @@ export struct CommonNav{
         originalStyle: {
           backgroundStyle: { backgroundColor: '#00ffffff', maskExtraHeight: 0, blurRadius: 50 },
           contentStyle: {
-           // titleStyle: { mainTitleColor: appConfig.textColor, subTitleColor: appConfig.terTextColor },
-          //  backIconStyle: { iconColor: appConfig.textColor },
+            // 深浅模式切换时由 themeUtils 触发重渲染（HDS 不会自动刷新系统色）
+            titleStyle: { mainTitleColor: themeUtils.textColor, subTitleColor: themeUtils.terTextColor },
+            backIconStyle: { iconColor: themeUtils.textColor },
             menuStyle: {
-             // iconColor: appConfig.textColor
+              iconColor: themeUtils.textColor
             },
             subIconStyle: {
-            //  iconColor: appConfig.textColor
+              iconColor: themeUtils.textColor
             }
           },
         },

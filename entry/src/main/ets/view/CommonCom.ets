@@ -80,15 +80,16 @@ export struct CommonSearch{
      //   })
       })
       .onChange((value: string) => {
-       // animStyle.animTo(async ()=>{
-        this.change(value)
-       // })
+        if (value.length > 0) {
+          // animStyle.animTo(async ()=>{
+          this.change(value)
+          // })
+        }else{
+          this.didDelete()
+        }
       })
       .onClick(()=>{
         this.click()
-      })
-      .onDidDelete(()=>{
-        this.didDelete()
       })
       .focusable(this.isFocusable)// 无法获焦则无法呼出软键盘
       .defaultFocus(this.isFocusable)

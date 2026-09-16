@@ -1,4 +1,4 @@
-import { AbilityConstant, application, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, application, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { ContextHolder } from '../common/ContextHolder';
@@ -7,6 +7,7 @@ import { Network } from '../infra/Network';
 import { FileUtils } from '../utils/FileUtils';
 import { mediaSession } from '../core/MediaSession';
 import { screenInfo } from '../utils/ScreenInfo';
+import { themeUtils } from '../utils/ThemeUtils';
 
 const DOMAIN = 0x0000;
 
@@ -30,6 +31,14 @@ export default class EntryAbility extends UIAbility {
     FileUtils.checkAndCreateDir(PathConst.logPath);
     // 网络状态监听
     Network.getInstance().setup();
+  }
+
+  onConfigurationUpdate(newConfig: Configuration): void {
+    // 深浅模式切换：刷新 HDS 标题栏等组件的系统色
+    if (newConfig.colorMode !== undefined) {
+      themeUtils.colorModeChange(newConfig.colorMode);
+    }
+    hilog.info(DOMAIN, 'testTag', 'onConfigurationUpdate colorMode: %{public}s', JSON.stringify(newConfig.colorMode));
   }
 
   onDestroy(): void {
