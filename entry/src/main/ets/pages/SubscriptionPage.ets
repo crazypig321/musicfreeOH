@@ -12,6 +12,7 @@ import { FileUtils } from '../utils/FileUtils';
 import { HttpClient } from '../infra/HttpClient';
 import { Subscriptions } from '../plugin/Subscriptions';
 import { PluginImport } from '../plugin/PluginImport';
+import { DialogManager } from '../utils/DialogUtils';
 
 /** 导入菜单锚点（标题栏下方右上角） */
 const IMPORT_ANCHOR_ID = 'subscription_import_anchor';
@@ -31,9 +32,6 @@ export struct SubscriptionPage {
   @Local detailUrl: string = '';
   @Local updating: boolean = false;
   @Local statusText: string = '';
-  // 详情内重命名（行内编辑态）
-  @Local renaming: boolean = false;
-  @Local renameText: string = '';
 
   aboutToAppear(): void {
     this.sources = Subscriptions.getSources();
@@ -291,18 +289,15 @@ export struct SubscriptionPage {
     this.removeSource(url);
   }
 
-  /** 详情内开始重命名（进入行内编辑态，预填当前标题） */
+  /** 详情内重命名（弹窗：公共「重命名」弹窗，确认后保存并刷新） */
   private startRename(): void {
-    this.renameText = SubscriptionPage.sourceTitle(this.detailUrl);
-    this.renaming = true;
-  }
-
-  /** 确认重命名（清空文本则恢复默认文件名） */
-  private confirmRename(): void {
-    Subscriptions.setSourceName(this.detailUrl, this.renameText);
-    this.renaming = false;
-    this.sources = Subscriptions.getSources();
-    this.showToast('已重命名');
+    DialogManager.renameValue = SubscriptionPage.sourceTitle(this.detailUrl);
+    DialogManager.renameConfirm = (name: string): void => {
+      Subscriptions.setSourceName(this.detailUrl, name);
+      this.sources = Subscriptions.getSources();
+      this.showToast('已重命名');
+    };
+    DialogManager.OpenDialog('重命名');
   }
 
   build() {
@@ -491,62 +486,21 @@ export struct SubscriptionPage {
 
         Divider()
           .DividerStyle()
-        // 重命名：点击进入行内编辑态（输入框 + 取消/确定）
-        if (this.renaming) {
-          Column({ space: 12 }) {
-            TextInput({ text: this.renameText, placeholder: '订阅源名称' })
-              .width('100%')
-              .height(44)
-              .fontSize(14)
-              .fontColor($r('sys.color.font_primary'))
-              .placeholderColor($r('sys.color.font_tertiary'))
-              .backgroundColor($r('sys.color.comp_background_tertiary'))
-              .borderRadius(12)
-              .onChange((v: string) => {
-                this.renameText = v;
-              })
-              .onSubmit((_enterKey: EnterKeyType) => {
-                this.confirmRename();
-              })
-            Row({ space: 12 }) {
-              Button('取消')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(15)
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-                .fontColor($r('sys.color.font_primary'))
-                .onClick(() => {
-                  this.renaming = false;
-                })
-              Button('确定')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(15)
-                .onClick(() => {
-                  this.confirmRename();
-                })
-            }
-            .width('100%')
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-        } else {
-          Row({ space: 12 }) {
-            SymbolGlyph($r('sys.symbol.square_and_pencil'))
-              .fontSize(20)
-              .fontColor([$r('sys.color.icon_secondary')])
-            Text('重命名')
-              .fontSize(15)
-              .fontColor($r('sys.color.font_primary'))
-              .layoutWeight(1)
-          }
-          .width('100%')
-          .height(48)
-          .padding({ left: 16, right: 16 })
-          .onClick(() => {
-            this.startRename();
-          })
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.square_and_pencil'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('重命名')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
         }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.startRename();
+        })
 
         Divider()
           .DividerStyle()

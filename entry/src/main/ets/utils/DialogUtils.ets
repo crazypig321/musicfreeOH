@@ -75,6 +75,25 @@ export struct VarFieldsDialogContent {
 }
 
 
+/** 「重命名」弹窗内容：名称输入框 */
+@ComponentV2
+export struct RenameDialogContent {
+  build() {
+    TextInput({ text: DialogManager.renameValue, placeholder: '名称（清空则恢复默认）' })
+      .width('100%')
+      .height(44)
+      .fontSize(14)
+      .fontColor($r('sys.color.font_primary'))
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .borderRadius(10)
+      .onChange((v: string): void => {
+        DialogManager.renameValue = v;
+      })
+  }
+}
+
+
 /**
  * 公共弹窗管理：各页面通过 OpenDialog(key) 打开 Index 的公共弹窗，
  * 标题 / 按钮 / 确认取消逻辑集中在这里
@@ -92,6 +111,10 @@ export class DialogManager {
   public static varPluginName: string = '';
   /** 「配置变量」字段列表 */
   public static varFields: Array<PluginVarField> = [];
+  /** 「重命名」当前名称（打开前赋初值，弹窗内编辑） */
+  public static renameValue: string = '';
+  /** 「重命名」确认回调（打开前由调用方赋值，弹窗关闭后自动清空） */
+  public static renameConfirm: ((name: string) => void) | null = null;
 
   // ===== 由 Index 注册的宿主动作 =====
   private static opener: (() => void) | null = null;
@@ -129,6 +152,8 @@ export class DialogManager {
         return '配置变量';
       case '创建分组':
         return '创建分组';
+      case '重命名':
+        return '重命名';
     }
     return '';
   }
@@ -183,6 +208,24 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '重命名': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '确定',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
     }
     return buttons;
   }
@@ -194,6 +237,11 @@ export class DialogManager {
         DialogManager.savePluginVars();
         break;
       case '创建分组':
+        break;
+      case '重命名':
+        if (DialogManager.renameConfirm !== null) {
+          DialogManager.renameConfirm(DialogManager.renameValue);
+        }
         break;
     }
   }
@@ -222,6 +270,11 @@ export class DialogManager {
     appState.isForegroundBlur = false;
     appState.isDialogOpen = false;
     DialogManager.dialogChangeKey = '';
+    // 重命名是一次性交互，关闭后清理回调与内容
+    if (key === '重命名') {
+      DialogManager.renameValue = '';
+      DialogManager.renameConfirm = null;
+    }
 
     switch (key) {
       case '创建分组':

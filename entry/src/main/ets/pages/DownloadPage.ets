@@ -245,7 +245,7 @@ export struct DownloadPage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .contentStartOffset(appState.topRect + 66)
+      .contentStartOffset(appState.topRect + 46)
       .contentEndOffset(appState.bottomRect + 60)
       .padding({ left: 16, right: 16 })
       .bindSheet(!!this.showOptions, this.OptionsSheetBuilder(), {

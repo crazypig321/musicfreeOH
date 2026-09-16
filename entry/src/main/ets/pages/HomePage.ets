@@ -5,7 +5,11 @@ import { CommonLoading, CommonNull, CommonSearch, SheetCard, CardStack, MenuItem
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
+import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
+import { ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, RecommendSheetNavParams } from '../common/model/NavModels';
 import { MusicItem } from '../common/model/MediaTypes';
+import { MusicRow } from '../view/MusicRow';
+import { SheetGridItem } from '../view/SheetGridItem';
 import { appState } from '../entryability/AppState';
 import { HomeList, IconTextItem } from '../common/model/home/HomeModel';
 import { Plugin } from '../plugin/Plugin';
@@ -19,42 +23,8 @@ import { MenuUtils } from '../utils/MenuUtils';
 const TOP_LIST_MAX_GROUPS = 3;                 // 榜单最多展示的分组数
 const LOCAL_PREVIEW_COUNT = 10;                // 本地音乐预览条数
 const GRID_COLUMNS = 3;                        // 推荐歌单每行列数
+const RECOMMEND_PREVIEW_ROWS = 5;              // 推荐歌单预览行数
 const HOME_MENU_ANCHOR_ID = 'home_menu_anchor';// 插件选择菜单的弹出锚点 id
-
-/** 推荐歌单行数据源（LazyForEach 用，整体替换行数据并通知刷新） */
-class SheetRowDataSource implements IDataSource {
-  private rows: Array<Array<SheetItem>> = [];
-  private listeners: Array<DataChangeListener> = [];
-
-  /** 整体替换行数据并通知刷新 */
-  setRows(rows: Array<Array<SheetItem>>): void {
-    this.rows = rows;
-    for (const listener of this.listeners) {
-      listener.onDataReloaded();
-    }
-  }
-
-  totalCount(): number {
-    return this.rows.length;
-  }
-
-  getData(index: number): Array<SheetItem> {
-    return index >= 0 && index < this.rows.length ? this.rows[index] : [];
-  }
-
-  registerDataChangeListener(listener: DataChangeListener): void {
-    if (this.listeners.indexOf(listener) === -1) {
-      this.listeners.push(listener);
-    }
-  }
-
-  unregisterDataChangeListener(listener: DataChangeListener): void {
-    const i = this.listeners.indexOf(listener);
-    if (i >= 0) {
-      this.listeners.splice(i, 1);
-    }
-  }
-}
 
 @ComponentV2
 export struct HomePage{
@@ -83,10 +53,10 @@ export struct HomePage{
   // 推荐歌单行数据源（LazyForEach 用）
   private rowSource: SheetRowDataSource = new SheetRowDataSource();
 
-  /** 推荐歌单变化时同步行数据源（LazyForEach 按需加载行，避免大量卡片造成卡顿） */
+  /** 推荐歌单变化时同步行数据源（首页仅预览前 N 行，LazyForEach 按需加载） */
   @Monitor('recommendSheets')
   onRecommendSheetsChange(): void {
-    this.rowSource.setRows(this.chunkRows(this.recommendSheets));
+    this.rowSource.setRows(this.chunkRows(this.recommendSheets).slice(0, RECOMMEND_PREVIEW_ROWS));
   }
 
   aboutToAppear(): void {
@@ -134,7 +104,7 @@ export struct HomePage{
           } else {
             // 三个板块：榜单 / 推荐歌单 / 本地音乐
             ForEach(HomeList, (g: IconTextItem, gi: number)=>{
-              ListItemGroup({ header: this.listGroupTitleBuilder(g, this.sectionTail(gi)) }){
+              ListItemGroup({ header: this.listGroupTitleBuilder(g, this.sectionTail(gi), gi) }){
                 if (gi === 0) {
                   this.TopListsBuilder()
                 } else if (gi === 1) {
@@ -321,6 +291,21 @@ export struct HomePage{
     }
   }
 
+  /** 板块跳转：推荐歌单 → 推荐歌单页，本地音乐 → 本地音乐页 */
+  private sectionJump(gi: number): void {
+    if (gi === 1) {
+      if (this.recommendPluginName.length === 0) {
+        return;
+      }
+      RecommendSheetNavParams.pluginName = this.recommendPluginName;
+      RecommendSheetNavParams.tags = this.recommendTags;
+      RecommendSheetNavParams.selectedIndex = this.selectedTagIndex;
+      NavPathUtils.push(ROUTE_RECOMMEND_SHEETS);
+    } else if (gi === 2) {
+      NavPathUtils.push(ROUTE_LOCAL_MUSIC);
+    }
+  }
+
   /** 歌单卡片点击（歌单详情页开发中） */
   private onSheetClick(): void {
     this.showToast('歌单详情页开发中');
@@ -422,9 +407,9 @@ export struct HomePage{
     }).padding({ left: 16, right: 16 })
   }
 
-  /** listgroup 顶部组件：图标 + 标题 + 右侧附加信息（插件名/数量） */
+  /** listgroup 顶部组件：图标 + 标题 + 右侧附加信息（插件名/数量），推荐/本地板块可点击标题跳转 */
   @Builder
-  listGroupTitleBuilder(g: IconTextItem, tail: string) {
+  listGroupTitleBuilder(g: IconTextItem, tail: string, gi: number) {
     Row({ space: 5 }){
       SymbolGlyph(g.icon)
         .fontColor([$r('sys.color.font_tertiary')])
@@ -438,6 +423,11 @@ export struct HomePage{
         .fontColor($r('sys.color.font'))
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
+        .onClick(() => {
+          if (gi === 1 || gi === 2) {
+            this.sectionJump(gi);
+          }
+        })
 
       if (tail.length > 0) {
         Text(tail)
@@ -448,7 +438,19 @@ export struct HomePage{
           .borderRadius(3)
           .backgroundColor($r('sys.color.comp_background_tertiary'))
       }
+
+      if (gi === 1 || gi === 2) {
+        Blank()
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_tertiary')])
+          .onClick(() => {
+            this.sectionJump(gi);
+          })
+      }
     }
+    .width('100%')
+    .padding({bottom: 16})
   }
 
   /** 板块标题右侧附加信息：榜单/推荐显示插件名，本地音乐显示总数 */
@@ -514,7 +516,7 @@ export struct HomePage{
           }
           .width('100%')
           .alignItems(HorizontalAlign.Start)
-        }.padding({top: 16, bottom: 16})
+        }//.padding({top: 16, bottom: 16})
       }, (l: SheetGroupItem, lIndex: number) => l.title + '_' + lIndex.toString())
     }
   }
@@ -549,7 +551,7 @@ export struct HomePage{
           .listDirection(Axis.Horizontal)
           .scrollBar(BarState.Off)
           .width('100%')
-        }.padding({top: 16})
+        }
       }
       // 歌单网格（LazyForEach 按需创建行，避免歌单过多时卡顿）
       if (this.recommendSheets.length === 0) {
@@ -561,23 +563,11 @@ export struct HomePage{
           ListItem() {
             Row({ space: 12 }) {
               ForEach(rowItems, (sheet: SheetItem, index: number) => {
-                Column({ space: 6 }) {
-                  Image(sheet.coverUrl())
-                    .width('100%')
-                    .aspectRatio(1)
-                    .borderRadius(12)
-                    .objectFit(ImageFit.Cover)
-                    .alt($r('app.media.startIcon'))
-                  Text(sheet.title)
-                    .fontSize(12)
-                    .fontColor($r('sys.color.font_secondary'))
-                    .maxLines(2)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Center)
-                .onClick(() => {
-                  this.onSheetClick();
+                SheetGridItem({
+                  sheet: sheet,
+                  onTap: (): void => {
+                    this.onSheetClick();
+                  }
                 })
               }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + rowIndex.toString() + '_' + index.toString())
               // 不足整行时用 Blank 占位保持等宽
@@ -603,7 +593,7 @@ export struct HomePage{
     }
   }
 
-  /** 本地音乐板块：预览前 N 条，点击播放 */
+  /** 本地音乐板块：预览前 N 条（条目间分割线，点击播放） */
   @Builder
   LocalMusicBuilder() {
     if (this.localMusic.length === 0) {
@@ -613,53 +603,19 @@ export struct HomePage{
     } else {
       ForEach(this.localMusic.slice(0, LOCAL_PREVIEW_COUNT), (item: MusicItem, index: number) => {
         ListItem() {
-          this.MusicRowBuilder(item)
-        }.padding({top: 16})
+          MusicRow({
+            item: item,
+            showDivider: index < Math.min(this.localMusic.length, LOCAL_PREVIEW_COUNT) - 1,
+            onTap: (): void => {
+              this.playLocal(item);
+            },
+            onMore: (): void => {
+              this.openLocalOptions(item);
+            }
+          })
+        }
       }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + index.toString())
     }
-  }
-
-  /** 本地音乐行：图标 + 标题/歌手 + 专辑 */
-  @Builder
-  MusicRowBuilder(item: MusicItem) {
-    Row({ space: 12 }) {
-      Column() {
-        SymbolGlyph($r('sys.symbol.music_note_list'))
-          .fontSize(20)
-          .fontColor([$r('sys.color.icon_secondary')])
-      }
-      .width(40)
-      .height(40)
-      .borderRadius(10)
-      .backgroundColor($r('sys.color.comp_background_tertiary'))
-      .justifyContent(FlexAlign.Center)
-      Column({ space: 2 }) {
-        Text(item.title)
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-        .fontSize(20)
-        .fontColor([$r('sys.color.icon_secondary')])
-        .onClick(() => {
-          this.openLocalOptions(item);
-        })
-    }
-    .width('100%')
-    .height(56)
-    .borderRadius(12)
-    .onClick(() => {
-      this.playLocal(item);
-    })
   }
 }
 

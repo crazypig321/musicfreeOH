@@ -7,16 +7,18 @@ import {
   HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { SettingsPage } from './SettingsPage';
 import { SearchPage } from './SearchPage';
 import { SubscriptionPage } from './SubscriptionPage';
+import { LocalMusicPage } from './LocalMusicPage';
+import { RecommendSheetsPage } from './RecommendSheetsPage';
 import { PlayBar } from '../view/PlayBar';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-import { DialogManager, UsageDialogContent, VarFieldsDialogContent } from '../utils/DialogUtils';
+import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -148,6 +150,10 @@ struct Index {
   pageMap(name: string) {
     if (name === ROUTE_SEARCH) {
       SearchPage({ bootReady: this.bootReady })
+    } else if (name === ROUTE_LOCAL_MUSIC) {
+      LocalMusicPage()
+    } else if (name === ROUTE_RECOMMEND_SHEETS) {
+      RecommendSheetsPage()
     }
   }
 
@@ -202,6 +208,8 @@ struct Index {
       VarFieldsDialogContent()
     } else if (key === '创建分组') {
       // 预留：分组名称输入框
+    } else if (key === '重命名') {
+      RenameDialogContent()
     }
   }
 }
