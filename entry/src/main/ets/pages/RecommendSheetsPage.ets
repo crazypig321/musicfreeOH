@@ -102,6 +102,8 @@ export struct RecommendSheetsPage {
   build() {
     CommonNav({
       titleBarOp: titleBarOf('推荐歌单', undefined, undefined),
+      scroller: this.scroller,
+      doubleTapToTop: true
     }) {
       List({ scroller: this.scroller, space: 12 }) {
         // 插件不可用提示

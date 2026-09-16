@@ -233,6 +233,8 @@ export struct SearchPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.search_title'), undefined, undefined, { builder: (): void => {this.SearchBarBuilder()} }),
       isShowPlayBar: false,
+      scroller: this.scroller,
+      doubleTapToTop: true,
       backPressed: (): boolean => false
     }) {
       Stack({ alignContent: Alignment.Top }) {

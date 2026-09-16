@@ -54,6 +54,8 @@ export struct LocalMusicPage {
   build() {
     CommonNav({
       titleBarOp: titleBarOf('本地音乐', undefined, undefined),
+      scroller: this.scroller,
+      doubleTapToTop: true
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller }) {

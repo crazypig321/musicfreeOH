@@ -39,9 +39,45 @@ export struct CommonNav{
   @Param avoidLayoutSafeArea: boolean = true
   @Param isShowPlayBar: boolean = false
   @Param scroller: Scroller | undefined = undefined
+  /** 双击标题栏区域时列表回滚到顶部 */
+  @Param doubleTapToTop: boolean = false
   @Event backPressed: () => boolean = (): boolean => false
 
   @BuilderParam content: () => void;
+
+  /** 上一次标题栏单击时间（300ms 内两次单击视为双击） */
+  private lastTitleTapTime: number = 0;
+  /** 页面宽度（vp，用于排除右侧菜单按钮区域） */
+  private pageWidthVp: number = 0;
+
+  /** 标题栏区域触摸：双击回滚到顶部 */
+  private handleTouch(event: TouchEvent): void {
+    if (!this.doubleTapToTop || this.scroller === undefined) {
+      return;
+    }
+    if (event.type !== TouchType.Down) {
+      return;
+    }
+    const t = event.touches[0];
+    // 仅响应标题栏带（状态栏下方 56vp 内）
+    if (t.windowY < appState.topRect || t.windowY > appState.topRect + 56) {
+      return;
+    }
+    // 避开左侧返回键与右侧菜单按钮
+    if (!this.isHideBackButton && t.windowX < 72) {
+      return;
+    }
+    if (this.pageWidthVp > 0 && t.windowX > this.pageWidthVp - 130) {
+      return;
+    }
+    const now = Date.now();
+    if (this.lastTitleTapTime > 0 && now - this.lastTitleTapTime <= 300) {
+      this.lastTitleTapTime = 0;
+      this.scroller.scrollTo({ xOffset: 0, yOffset: 0, animation: { duration: 250, curve: Curve.EaseOut } });
+    } else {
+      this.lastTitleTapTime = now;
+    }
+  }
 
   build() {
     HdsNavDestination() {
@@ -103,6 +139,14 @@ export struct CommonNav{
     })
     .bindToScrollable(this.scroller ? [this.scroller] : [])
     .hideBackButton(this.isHideBackButton)
+    .onTouch((event: TouchEvent): void => {
+      this.handleTouch(event);
+    })
+    .onAreaChange((_old: Area, newArea: Area): void => {
+      if (typeof newArea.width === 'number') {
+        this.pageWidthVp = newArea.width;
+      }
+    })
     .backgroundColor($r('sys.color.background_secondary'))
     .width('100%')
     .height('100%')
