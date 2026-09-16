@@ -1,7 +1,7 @@
 import { TimeTipUtils } from '../utils/TimeTipUtils'
 import { CommonNav, titleBarOf } from '../view/CommonNav'
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
-import { CommonLoading, CommonNull, CommonSearch, SheetCard, CardStack } from '../view/CommonCom';
+import { CommonLoading, CommonNull, CommonSearch, SheetCard, CardStack, MenuItemParams } from '../view/CommonCom';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -12,45 +12,13 @@ import { pluginManager } from '../plugin/PluginManager';
 import { PluginAbility } from '../common/Consts';
 import { localMusicSheet } from '../core/LocalMusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
-import { ComponentContent } from '@kit.ArkUI';
+import { MenuUtils } from '../utils/MenuUtils';
 
 // ---------- 常量 ----------
 const TOP_LIST_MAX_GROUPS = 3;                 // 榜单最多展示的分组数
 const LOCAL_PREVIEW_COUNT = 10;                // 本地音乐预览条数
 const GRID_COLUMNS = 3;                        // 推荐歌单每行列数
 const HOME_MENU_ANCHOR_ID = 'home_menu_anchor';// 插件选择菜单的弹出锚点 id
-
-// ---------- 插件选择菜单（openMenu 参数与内容） ----------
-class HomeMenuItemParams {
-  icon: ResourceStr = '';
-  label: string = '';
-  onAction: () => void = (): void => {};
-}
-
-class HomeMenuParams {
-  items: Array<HomeMenuItemParams> = [];
-}
-
-@Builder
-function homeMenuBuilder(params: HomeMenuParams) {
-  Menu() {
-    ForEach(params.items, (item: HomeMenuItemParams) => {
-      if (typeof item.icon === 'string') {
-        MenuItem({ content: item.label })
-          .onClick(() => {
-            item.onAction();
-          })
-      } else {
-        MenuItem({ startIcon: item.icon, content: item.label })
-          .onClick(() => {
-            item.onAction();
-          })
-      }
-    }, (item: HomeMenuItemParams) => item.label)
-  }
-}
-
-const homeMenuWrapped: WrappedBuilder<[HomeMenuParams]> = wrapBuilder(homeMenuBuilder);
 
 @ComponentV2
 export struct HomePage{
@@ -70,7 +38,6 @@ export struct HomePage{
   @Local homePluginName: string = '';
 
   private scroller: Scroller = new Scroller();
-  private menuContent: ComponentContent<HomeMenuParams> | null = null;
   private recommendPlugin: Plugin | null = null;
   private recommendGroups: Array<SheetGroupItem> = [];
 
@@ -120,7 +87,7 @@ export struct HomePage{
           } else {
             // 三个板块：榜单 / 推荐歌单 / 本地音乐
             ForEach(HomeList, (g: IconTextItem, gi: number)=>{
-              ListItemGroup({ header: this.listGroupTitleBuilder(g, this.sectionTail(gi)), space: 12 }){
+              ListItemGroup({ header: this.listGroupTitleBuilder(g, this.sectionTail(gi)) }){
                 if (gi === 0) {
                   this.TopListsBuilder()
                 } else if (gi === 1) {
@@ -315,16 +282,6 @@ export struct HomePage{
     this.applyTagSheets(index);
   }
 
-  /** 关闭插件选择菜单 */
-  private dismissMenu(): void {
-    const content = this.menuContent;
-    this.menuContent = null;
-    if (content !== null) {
-      this.getUIContext().getPromptAction().closeMenu(content).catch((_e: Object): void => {
-      });
-    }
-  }
-
   /** 弹出插件选择菜单（当前插件带勾选标记） */
   private openPluginMenu(): void {
     const candidates = this.homeCandidates();
@@ -344,35 +301,26 @@ export struct HomePage{
       selectedName = candidates[0].name;
     }
     // 组装菜单项
-    const params = new HomeMenuParams();
+    const items: Array<MenuItemParams> = [];
     for (const p of candidates) {
-      const item = new HomeMenuItemParams();
+      const item = new MenuItemParams();
       if (p.name === selectedName) {
         item.icon = $r('sys.symbol.checkmark');
       }
       item.label = p.name;
       const name = p.name;
       item.onAction = (): void => {
-        this.dismissMenu();
+        MenuUtils.Dismiss();
         if (this.homePluginName !== name) {
           this.homePluginName = name;
           this.refreshHome();
         }
       };
-      params.items.push(item);
+      items.push(item);
     }
-    this.dismissMenu();
-    const content = new ComponentContent<HomeMenuParams>(this.getUIContext(), homeMenuWrapped, params);
-    this.menuContent = content;
-    this.getUIContext().getPromptAction().openMenu(content, { id: HOME_MENU_ANCHOR_ID }, {
+    MenuUtils.Open(this.getUIContext(), HOME_MENU_ANCHOR_ID, items, {
       placement: Placement.BottomRight,
       offset: { x: 0, y: -45 }
-    }).then((): void => {
-      if (this.menuContent === content) {
-        this.menuContent = null;
-      }
-    }).catch((_e: Object): void => {
-      this.showToast('菜单弹出失败');
     });
   }
 
@@ -517,10 +465,10 @@ export struct HomePage{
               ListItem() {
                 Text(tag.title)
                   .fontSize(13)
-                  .fontColor(this.selectedTagIndex === index ? $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+                  .fontColor(this.selectedTagIndex === index ? $r('sys.color.font_on') : $r('sys.color.font_secondary'))
                   .padding({ left: 14, right: 14, top: 6, bottom: 6 })
                   .borderRadius(16)
-                  .backgroundColor(this.selectedTagIndex === index ? $r('sys.color.background_emphasize') : $r('sys.color.comp_background_tertiary'))
+                  .backgroundColor(this.selectedTagIndex === index ? $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
                   .maxLines(1)
                   .onClick(() => {
                     this.onSelectTag(index);
@@ -531,7 +479,7 @@ export struct HomePage{
           .listDirection(Axis.Horizontal)
           .scrollBar(BarState.Off)
           .width('100%')
-        }
+        }.padding({top: 16})
       }
       // 歌单网格
       if (this.recommendSheets.length === 0) {
@@ -565,7 +513,7 @@ export struct HomePage{
             }
             .width('100%')
             .alignItems(VerticalAlign.Top)
-          }
+          }.padding({top: 10, bottom: 10})
         }, (rowItems: Array<SheetItem>, rowIndex: number) => 'recommend_row_' + rowIndex.toString())
       }
     }

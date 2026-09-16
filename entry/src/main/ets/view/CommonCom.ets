@@ -1,5 +1,53 @@
-import { SymbolGlyphModifier } from "@kit.ArkUI"
+import { SymbolGlyphModifier, LengthMetrics } from "@kit.ArkUI"
 import { SheetItem } from "../common/model/SheetTypes"
+
+/**
+ * 公共菜单项参数（配合 MenuUtils.Open 使用）
+ */
+export class MenuItemParams {
+  icon: ResourceStr = '';                          // 为空字符串时不显示图标
+  label: string = '';
+  onAction: () => void = (): void => {};
+}
+
+/**
+ * 公共菜单内容参数
+ */
+export class MenuParams {
+  items: Array<MenuItemParams> = [];
+}
+
+/**
+ * 公共菜单内容（openMenu 用）：条目间带分割线
+ */
+@Builder
+export function commonMenuBuilder(params: MenuParams) {
+  Menu() {
+    ForEach(params.items, (item: MenuItemParams) => {
+      if (typeof item.icon === 'string') {
+        MenuItem({ content: item.label })
+          .onClick(() => {
+            item.onAction();
+          })
+      } else {
+        MenuItem({ startIcon: item.icon, content: item.label })
+          .onClick(() => {
+            item.onAction();
+          })
+      }
+    }, (item: MenuItemParams) => item.label)
+  }
+  // 条目之间的分割线
+  .menuItemDivider({
+    strokeWidth: LengthMetrics.vp(1),
+    color: $r('sys.color.comp_divider'),
+    startMargin: LengthMetrics.vp(12),
+    endMargin: LengthMetrics.vp(12)
+  })
+}
+
+/** 供 ComponentContent 使用的包装 builder */
+export const commonMenuWrapped: WrappedBuilder<[MenuParams]> = wrapBuilder(commonMenuBuilder);
 /**
  * 公共搜索组件
  */
@@ -135,7 +183,7 @@ export struct SheetCard{
       CommonCover({ src: this.sheet.coverImg, widthValue: this.widthValue })
       Text(this.sheet.title)
         .fontSize(12)
-        .fontColor($r('sys.color.font_secondary'))
+        .fontColor($r('sys.color.font_tertiary'))
         .maxLines(this.titleLines)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
@@ -226,7 +274,7 @@ export struct CardStack{
             CommonCover({ src: item.coverImg, widthValue: '100%', aspect: this.coverAspect, radius: 16 })
             Text(item.title)
               .fontSize(13)
-              .fontColor($r('sys.color.font_primary'))
+              .fontColor($r('sys.color.font_tertiary'))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .opacity(this.layerOf(index) === 0 ? 1 : 0)  // 只有最前层显示标题

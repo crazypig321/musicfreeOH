@@ -7,7 +7,8 @@ import { appConfig } from '../core/AppConfig';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
-import { ComponentContent } from '@kit.ArkUI';
+import { MenuItemParams } from '../view/CommonCom';
+import { MenuUtils } from '../utils/MenuUtils';
 import { fileIo as fs, picker } from '@kit.CoreFileKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { ContextHolder } from '../common/ContextHolder';
@@ -33,32 +34,6 @@ class PluginVarField {
 const ADD_ANCHOR_ID = 'plugin_add_anchor';
 const MORE_ANCHOR_ID = 'plugin_more_anchor';
 
-/** openMenu 菜单项参数 */
-class PluginMenuItemParams {
-  icon: ResourceStr = '';
-  label: string = '';
-  onAction: () => void = (): void => {};
-}
-
-/** openMenu 菜单内容参数 */
-class PluginMenuParams {
-  items: Array<PluginMenuItemParams> = [];
-}
-
-@Builder
-function pluginMenuBuilder(params: PluginMenuParams) {
-  Menu() {
-    ForEach(params.items, (item: PluginMenuItemParams) => {
-      MenuItem({ startIcon: item.icon, content: item.label })
-        .onClick(() => {
-          item.onAction();
-        })
-    }, (item: PluginMenuItemParams) => item.label)
-  }
-}
-
-const pluginMenuWrapped: WrappedBuilder<[PluginMenuParams]> = wrapBuilder(pluginMenuBuilder);
-
 @ComponentV2
 export struct PluginPage {
   scroller: Scroller = new Scroller();
@@ -77,7 +52,6 @@ export struct PluginPage {
   @Local detailUsage: string = '';
   @Local detailVars: Array<PluginVarField> = [];
   private detailHash: string = '';
-  private menuContent: ComponentContent<PluginMenuParams> | null = null;
   private varDialogId: number = -1;
 
   aboutToAppear(): void {
@@ -467,36 +441,12 @@ export struct PluginPage {
   }
 
   private runMenuAction(action: () => void): void {
-    this.dismissMenu();
+    MenuUtils.Dismiss();
     action();
   }
 
-  private dismissMenu(): void {
-    const content = this.menuContent;
-    this.menuContent = null;
-    if (content !== null) {
-      this.getUIContext().getPromptAction().closeMenu(content).catch((_e: Object): void => {
-      });
-    }
-  }
-
-  private openMenuAt(anchorId: string, params: PluginMenuParams): void {
-    this.dismissMenu();
-    const content = new ComponentContent<PluginMenuParams>(this.getUIContext(), pluginMenuWrapped, params);
-    this.menuContent = content;
-    this.getUIContext().getPromptAction().openMenu(content, { id: anchorId }, {
-      placement: Placement.BottomRight
-    }).then((): void => {
-      if (this.menuContent === content) {
-        this.menuContent = null;
-      }
-    }).catch((_e: Object): void => {
-      this.showToast('菜单弹出失败');
-    });
-  }
-
   private openAddMenu(): void {
-    const netItem = new PluginMenuItemParams();
+    const netItem = new MenuItemParams();
     netItem.icon = $r('sys.symbol.dot_radiowaves_left_and_right');
     netItem.label = '网络导入';
     netItem.onAction = (): void => {
@@ -505,7 +455,7 @@ export struct PluginPage {
         this.showImportSheet = true;
       });
     };
-    const localItem = new PluginMenuItemParams();
+    const localItem = new MenuItemParams();
     localItem.icon = $r('sys.symbol.folder');
     localItem.label = '本地导入';
     localItem.onAction = (): void => {
@@ -513,13 +463,13 @@ export struct PluginPage {
         this.pickLocalPlugin();
       });
     };
-    const params = new PluginMenuParams();
-    params.items = [netItem, localItem];
-    this.openMenuAt(ADD_ANCHOR_ID, params);
+    MenuUtils.Open(this.getUIContext(), ADD_ANCHOR_ID, [netItem, localItem], {
+      placement: Placement.BottomRight
+    });
   }
 
   private openMoreMenu(): void {
-    const updateItem = new PluginMenuItemParams();
+    const updateItem = new MenuItemParams();
     updateItem.icon = $r('sys.symbol.arrow_clockwise');
     updateItem.label = '更新插件';
     updateItem.onAction = (): void => {
@@ -527,7 +477,7 @@ export struct PluginPage {
         this.updateAllPlugins();
       });
     };
-    const sortItem = new PluginMenuItemParams();
+    const sortItem = new MenuItemParams();
     sortItem.icon = $r('sys.symbol.line_3_horizontal');
     sortItem.label = '插件排序';
     sortItem.onAction = (): void => {
@@ -535,9 +485,9 @@ export struct PluginPage {
         this.openSortSheet();
       });
     };
-    const params = new PluginMenuParams();
-    params.items = [updateItem, sortItem];
-    this.openMenuAt(MORE_ANCHOR_ID, params);
+    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [updateItem, sortItem], {
+      placement: Placement.BottomRight
+    });
   }
 
   /** 网络导入 */
