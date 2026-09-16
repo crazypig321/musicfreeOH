@@ -643,7 +643,7 @@ export struct PluginPage {
       scroller: this.scroller
     }) {
       Stack({ alignContent: Alignment.Top }) {
-        List({ scroller: this.scroller }) {
+        List({ scroller: this.scroller, space: 16 }) {
           if (this.pluginRows.length > 0) {
             ForEach(this.pluginRows, (row: PluginRow, index: number) => {
               ListItem() {
@@ -685,10 +685,10 @@ export struct PluginPage {
                 .width('100%')
                 .height(56)
                 .borderRadius(12)
-                .onClick(() => {
-                  this.openDetailSheet(row);
-                })
-              }
+              }.ListItemStyle()
+              .onClick(() => {
+                this.openDetailSheet(row);
+              })
             }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString() + '_' + row.enabled.toString())
           } else {
             ListItem() {
@@ -701,11 +701,7 @@ export struct PluginPage {
             }
           }
         }
-        .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        .safeAreaPadding({ top: appState.topRect + 66, bottom: appState.bottomRect, left: 16, right: 16 })
+        .ListStyle()
         .bindSheet(!!this.showSortSheet, this.SortSheetBuilder(), {
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
@@ -987,4 +983,23 @@ export struct PluginPage {
     .padding({ left: 20, right: 20, top: 12, bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
+}
+
+@Extend(ListItem)
+function ListItemStyle(){
+  .width('100%')
+  .borderRadius(16)
+  .padding(12)
+  .backgroundColor($r('sys.color.comp_background_list_card'))
+}
+
+@Extend(List)
+function ListStyle(){
+  .width('100%')
+  .height('100%')
+  .scrollBar(BarState.Off)
+  .edgeEffect(EdgeEffect.Spring)
+  .contentStartOffset(appState.topRect + 66)
+  .contentEndOffset(appState.bottomRect + 60)
+  .padding({ left: 16, right: 16 })
 }
