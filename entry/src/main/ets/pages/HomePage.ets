@@ -1,7 +1,7 @@
 import { TimeTipUtils } from '../utils/TimeTipUtils'
 import { CommonNav, titleBarOf } from '../view/CommonNav'
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
-import { CommonLoading, CommonNull, CommonSearch, SheetCard, CommonCover } from '../view/CommonCom';
+import { CommonLoading, CommonNull, CommonSearch, SheetCard, CardStack } from '../view/CommonCom';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -59,7 +59,6 @@ export struct HomePage{
   // 榜单
   @Local topListGroups: Array<SheetGroupItem> = [];
   @Local topListPluginName: string = '';
-  @Local topListSwiperIndex: number = 0;
   // 推荐歌单
   @Local recommendPluginName: string = '';
   @Local recommendTags: Array<MediaTag> = [];
@@ -144,7 +143,7 @@ export struct HomePage{
         .width('100%')
         .justifyContent(FlexAlign.End)
         .padding({ right: 16 })
-        .margin({ top: appState.topRect + 66 })
+        .margin({ top: appState.topRect + 20 })
       }
       .width('100%')
       .height('100%')
@@ -170,7 +169,6 @@ export struct HomePage{
     this.topListPluginName = plugin.name;
     plugin.methods.getTopLists().then((groups: Array<SheetGroupItem>) => {
       this.topListGroups = groups.slice(0, TOP_LIST_MAX_GROUPS);
-      this.topListSwiperIndex = 0;
     }).catch((_e: Object): void => {
       this.topListGroups = [];
     });
@@ -416,7 +414,7 @@ export struct HomePage{
         .fontWeight(FontWeight.Bold)
         .fontSize(18)
         .padding(5)
-        .backgroundColor($r('sys.color.font_fourth'))
+        .backgroundColor($r('sys.color.comp_background_secondary'))
         .borderRadius(5)
 
       Text(g.text1)
@@ -424,16 +422,16 @@ export struct HomePage{
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
 
-      Blank()
-
       if (tail.length > 0) {
         Text(tail)
-          .fontSize(12)
+          .fontSize(10)
           .fontColor($r('sys.color.font_tertiary'))
           .maxLines(1)
+          .padding({ top: 3, bottom: 3, left: 5, right: 5 })
+          .borderRadius(3)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
       }
     }
-    .width('100%')
   }
 
   /** 板块标题右侧附加信息：榜单/推荐显示插件名，本地音乐显示总数 */
@@ -465,28 +463,12 @@ export struct HomePage{
                 .fontColor($r('sys.color.font_secondary'))
             }
             if (i === 0) {
-              // 第一组：轮播卡片，选中的大、两侧的小
-              Swiper() {
-                ForEach(l.data, (sheet: SheetItem, index: number) => {
-                  Column() {
-                    this.TopListSwiperCardBuilder(sheet, index)
-                  }
-                  .width('100%')
-                  .height('100%')
-                }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
-              }
-              .loop(l.data.length > 1)
-              .indicator(new DotIndicator()
-                .color($r('sys.color.comp_background_tertiary'))
-                .selectedColor($r('sys.color.icon_emphasize')))
-              .prevMargin(48)
-              .nextMargin(48)
-              .width('100%')
-              .height(216)
-              .onChange((index: number) => {
-                this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseOut }, (): void => {
-                  this.topListSwiperIndex = index;
-                });
+              // 第一组：卡片堆叠轮播（后面卡片露出上边缘，滑动/点击切换）
+              CardStack({
+                items: l.data,
+                itemClick: (_sheet: SheetItem): void => {
+                  this.onSheetClick();
+                }
               })
             } else {
               // 其余组：横向滑动的歌单卡片
@@ -516,31 +498,6 @@ export struct HomePage{
         }
       }, (l: SheetGroupItem, lIndex: number) => l.title + '_' + lIndex.toString())
     }
-  }
-
-  /** 榜单轮播卡片：选中放大不透明，未选中缩小半透明 */
-  @Builder
-  TopListSwiperCardBuilder(sheet: SheetItem, index: number) {
-    Column({ space: 8 }) {
-      CommonCover({ src: sheet.coverImg, widthValue: '70%', aspect: 0.7, radius: 16 })
-      Text(sheet.title)
-        .fontSize(13)
-        .fontColor($r('sys.color.font_primary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .scale({
-      x: this.topListSwiperIndex === index ? 1 : 0.8,
-      y: this.topListSwiperIndex === index ? 1 : 0.8
-    })
-    .opacity(this.topListSwiperIndex === index ? 1 : 0.65)
-    .onClick(() => {
-      this.onSheetClick();
-    })
   }
 
   /** 推荐歌单板块：标签横向切换 + 三列网格 */
