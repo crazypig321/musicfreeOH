@@ -416,7 +416,7 @@ export struct HomePage{
         .borderRadius(5)
 
       Text(g.text1)
-        .fontColor($r('sys.color.font_tertiary'))
+        .fontColor($r('sys.color.font'))
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
 

@@ -839,6 +839,7 @@ export struct PluginPage {
       }
       .width('100%')
       .layoutWeight(1)
+      .scrollBar(BarState.Off)
       .margin({ top: 4 })
       Button('保存排序')
         .width('100%')
@@ -873,29 +874,34 @@ export struct PluginPage {
         .fontSize(12)
         .fontColor($r('sys.color.font_tertiary'))
         .width('100%')
-        .margin({ top: 4 })
+        .margin({ top: 4, bottom: 12 })
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
 
       // 使用说明（点击弹窗显示）
-      Row({ space: 12 }) {
-        SymbolGlyph($r('sys.symbol.info_circle'))
-          .fontSize(20)
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('使用说明')
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.icon_tertiary')])
+      Column() {
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.info_circle'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('使用说明')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.showUsageDialog();
+        })
       }
       .width('100%')
-      .height(48)
-      .margin({ top: 8 })
-      .onClick(() => {
-        this.showUsageDialog();
-      })
+      .borderRadius(16)
+      .backgroundColor($r('sys.color.comp_background_list_card'))
 
       // 配置：用户变量（点击弹窗统一填写）
       if (this.detailVars.length > 0) {
@@ -905,79 +911,101 @@ export struct PluginPage {
           .fontColor($r('sys.color.font_secondary'))
           .width('100%')
           .margin({ top: 20, bottom: 6 })
-        Row({ space: 8 }) {
-          Text('变量')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(16)
-            .fontColor([$r('sys.color.icon_tertiary')])
+        Column() {
+          Row({ space: 8 }) {
+            Text('变量')
+              .fontSize(15)
+              .fontColor($r('sys.color.font_primary'))
+              .layoutWeight(1)
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(16)
+              .fontColor([$r('sys.color.icon_tertiary')])
+          }
+          .width('100%')
+          .height(44)
+          .padding({ left: 16, right: 16 })
+          .onClick(() => {
+            this.openVarDialog();
+          })
         }
         .width('100%')
-        .height(44)
-        .onClick(() => {
-          this.openVarDialog();
-        })
+        .borderRadius(16)
+        .backgroundColor($r('sys.color.comp_background_list_card'))
       }
 
-      // 操作
+      // 操作分组：检查更新 / 分享源地址 / 卸载插件（卡片内以分割线隔开）
       Text('操作')
         .fontSize(14)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_secondary'))
         .width('100%')
-        .margin({ top: 20, bottom: 4 })
-      Row({ space: 12 }) {
-        SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-          .fontSize(20)
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('检查更新')
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-      }
-      .width('100%')
-      .height(48)
-      .onClick(() => {
-        this.checkDetailUpdate();
-      })
-      Row({ space: 12 }) {
-        SymbolGlyph($r('sys.symbol.share'))
-          .fontSize(20)
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('分享源地址')
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-        if (this.detailSrcUrl.length > 0) {
-          Text(this.detailSrcUrl)
-            .fontSize(11)
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .constraintSize({ maxWidth: '45%' })
+        .margin({ top: 20, bottom: 6 })
+      Column() {
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('检查更新')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
         }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.checkDetailUpdate();
+        })
+
+        Divider()
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 48 })
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.share'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('分享源地址')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+          if (this.detailSrcUrl.length > 0) {
+            Text(this.detailSrcUrl)
+              .fontSize(11)
+              .fontColor($r('sys.color.font_tertiary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .constraintSize({ maxWidth: '45%' })
+          }
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.shareDetailSrc();
+        })
+
+        Divider()
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 48 })
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.trash'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('卸载插件')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.uninstallDetail();
+        })
       }
       .width('100%')
-      .height(48)
-      .onClick(() => {
-        this.shareDetailSrc();
-      })
-      Row({ space: 12 }) {
-        SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(20)
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('卸载插件')
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-      }
-      .width('100%')
-      .height(48)
-      .onClick(() => {
-        this.uninstallDetail();
-      })
+      .borderRadius(16)
+      .backgroundColor($r('sys.color.comp_background_list_card'))
     }
     .width('100%')
     .padding({ left: 20, right: 20, top: 12, bottom: 32 })

@@ -570,11 +570,11 @@ export struct SearchPage {
             Text(name)
               .fontSize(13)
               .fontColor(this.selectedPluginIndex === index ?
-              $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+              $r('sys.color.font_on') : $r('sys.color.font_secondary'))
               .padding({ left: 14, right: 14, top: 6, bottom: 6 })
               .borderRadius(16)
               .backgroundColor(this.selectedPluginIndex === index ?
-              $r('sys.color.background_emphasize') : $r('sys.color.comp_background_tertiary'))
+              $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
               .maxLines(1)
               .onClick(() => {
                 this.onSelectPlugin(index);
