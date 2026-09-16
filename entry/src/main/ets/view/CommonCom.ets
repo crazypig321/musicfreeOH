@@ -10,6 +10,7 @@ export struct CommonSearch{
 
   @Event submit: () => void
   @Event change: (value: string) => void
+  @Event click?: () => void
 
   build() {
     Search({ value: this.searchValue, placeholder: this.placeholderValue, controller: this.controller })
@@ -23,14 +24,25 @@ export struct CommonSearch{
       .placeholderFont({ size: 14, weight: 400 })
       .textFont({ size: 14, weight: 400 })
       .onSubmit(() => {// 键盘回车或者搜索按钮触发回调
+        if (this.click) {
+          return
+        }
        // animStyle.animTo(async ()=> {
         this.submit()
      //   })
       })
       .onChange((value: string) => {
+        if (this.click) {
+          return
+        }
        // animStyle.animTo(async ()=>{
         this.change(value)
        // })
+      })
+      .onClick(()=>{
+        if (this.click) {
+          this.click()
+        }
       })
   }
 }

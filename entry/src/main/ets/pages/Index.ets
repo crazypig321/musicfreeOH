@@ -96,7 +96,7 @@ struct Index {
           appState.currTabsIndex = index
         })
       }
-      .titleMode(HdsNavigationTitleMode.MINI)
+      .titleMode(HdsNavigationTitleMode.FREE)
       .mode(NavigationMode.Stack)
       .navBarWidth('40%')
       .hideBackButton(true)

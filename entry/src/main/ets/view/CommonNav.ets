@@ -99,7 +99,7 @@ export struct CommonNav{
       },
       avoidLayoutSafeArea: this.avoidLayoutSafeArea,
     })
-    .bindToScrollable(this.scroller !== undefined ? [this.scroller] : [])
+    .bindToScrollable(this.scroller ? [this.scroller] : [])
     .hideBackButton(this.isHideBackButton)
     .backgroundColor($r('sys.color.background_secondary'))
     .width('100%')
@@ -113,10 +113,10 @@ export struct CommonNav{
     .onBackPressed(() => {
       return this.backPressed()
     })
-    //.dynamicHideTitleBar({
-     // hideBottomBuilder: true,
-     // mode: HideMode.SCROLL_UP_TO
-    //})
+    .dynamicHideTitleBar({
+      hideBottomBuilder: true,
+      mode: HideMode.SCROLL_UP_TO
+    })
   }
 
   @Builder
