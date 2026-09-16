@@ -20,6 +20,41 @@ const LOCAL_PREVIEW_COUNT = 10;                // 本地音乐预览条数
 const GRID_COLUMNS = 3;                        // 推荐歌单每行列数
 const HOME_MENU_ANCHOR_ID = 'home_menu_anchor';// 插件选择菜单的弹出锚点 id
 
+/** 推荐歌单行数据源（LazyForEach 用，整体替换行数据并通知刷新） */
+class SheetRowDataSource implements IDataSource {
+  private rows: Array<Array<SheetItem>> = [];
+  private listeners: Array<DataChangeListener> = [];
+
+  /** 整体替换行数据并通知刷新 */
+  setRows(rows: Array<Array<SheetItem>>): void {
+    this.rows = rows;
+    for (const listener of this.listeners) {
+      listener.onDataReloaded();
+    }
+  }
+
+  totalCount(): number {
+    return this.rows.length;
+  }
+
+  getData(index: number): Array<SheetItem> {
+    return index >= 0 && index < this.rows.length ? this.rows[index] : [];
+  }
+
+  registerDataChangeListener(listener: DataChangeListener): void {
+    if (this.listeners.indexOf(listener) === -1) {
+      this.listeners.push(listener);
+    }
+  }
+
+  unregisterDataChangeListener(listener: DataChangeListener): void {
+    const i = this.listeners.indexOf(listener);
+    if (i >= 0) {
+      this.listeners.splice(i, 1);
+    }
+  }
+}
+
 @ComponentV2
 export struct HomePage{
   @Param bootReady: boolean = false;
@@ -39,7 +74,16 @@ export struct HomePage{
 
   private scroller: Scroller = new Scroller();
   private recommendPlugin: Plugin | null = null;
-  private recommendGroups: Array<SheetGroupItem> = [];
+  // 推荐歌单请求序号（仅应用最新一次请求的结果，避免标签快速切换时乱序）
+  private recommendReqSeq: number = 0;
+  // 推荐歌单行数据源（LazyForEach 用）
+  private rowSource: SheetRowDataSource = new SheetRowDataSource();
+
+  /** 推荐歌单变化时同步行数据源（LazyForEach 按需加载行，避免大量卡片造成卡顿） */
+  @Monitor('recommendSheets')
+  onRecommendSheetsChange(): void {
+    this.rowSource.setRows(this.chunkRows(this.recommendSheets));
+  }
 
   aboutToAppear(): void {
     // 本地音乐列表 + 变更监听
@@ -145,7 +189,6 @@ export struct HomePage{
     const plugin = this.pickPlugin(pluginManager.getSortedPluginsWithAbility(PluginAbility.GetRecommendSheetsByTag));
     if (plugin === null) {
       this.recommendPlugin = null;
-      this.recommendGroups = [];
       this.recommendTags = [];
       this.recommendSheets = [];
       this.recommendPluginName = '';
@@ -154,44 +197,52 @@ export struct HomePage{
     this.recommendPlugin = plugin;
     this.recommendPluginName = plugin.name;
     plugin.methods.getRecommendSheetTags().then((result) => {
-      this.recommendGroups = result.data;
-      const tags: Array<MediaTag> = [];
-      for (const group of result.data) {
-        const tag = new MediaTag();
-        tag.id = group.title;
-        tag.title = group.title;
+      // 标签条：默认 + 固定标签 + 各分组子标签（展平）
+      const tags: Array<MediaTag> = [this.defaultTag()];
+      for (const tag of result.pinned) {
         tags.push(tag);
+      }
+      for (const group of result.data) {
+        for (const tag of group.data) {
+          tags.push(tag);
+        }
       }
       this.recommendTags = tags;
       this.selectedTagIndex = 0;
-      if (result.data.length === 0 && result.pinned.length > 0) {
-        // 无标签但有固定推荐时直接展示
-        this.recommendSheets = result.pinned;
-      } else {
-        this.applyTagSheets(0);
-      }
+      this.applyTagSheets(0);
     }).catch((_e: Object): void => {
       this.recommendTags = [];
       this.recommendSheets = [];
     });
   }
 
-  /** 按标签下标展示推荐歌单：优先取已缓存的分组，否则请求插件 */
+  /** 默认标签（空 id，由插件返回默认推荐） */
+  private defaultTag(): MediaTag {
+    const tag = new MediaTag();
+    tag.title = '默认';
+    return tag;
+  }
+
+  /** 按标签下标请求推荐歌单（总是请求插件，子标签本身不是歌单） */
   private applyTagSheets(index: number): void {
-    const group = index >= 0 && index < this.recommendGroups.length ? this.recommendGroups[index] : null;
-    if (group !== null && group.data.length > 0) {
-      this.recommendSheets = group.data;
-      return;
-    }
     const plugin = this.recommendPlugin;
     const tag = index >= 0 && index < this.recommendTags.length ? this.recommendTags[index] : null;
     if (plugin === null || tag === null) {
       this.recommendSheets = [];
       return;
     }
+    this.recommendReqSeq++;
+    const seq = this.recommendReqSeq;
+    // 不清空旧内容：清空会导致外层 List 高度塌陷、滚动位置被钳制，标签条产生偏移
     plugin.methods.getRecommendSheetsByTag(tag, 1).then((r: PageResult<SheetItem>) => {
+      if (seq !== this.recommendReqSeq) {
+        return;
+      }
       this.recommendSheets = r.data;
     }).catch((_e: Object): void => {
+      if (seq !== this.recommendReqSeq) {
+        return;
+      }
       this.recommendSheets = [];
     });
   }
@@ -426,7 +477,7 @@ export struct HomePage{
                     Column() {
                       SheetCard({
                         sheet: sheet,
-                        widthValue: 70,
+                        widthValue: 90,
                         click: (): void => {
                           this.onSheetClick();
                         }
@@ -481,27 +532,34 @@ export struct HomePage{
           .width('100%')
         }.padding({top: 16})
       }
-      // 歌单网格
+      // 歌单网格（LazyForEach 按需创建行，避免歌单过多时卡顿）
       if (this.recommendSheets.length === 0) {
         ListItem() {
           CommonNull({ message: '暂无推荐歌单' })
         }
       } else {
-        ForEach(this.chunkRows(this.recommendSheets), (rowItems: Array<SheetItem>, rowIndex: number) => {
+        LazyForEach(this.rowSource, (rowItems: Array<SheetItem>, rowIndex: number) => {
           ListItem() {
-            Row({ space: 8 }) {
+            Row({ space: 12 }) {
               ForEach(rowItems, (sheet: SheetItem, index: number) => {
-                Column() {
-                  SheetCard({
-                    sheet: sheet,
-                    widthValue: '100%',
-                    click: (): void => {
-                      this.onSheetClick();
-                    }
-                  })
+                Column({ space: 6 }) {
+                  Image(sheet.coverUrl())
+                    .width('100%')
+                    .aspectRatio(1)
+                    .borderRadius(12)
+                    .objectFit(ImageFit.Cover)
+                    .alt($r('app.media.startIcon'))
+                  Text(sheet.title)
+                    .fontSize(12)
+                    .fontColor($r('sys.color.font_secondary'))
+                    .maxLines(2)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
                 }
                 .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start)
+                .alignItems(HorizontalAlign.Center)
+                .onClick(() => {
+                  this.onSheetClick();
+                })
               }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + rowIndex.toString() + '_' + index.toString())
               // 不足整行时用 Blank 占位保持等宽
               if (rowItems.length === 1) {
@@ -514,7 +572,14 @@ export struct HomePage{
             .width('100%')
             .alignItems(VerticalAlign.Top)
           }.padding({top: 10, bottom: 10})
-        }, (rowItems: Array<SheetItem>, rowIndex: number) => 'recommend_row_' + rowIndex.toString())
+        }, (rowItems: Array<SheetItem>, rowIndex: number) => {
+          // key 带上行内容，标签切换后即使行数相同也能刷新
+          let key = 'recommend_row_' + rowIndex.toString();
+          for (const s of rowItems) {
+            key += '_' + s.platform + '_' + s.id;
+          }
+          return key;
+        })
       }
     }
   }

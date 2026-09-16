@@ -701,7 +701,7 @@ class PluginMethods {
       const raw = await this.plugin.callMethod('getRecommendSheetTags', []);
       return RecommendSheetTagsResult.fromJson(raw);
     } catch (e) {
-      Log.error('获取推荐歌单失败');
+      Log.error('获取推荐歌单失败', e instanceof Error ? e.message : JSON.stringify(e));
       return new RecommendSheetTagsResult();
     }
   }

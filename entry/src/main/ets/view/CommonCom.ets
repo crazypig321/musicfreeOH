@@ -175,12 +175,12 @@ export struct CommonCover{
 export struct SheetCard{
   @Param sheet: SheetItem = new SheetItem()
   @Param widthValue: Length = 104
-  @Param titleLines: number = 2
+  @Param titleLines: number = 1
   @Event click: () => void = (): void => {}
 
   build() {
     Column({ space: 6 }) {
-      CommonCover({ src: this.sheet.coverImg, widthValue: this.widthValue })
+      CommonCover({ src: this.sheet.coverUrl(), widthValue: this.widthValue })
       Text(this.sheet.title)
         .fontSize(12)
         .fontColor($r('sys.color.font_tertiary'))
@@ -210,7 +210,7 @@ export struct CardStack{
   /** 相邻层的水平间距（vp） */
   @Param spacing: number = 100
   /** 两侧卡片的基础透明度（越远越淡） */
-  @Param dimOpacity: number = 0.5
+  @Param dimOpacity: number = 0.3
   /** 每层缩放递减 */
   @Param scaleStep: number = 0.06
   /** 单侧可见层数（不含最前层） */
@@ -271,7 +271,7 @@ export struct CardStack{
       Stack({ alignContent: Alignment.Center }) {
         ForEach(this.items, (item: SheetItem, index: number) => {
           Column({ space: 8 }) {
-            CommonCover({ src: item.coverImg, widthValue: '100%', aspect: this.coverAspect, radius: 16 })
+            CommonCover({ src: item.coverUrl(), widthValue: '100%', aspect: this.coverAspect, radius: 16 })
             Text(item.title)
               .fontSize(13)
               .fontColor($r('sys.color.font_tertiary'))
@@ -312,14 +312,14 @@ export struct CardStack{
       )
 
       // 指示点
-      if (this.items.length > 1 && this.items.length <= 9) {
+      if (this.items.length > 1) {
         Row({ space: 6 }) {
           ForEach(this.items, (_sheet: SheetItem, index: number) => {
             Column()
               .width(index === this.currentIndex ? 16 : 6)
               .height(6)
               .borderRadius(3)
-              .backgroundColor(index === this.currentIndex ? $r('sys.color.icon_emphasize') : $r('sys.color.comp_background_tertiary'))
+              .backgroundColor(index === this.currentIndex ? $r('sys.color.icon_secondary') : $r('sys.color.comp_background_tertiary'))
           }, (_sheet: SheetItem, index: number) => index.toString())
         }
       }

@@ -55,6 +55,11 @@ export class SheetItem {
     }
     return rec;
   }
+
+  /** 封面地址：优先 coverImg，为空时回退 artwork */
+  coverUrl(): string {
+    return this.coverImg.length > 0 ? this.coverImg : this.artwork;
+  }
 }
 
 /** 专辑项 */
@@ -325,10 +330,31 @@ export class TopListInfoResult {
   }
 }
 
-/** 推荐歌单 tag 结果 */
+/** 推荐歌单标签分组（组内 data 为子标签） */
+export class TagGroupItem {
+  title: string = '';
+  data: Array<MediaTag> = [];
+
+  static fromRecord(rec: JsonRecord): TagGroupItem {
+    const g = new TagGroupItem();
+    g.title = JsonUtil.recStr(rec, 'title');
+    const arr = JsonUtil.recArray(rec, 'data');
+    if (arr !== null) {
+      for (const o of arr) {
+        const r = JsonUtil.objToRecord(o);
+        if (r !== null) {
+          g.data.push(MediaTag.fromRecord(r));
+        }
+      }
+    }
+    return g;
+  }
+}
+
+/** 推荐歌单 tag 结果（pinned 为固定标签，data 为分组子标签） */
 export class RecommendSheetTagsResult {
-  pinned: Array<SheetItem> = [];
-  data: Array<SheetGroupItem> = [];
+  pinned: Array<MediaTag> = [];
+  data: Array<TagGroupItem> = [];
 
   static fromJson(v: Object | null): RecommendSheetTagsResult {
     const result = new RecommendSheetTagsResult();
@@ -341,7 +367,7 @@ export class RecommendSheetTagsResult {
       for (const o of pinnedArr) {
         const r = JsonUtil.objToRecord(o);
         if (r !== null) {
-          result.pinned.push(SheetItem.fromRecord(r));
+          result.pinned.push(MediaTag.fromRecord(r));
         }
       }
     }
@@ -350,7 +376,7 @@ export class RecommendSheetTagsResult {
       for (const o of dataArr) {
         const r = JsonUtil.objToRecord(o);
         if (r !== null) {
-          result.data.push(SheetGroupItem.fromRecord(r));
+          result.data.push(TagGroupItem.fromRecord(r));
         }
       }
     }
