@@ -14,6 +14,9 @@ import { PluginPage } from './PluginPage';
 import { SettingsPage } from './SettingsPage';
 import { SearchPage } from './SearchPage';
 import { PlayBar } from '../view/PlayBar';
+import { HomePage } from './HomePage';
+import { CustomContentDialog } from '@kit.ArkUI';
+import { DialogManager } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -55,7 +58,7 @@ struct Index {
           ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
             TabContent() {
               if (i === 0) {
-                Home({ bootReady: this.bootReady })
+                HomePage()
               } else if (i === 1) {
                 DownloadPage()
               } else if (i === 2) {
@@ -132,5 +135,56 @@ struct Index {
   @Builder
   miniBarBuilder() {
     PlayBar()
+  }
+
+  /**
+   * 公共弹窗
+   */
+  private dataDialog: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: DialogManager.DialogTitle(DialogManager.dialogChangeKey),
+      contentBuilder: () => {
+        this.DialogContentBuilder(DialogManager.dialogChangeKey)
+      },
+      buttons: [
+        {
+          value: $r('app.string.cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            DialogManager.CancelButtonDialog(DialogManager.dialogChangeKey)
+          }
+        },
+        {
+          value: $r('app.string.confirm'),
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: () => {
+            DialogManager.ConfirmButtonDialog(DialogManager.dialogChangeKey)
+          }
+        }
+      ],
+      contentAreaPadding: {
+        top: 15,
+        bottom: 15,
+        left: 24,
+        right: 24
+      },
+    }),
+    onWillDismiss: (dis) => {
+      dis.dismiss()
+    },
+    onWillAppear: () => {
+      DialogManager.AppearDialog(DialogManager.dialogChangeKey)
+    },
+    onWillDisappear: ()=>{
+      DialogManager.DisappearDialog(DialogManager.dialogChangeKey)
+    }
+  });
+
+  // 弹窗中间自定义组件
+  @Builder
+  DialogContentBuilder(key: string){
+    if (key === '创建分组') {
+
+    }
   }
 }

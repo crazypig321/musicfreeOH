@@ -759,10 +759,8 @@ export struct PluginPage {
         .bindSheet(!!this.showSortSheet, this.SortSheetBuilder(), {
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
-          onDisappear: () => {
-            this.showSortSheet = false;
-          },
           onWillDisappear: () => {
+            this.showSortSheet = false;
             appState.isForegroundBlur = false
           },
           onWillAppear: () => {
@@ -788,8 +786,12 @@ export struct PluginPage {
         .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
-          onDisappear: () => {
+          onWillDisappear: () => {
             this.showDetailSheet = false;
+            appState.isForegroundBlur = false
+          },
+          onWillAppear: () => {
+            appState.isForegroundBlur = true
           }
         })
       }
@@ -798,8 +800,12 @@ export struct PluginPage {
       .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
         detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,
-        onDisappear: () => {
+        onWillDisappear: () => {
           this.showImportSheet = false;
+          appState.isForegroundBlur = false
+        },
+        onWillAppear: () => {
+          appState.isForegroundBlur = true
         }
       })
     }

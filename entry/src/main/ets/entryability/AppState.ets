@@ -17,6 +17,8 @@ class AppState{
 
   // 是否开启模糊
   @Trace isForegroundBlur: boolean = false;
+  // 弹窗是否开启
+  @Trace isDialogOpen: boolean = false;
 
   /**
    * 屏幕避让及断点

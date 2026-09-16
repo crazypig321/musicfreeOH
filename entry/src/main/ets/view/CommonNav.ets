@@ -5,13 +5,15 @@ import { BlurStrategy,
   HdsTabs,
   HdsTabsController,
   ScrollEffectType,
-  TitleBarContentOptions } from "@kit.UIDesignKit";
+  TitleBarContentOptions,
+  BottomBuilderParams,
+  HideMode} from "@kit.UIDesignKit";
 import { appState } from "../entryability/AppState";
 import { LengthMetrics } from "@kit.ArkUI";
 import { PlayBar } from "./PlayBar";
 
 export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr,
-  menus?: Array<HdsNavigationMenuItemOptions>): TitleBarContentOptions {
+  menus?: Array<HdsNavigationMenuItemOptions>, bottomBuilder?: BottomBuilderParams): TitleBarContentOptions {
   const title: HdsNavigationTitle = {
     mainTitle: mainTitle,
     subTitle: subTitle
@@ -24,6 +26,7 @@ export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr,
       value: menus
     };
   }
+  options.bottomBuilder = bottomBuilder
   return options;
 }
 
@@ -110,6 +113,10 @@ export struct CommonNav{
     .onBackPressed(() => {
       return this.backPressed()
     })
+    //.dynamicHideTitleBar({
+     // hideBottomBuilder: true,
+     // mode: HideMode.SCROLL_UP_TO
+    //})
   }
 
   @Builder

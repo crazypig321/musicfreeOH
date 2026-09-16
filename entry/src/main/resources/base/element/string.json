@@ -71,6 +71,14 @@
     {
       "name": "page_under_construction",
       "value": "页面开发中"
+    },
+    {
+      "name": "confirm",
+      "value": "确认"
+    },
+    {
+      "name": "cancel",
+      "value": "取消"
     }
   ]
 }

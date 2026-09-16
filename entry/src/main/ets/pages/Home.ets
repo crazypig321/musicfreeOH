@@ -9,10 +9,47 @@ import { appState } from '../entryability/AppState';
 import { TimeTipUtils } from '../utils/TimeTipUtils';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ROUTE_SEARCH } from '../common/model/NavModels';
+import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
+import { ComponentContent } from '@kit.ArkUI';
 
 const TOP_LIST_MAX_GROUPS = 3;
 const LOCAL_PREVIEW_COUNT = 10;
 const GRID_COLUMNS = 3;
+
+const HOME_MENU_ANCHOR_ID = 'home_menu_anchor';
+
+/** 主页插件选择菜单项参数 */
+class HomeMenuItemParams {
+  icon: ResourceStr = '';
+  label: string = '';
+  onAction: () => void = (): void => {};
+}
+
+/** 主页插件选择菜单内容参数 */
+class HomeMenuParams {
+  items: Array<HomeMenuItemParams> = [];
+}
+
+@Builder
+function homeMenuBuilder(params: HomeMenuParams) {
+  Menu() {
+    ForEach(params.items, (item: HomeMenuItemParams) => {
+      if (typeof item.icon === 'string') {
+        MenuItem({ content: item.label })
+          .onClick(() => {
+            item.onAction();
+          })
+      } else {
+        MenuItem({ startIcon: item.icon, content: item.label })
+          .onClick(() => {
+            item.onAction();
+          })
+      }
+    }, (item: HomeMenuItemParams) => item.label)
+  }
+}
+
+const homeMenuWrapped: WrappedBuilder<[HomeMenuParams]> = wrapBuilder(homeMenuBuilder);
 
 @ComponentV2
 export struct Home {
@@ -20,6 +57,7 @@ export struct Home {
   @Param bootReady: boolean = false;
   @Local topListPluginName: string = '';
   @Local topListGroups: Array<SheetGroupItem> = [];
+  @Local topListSwiperIndex: number = 0;
   @Local recommendPluginName: string = '';
   @Local recommendTags: Array<MediaTag> = [];
   @Local selectedTagIndex: number = 0;
@@ -28,6 +66,8 @@ export struct Home {
 
   private recommendPlugin: Plugin | null = null;
   private recommendGroups: Array<SheetGroupItem> = [];
+  @Local homePluginName: string = '';
+  private menuContent: ComponentContent<HomeMenuParams> | null = null;
 
   aboutToAppear(): void {
     this.localMusic = localMusicSheet.musicList.slice();
@@ -69,25 +109,59 @@ export struct Home {
     }
   }
 
-  private loadTopLists(): void {
-    const plugins = pluginManager.getSortedPluginsWithAbility(PluginAbility.GetTopLists);
+  /** 主页可用的插件（支持榜单或推荐歌单，去重按顺序） */
+  private homeCandidates(): Array<Plugin> {
+    const result: Array<Plugin> = [];
+    const seen: Record<string, boolean> = {};
+    const groups: Array<Array<Plugin>> = [
+      pluginManager.getSortedPluginsWithAbility(PluginAbility.GetTopLists),
+      pluginManager.getSortedPluginsWithAbility(PluginAbility.GetRecommendSheetsByTag)
+    ];
+    for (const list of groups) {
+      for (const p of list) {
+        if (!seen[p.name]) {
+          seen[p.name] = true;
+          result.push(p);
+        }
+      }
+    }
+    return result;
+  }
+
+  /** 在候选插件中选择当前使用的插件（优先用户选择，否则第一个） */
+  private pickPlugin(plugins: Array<Plugin>): Plugin | null {
     if (plugins.length === 0) {
+      return null;
+    }
+    if (this.homePluginName.length > 0) {
+      for (const p of plugins) {
+        if (p.name === this.homePluginName) {
+          return p;
+        }
+      }
+    }
+    return plugins[0];
+  }
+
+  private loadTopLists(): void {
+    const plugin = this.pickPlugin(pluginManager.getSortedPluginsWithAbility(PluginAbility.GetTopLists));
+    if (plugin === null) {
       this.topListGroups = [];
       this.topListPluginName = '';
       return;
     }
-    const plugin = plugins[0];
     this.topListPluginName = plugin.name;
     plugin.methods.getTopLists().then((groups: Array<SheetGroupItem>) => {
       this.topListGroups = groups.slice(0, TOP_LIST_MAX_GROUPS);
+      this.topListSwiperIndex = 0;
     }).catch((_e: Object): void => {
       this.topListGroups = [];
     });
   }
 
   private loadRecommendSheets(): void {
-    const plugins = pluginManager.getSortedPluginsWithAbility(PluginAbility.GetRecommendSheetsByTag);
-    if (plugins.length === 0) {
+    const plugin = this.pickPlugin(pluginManager.getSortedPluginsWithAbility(PluginAbility.GetRecommendSheetsByTag));
+    if (plugin === null) {
       this.recommendPlugin = null;
       this.recommendGroups = [];
       this.recommendTags = [];
@@ -95,7 +169,6 @@ export struct Home {
       this.recommendPluginName = '';
       return;
     }
-    const plugin = plugins[0];
     this.recommendPlugin = plugin;
     this.recommendPluginName = plugin.name;
     plugin.methods.getRecommendSheetTags().then((result) => {
@@ -151,6 +224,77 @@ export struct Home {
     appState.pageInfos.pushPathByName(ROUTE_SEARCH, '');
   }
 
+  private dismissMenu(): void {
+    const content = this.menuContent;
+    this.menuContent = null;
+    if (content !== null) {
+      this.getUIContext().getPromptAction().closeMenu(content).catch((_e: Object): void => {
+      });
+    }
+  }
+
+  /** 弹出插件选择菜单 */
+  private openPluginMenu(): void {
+    const candidates = this.homeCandidates();
+    if (candidates.length === 0) {
+      this.showToast('暂无可用插件');
+      return;
+    }
+    let selectedName = '';
+    for (const p of candidates) {
+      if (p.name === this.homePluginName) {
+        selectedName = p.name;
+        break;
+      }
+    }
+    if (selectedName.length === 0) {
+      selectedName = candidates[0].name;
+    }
+    const params = new HomeMenuParams();
+    for (const p of candidates) {
+      const item = new HomeMenuItemParams();
+      if (p.name === selectedName) {
+        item.icon = $r('sys.symbol.checkmark');
+      }
+      item.label = p.name;
+      const name = p.name;
+      item.onAction = (): void => {
+        this.dismissMenu();
+        if (this.homePluginName !== name) {
+          this.homePluginName = name;
+          this.refreshHome();
+        }
+      };
+      params.items.push(item);
+    }
+    this.dismissMenu();
+    const content = new ComponentContent<HomeMenuParams>(this.getUIContext(), homeMenuWrapped, params);
+    this.menuContent = content;
+    this.getUIContext().getPromptAction().openMenu(content, { id: HOME_MENU_ANCHOR_ID }, {
+      placement: Placement.BottomRight,
+    }).then((): void => {
+      if (this.menuContent === content) {
+        this.menuContent = null;
+      }
+    }).catch((_e: Object): void => {
+      this.showToast('菜单弹出失败');
+    });
+  }
+
+  /** titleBar 菜单按钮（选择插件） */
+  private titleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const menu: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.square_grid_2x2'),
+        label: '选择插件',
+        action: (): void => {
+          this.openPluginMenu();
+        }
+      }
+    };
+    return [menu];
+  }
+
   private playLocal(item: MusicItem): void {
     if (this.localMusic.length === 0) {
       return;
@@ -182,10 +326,11 @@ export struct Home {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle')),
+      titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle'), this.titleMenus()),
       isHideBackButton: true,
     }) {
-      List({ scroller: this.scroller }) {
+      Stack({ alignContent: Alignment.Top }) {
+        List({ scroller: this.scroller }) {
         ListItem() {
           Column() {
             this.SearchEntryBuilder()
@@ -207,25 +352,13 @@ export struct Home {
           }
         } else {
           ListItem() {
-            Column() {
-              this.TopListsBuilder()
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
+            this.TopListsBuilder()
           }
           ListItem() {
-            Column() {
-              this.RecommendSheetsBuilder()
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
+            this.RecommendSheetsBuilder()
           }
           ListItem() {
-            Column() {
-              this.LocalMusicBuilder()
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
+            this.LocalMusicBuilder()
           }
         }
       }
@@ -236,6 +369,21 @@ export struct Home {
       .contentStartOffset(appState.topRect + 66)
       .contentEndOffset(appState.bottomRect + 60)
       .padding({ left: 16, right: 16 })
+
+        // openMenu 锚点（位于标题栏下方右上角，菜单在锚点处弹出）
+        Row({ space: 12 }) {
+          Column()
+            .id(HOME_MENU_ANCHOR_ID)
+            .width(24)
+            .height(24)
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.End)
+        .padding({ right: 16 })
+        .margin({ top: appState.topRect })
+      }
+      .width('100%')
+      .height('100%')
     }
   }
 
@@ -333,27 +481,52 @@ export struct Home {
         this.EmptyHintBuilder($r('app.string.home_no_plugin'))
       } else {
         ForEach(this.topListGroups, (group: SheetGroupItem, groupIndex: number) => {
-          Column({ space: 10 }) {
+          Column({ space: 16 }) {
             if (this.topListGroups.length > 1) {
               Text(group.title)
                 .fontSize(15)
                 .fontWeight(FontWeight.Medium)
                 .fontColor($r('sys.color.font_secondary'))
             }
-            List({ space: 12 }) {
-              ForEach(group.data, (sheet: SheetItem, index: number) => {
-                ListItem() {
+            if (groupIndex === 0) {
+              Swiper() {
+                ForEach(group.data, (sheet: SheetItem, index: number) => {
                   Column() {
-                    this.SheetCardBuilder(sheet)
+                    this.TopListSwiperCardBuilder(sheet, index)
                   }
-                  .alignItems(HorizontalAlign.Start)
-                }
-              }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
+                  .width('100%')
+                  .height('100%')
+                }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
+              }
+              .loop(group.data.length > 1)
+              .indicator(new DotIndicator()
+                .color($r('sys.color.comp_background_tertiary'))
+                .selectedColor($r('sys.color.icon_emphasize')))
+              .prevMargin(48)
+              .nextMargin(48)
+              .width('100%')
+              .height(216)
+              .onChange((index: number) => {
+                this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseOut }, (): void => {
+                  this.topListSwiperIndex = index;
+                });
+              })
+            } else {
+              List({ space: 12 }) {
+                ForEach(group.data, (sheet: SheetItem, index: number) => {
+                  ListItem() {
+                    Column() {
+                      this.SheetCardBuilder(sheet)
+                    }
+                    .alignItems(HorizontalAlign.Start)
+                  }
+                }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
+              }
+              .listDirection(Axis.Horizontal)
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+              .width('100%')
             }
-            .listDirection(Axis.Horizontal)
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
-            .width('100%')
           }
           .width('100%')
           .alignItems(HorizontalAlign.Start)
@@ -362,6 +535,48 @@ export struct Home {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  TopListSwiperCardBuilder(sheet: SheetItem, index: number) {
+    Column({ space: 8 }) {
+      if (sheet.coverImg.length > 0) {
+        Image(sheet.coverImg)
+          .width('70%')
+          .aspectRatio(1)
+          .borderRadius(16)
+          .objectFit(ImageFit.Cover)
+          .alt($r('app.media.startIcon'))
+      } else {
+        Column() {
+          SymbolGlyph($r('sys.symbol.music_note_list'))
+            .fontSize(28)
+            .fontColor([$r('sys.color.icon_tertiary')])
+        }
+        .width('70%')
+        .aspectRatio(1)
+        .borderRadius(16)
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .justifyContent(FlexAlign.Center)
+      }
+      Text(sheet.title)
+        .fontSize(13)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .scale({
+      x: this.topListSwiperIndex === index ? 1 : 0.8,
+      y: this.topListSwiperIndex === index ? 1 : 0.8
+    })
+    .opacity(this.topListSwiperIndex === index ? 1 : 0.65)
+    .onClick(() => {
+      this.onSheetClick();
+    })
   }
 
   @Builder
