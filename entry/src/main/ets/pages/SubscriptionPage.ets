@@ -219,7 +219,6 @@ export struct SubscriptionPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_subscription'), undefined, this.titleMenus()),
       isHideBackButton: true,
-      scroller: this.scroller
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

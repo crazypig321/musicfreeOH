@@ -539,7 +539,6 @@ export struct PluginPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_plugin'), undefined, this.titleMenus()),
       isHideBackButton: true,
-      scroller: this.scroller
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 16 }) {
