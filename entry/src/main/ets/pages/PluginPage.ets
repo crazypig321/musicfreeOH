@@ -14,6 +14,7 @@ import { pasteboard } from '@kit.BasicServicesKit';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
 import { JsonUtil } from '../common/JsonUtil';
+import { DialogManager, PluginVarField } from '../utils/DialogUtils';
 
 interface PluginRow {
   name: string;
@@ -22,13 +23,6 @@ interface PluginRow {
   state: PluginState;
   hash: string;
   enabled: boolean;
-}
-
-/** 插件用户变量字段 */
-class PluginVarField {
-  key: string = '';
-  name: string = '';
-  value: string = '';
 }
 
 const ADD_ANCHOR_ID = 'plugin_add_anchor';
@@ -52,7 +46,6 @@ export struct PluginPage {
   @Local detailUsage: string = '';
   @Local detailVars: Array<PluginVarField> = [];
   private detailHash: string = '';
-  private varDialogId: number = -1;
 
   aboutToAppear(): void {
     this.refreshPlugins();
@@ -204,149 +197,16 @@ export struct PluginPage {
     if (this.detailVars.length > 0) {
       message += '\n\n部分功能需要在「配置」中填写变量后使用。';
     }
-    try {
-      this.getUIContext().getPromptAction().showDialog({
-        title: this.detailName + ' 使用说明',
-        message: message,
-        buttons: [
-          { text: '知道了', color: $r('sys.color.font_emphasize') }
-        ]
-      }).catch((_e: Object): void => {
-      });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
-  }
-
-  /** 保存插件用户变量 */
-  private saveDetailVars(): void {
-    const plugin = pluginManager.getByName(this.detailName);
-    if (plugin === null) {
-      this.showToast('插件不存在');
-      return;
-    }
-    const vars: Record<string, string> = {};
-    for (const f of this.detailVars) {
-      vars[f.key] = f.value;
-    }
-    pluginManager.setUserVariables(plugin, vars);
-    this.showToast('配置已保存');
+    DialogManager.usageTitle = this.detailName + ' 使用说明';
+    DialogManager.usageMessage = message;
+    DialogManager.OpenDialog('使用说明');
   }
 
   /** 打开变量编辑弹窗（所有变量在同一个弹窗填写） */
   private openVarDialog(): void {
-    try {
-      this.getUIContext().getPromptAction().openCustomDialog({
-        builder: (): void => {
-          this.VarInputDialog();
-        },
-        alignment: DialogAlignment.Center,
-        isModal: true,
-        autoCancel: true,
-        width: '88%'
-      }).then((id: number): void => {
-        this.varDialogId = id;
-      }).catch((_e: Object): void => {
-      });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
-  }
-
-  /** 确认变量修改 */
-  private confirmVarEdit(): void {
-    const next: Array<PluginVarField> = [];
-    for (const src of this.detailVars) {
-      const f = new PluginVarField();
-      f.key = src.key;
-      f.name = src.name;
-      f.value = src.value;
-      next.push(f);
-    }
-    this.detailVars = next;
-    this.saveDetailVars();
-    this.closeVarDialog();
-  }
-
-  /** 关闭变量编辑弹窗 */
-  private closeVarDialog(): void {
-    if (this.varDialogId >= 0) {
-      try {
-        this.getUIContext().getPromptAction().closeCustomDialog(this.varDialogId);
-      } catch (error) {
-        // TODO: Implement error handling.
-      }
-      this.varDialogId = -1;
-    }
-  }
-
-  /** 变量编辑弹窗内容 */
-  @Builder
-  VarInputDialog() {
-    Column() {
-      Text('配置变量')
-        .fontSize(17)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ bottom: 16 })
-      Scroll() {
-        Column({ space: 14 }) {
-          ForEach(this.detailVars, (f: PluginVarField, index: number) => {
-            Column({ space: 6 }) {
-              Text(f.name)
-                .fontSize(13)
-                .fontColor($r('sys.color.font_secondary'))
-                .width('100%')
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-              TextInput({ text: f.value, placeholder: f.key })
-                .width('100%')
-                .height(42)
-                .fontSize(14)
-                .fontColor($r('sys.color.font_primary'))
-                .placeholderColor($r('sys.color.font_tertiary'))
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-                .borderRadius(10)
-                .onChange((v: string): void => {
-                  f.value = v;
-                })
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
-          }, (f: PluginVarField, index: number) => f.key + '_' + index.toString())
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-      }
-      .constraintSize({ maxHeight: 360 })
-      .width('100%')
-      Row({ space: 10 }) {
-        Button('取消')
-          .layoutWeight(1)
-          .height(38)
-          .fontSize(14)
-          .fontColor($r('sys.color.font_primary'))
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .onClick(() => {
-            this.closeVarDialog();
-          })
-        Button('确定')
-          .layoutWeight(1)
-          .height(38)
-          .fontSize(14)
-          .backgroundColor($r('sys.color.background_emphasize'))
-          .onClick(() => {
-            this.confirmVarEdit();
-          })
-      }
-      .width('100%')
-      .margin({ top: 16 })
-    }
-    .width('100%')
-    .padding(20)
+    DialogManager.varPluginName = this.detailName;
+    DialogManager.varFields = this.detailVars;
+    DialogManager.OpenDialog('配置变量');
   }
 
   /** 检查更新（当前详情插件） */

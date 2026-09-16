@@ -1,81 +1,246 @@
 import { appState } from "../entryability/AppState";
+import { pluginManager } from "../plugin/PluginManager";
+import { ButtonOptions } from "@kit.ArkUI";
 
 
+/** 插件用户变量字段（弹窗内编辑） */
+export class PluginVarField {
+  public key: string = '';
+  public name: string = '';
+  public value: string = '';
+}
+
+
+/** 「使用说明」弹窗内容 */
+@ComponentV2
+export struct UsageDialogContent {
+  build() {
+    Scroll() {
+      Text(DialogManager.usageMessage)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(22)
+        .width('100%')
+    }
+    .constraintSize({ maxHeight: 420 })
+    .nestedScroll({
+      scrollForward: NestedScrollMode.PARALLEL,
+      scrollBackward: NestedScrollMode.PARALLEL
+    })
+    .width('100%')
+  }
+}
+
+
+/** 「配置变量」弹窗内容：所有变量统一填写 */
+@ComponentV2
+export struct VarFieldsDialogContent {
+  build() {
+    Scroll() {
+      Column({ space: 14 }) {
+        ForEach(DialogManager.varFields, (f: PluginVarField) => {
+          Column({ space: 6 }) {
+            Text(f.name)
+              .fontSize(13)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            TextInput({ text: f.value, placeholder: f.key })
+              .width('100%')
+              .height(42)
+              .fontSize(14)
+              .fontColor($r('sys.color.font_primary'))
+              .placeholderColor($r('sys.color.font_tertiary'))
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
+              .borderRadius(10)
+              .onChange((v: string): void => {
+                f.value = v;
+              })
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }, (f: PluginVarField, index: number) => f.key + '_' + index.toString())
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+    .constraintSize({ maxHeight: 360 })
+    .nestedScroll({
+      scrollForward: NestedScrollMode.PARALLEL,
+      scrollBackward: NestedScrollMode.PARALLEL
+    })
+    .width('100%')
+  }
+}
+
+
+/**
+ * 公共弹窗管理：各页面通过 OpenDialog(key) 打开 Index 的公共弹窗，
+ * 标题 / 按钮 / 确认取消逻辑集中在这里
+ */
 export class DialogManager {
-  public static dialogChangeKey: string = ''
+  /** 当前弹窗标识 */
+  public static dialogChangeKey: string = '';
 
-  /**
-   * 打开弹窗
-   * @param key 弹窗类型标识
-   */
-  public static OpenDialog(key: string) {
-    DialogManager.dialogChangeKey = key;
-    appState.isDialogOpen = true;
-    appState.isForegroundBlur = true
+  // ===== 弹窗参数（打开前由调用方赋值） =====
+  /** 「使用说明」标题 */
+  public static usageTitle: string = '';
+  /** 「使用说明」正文 */
+  public static usageMessage: string = '';
+  /** 「配置变量」对应的插件名 */
+  public static varPluginName: string = '';
+  /** 「配置变量」字段列表 */
+  public static varFields: Array<PluginVarField> = [];
+
+  // ===== 由 Index 注册的宿主动作 =====
+  private static opener: (() => void) | null = null;
+  private static toaster: ((message: string) => void) | null = null;
+
+  /** 注册弹窗宿主（打开动作 / 轻提示），由 Index 调用 */
+  public static Register(opener: () => void, toaster: (message: string) => void): void {
+    DialogManager.opener = opener;
+    DialogManager.toaster = toaster;
   }
 
-  /**
-   * 获取弹窗标题文本
-   * @param key 弹窗类型标识
-   * @returns 标题文本
-   */
+  /** 打开弹窗 */
+  public static OpenDialog(key: string): void {
+    DialogManager.dialogChangeKey = key;
+    appState.isDialogOpen = true;
+    appState.isForegroundBlur = true;
+    if (DialogManager.opener !== null) {
+      DialogManager.opener();
+    }
+  }
+
+  /** 弹窗内轻提示 */
+  public static Toast(message: string): void {
+    if (DialogManager.toaster !== null) {
+      DialogManager.toaster(message);
+    }
+  }
+
+  /** 获取弹窗标题文本 */
   public static DialogTitle(key: string): ResourceStr {
     switch (key) {
+      case '使用说明':
+        return DialogManager.usageTitle;
+      case '配置变量':
+        return '配置变量';
       case '创建分组':
-        return '';
+        return '创建分组';
     }
     return '';
   }
 
-  /**
-   * 弹窗确定键回调
-   * @param key 弹窗类型标识
-   */
-  public static async ConfirmButtonDialog(key: string) {
+  /** 弹窗底部按钮（CustomContentDialog 点击后自动关闭） */
+  public static DialogButtons(key: string): Array<ButtonOptions> {
+    const buttons: Array<ButtonOptions> = [];
     switch (key) {
-      case '创建分组':
+      case '使用说明': {
+        const ok: ButtonOptions = {
+          value: '知道了',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+          }
+        };
+        buttons.push(ok);
+        break;
+      }
+      case '配置变量': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '保存',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
+      case '创建分组': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '确定',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
+    }
+    return buttons;
+  }
 
+  /** 弹窗确定键回调 */
+  public static ConfirmButtonDialog(key: string): void {
+    switch (key) {
+      case '配置变量':
+        DialogManager.savePluginVars();
+        break;
+      case '创建分组':
         break;
     }
   }
 
-  /**
-   * 弹窗取消键回调
-   * @param key 弹窗类型标识
-   */
-  public static CancelButtonDialog(key: string) {
+  /** 弹窗取消键回调 */
+  public static CancelButtonDialog(key: string): void {
     switch (key) {
+      case '配置变量':
+        break;
       case '创建分组':
         break;
     }
   }
 
-  /**
-   * 弹窗出现回调
-   * @param key 弹窗类型标识
-   */
-  public static AppearDialog(key: string) {
+  /** 弹窗出现回调 */
+  public static AppearDialog(key: string): void {
     appState.isForegroundBlur = true;
     switch (key) {
       case '速度调节':
-
         break;
     }
   }
 
-  /**
-   * 弹窗消失回调
-   * @param key 弹窗类型标识
-   */
-  public static DisappearDialog(key: string) {
+  /** 弹窗消失回调 */
+  public static DisappearDialog(key: string): void {
     appState.isForegroundBlur = false;
     appState.isDialogOpen = false;
     DialogManager.dialogChangeKey = '';
 
     switch (key) {
       case '创建分组':
-
         break;
     }
+  }
+
+  /** 保存「配置变量」到插件 */
+  private static savePluginVars(): void {
+    const plugin = pluginManager.getByName(DialogManager.varPluginName);
+    if (plugin === null) {
+      DialogManager.Toast('插件不存在');
+      return;
+    }
+    const vars: Record<string, string> = {};
+    for (const f of DialogManager.varFields) {
+      vars[f.key] = f.value;
+    }
+    pluginManager.setUserVariables(plugin, vars);
+    DialogManager.Toast('配置已保存');
   }
 }

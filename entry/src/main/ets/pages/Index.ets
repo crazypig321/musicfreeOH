@@ -15,7 +15,7 @@ import { SearchPage } from './SearchPage';
 import { PlayBar } from '../view/PlayBar';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-import { DialogManager } from '../utils/DialogUtils';
+import { DialogManager, UsageDialogContent, VarFieldsDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -26,6 +26,12 @@ struct Index {
 
   aboutToAppear(): void {
     WebPluginExecutor.getInstance().attachController(this.controller);
+    // 公共弹窗：注册打开动作与轻提示
+    DialogManager.Register((): void => {
+      this.dataDialog.open();
+    }, (message: string): void => {
+      this.notifyToast(message);
+    });
     trackPlayer.onCellularForbidden(() => {
       try {
         this.getUIContext().getPromptAction().showToast({ message: '移动网络下播放已被禁止', duration: 2000 });
@@ -136,6 +142,15 @@ struct Index {
     PlayBar()
   }
 
+  /** 轻提示（供公共弹窗逻辑使用） */
+  private notifyToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
+    } catch (error) {
+      // TODO: Implement error handling.
+    }
+  }
+
   /**
    * 公共弹窗
    */
@@ -145,22 +160,7 @@ struct Index {
       contentBuilder: () => {
         this.DialogContentBuilder(DialogManager.dialogChangeKey)
       },
-      buttons: [
-        {
-          value: $r('app.string.cancel'),
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: () => {
-            DialogManager.CancelButtonDialog(DialogManager.dialogChangeKey)
-          }
-        },
-        {
-          value: $r('app.string.confirm'),
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
-          action: () => {
-            DialogManager.ConfirmButtonDialog(DialogManager.dialogChangeKey)
-          }
-        }
-      ],
+      buttons: DialogManager.DialogButtons(DialogManager.dialogChangeKey),
       contentAreaPadding: {
         top: 15,
         bottom: 15,
@@ -181,9 +181,13 @@ struct Index {
 
   // 弹窗中间自定义组件
   @Builder
-  DialogContentBuilder(key: string){
-    if (key === '创建分组') {
-
+  DialogContentBuilder(key: string) {
+    if (key === '使用说明') {
+      UsageDialogContent()
+    } else if (key === '配置变量') {
+      VarFieldsDialogContent()
+    } else if (key === '创建分组') {
+      // 预留：分组名称输入框
     }
   }
 }
