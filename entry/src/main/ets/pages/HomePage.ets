@@ -444,13 +444,13 @@ export struct HomePage{
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(16)
           .fontColor([$r('sys.color.icon_tertiary')])
-          .onClick(() => {
-            this.sectionJump(gi);
-          })
       }
     }
     .width('100%')
-    .padding({bottom: 16})
+    .padding({ bottom: 12 })
+    .onClick(() => {
+      this.sectionJump(gi);
+    })
   }
 
   /** 板块标题右侧附加信息：榜单/推荐显示插件名，本地音乐显示总数 */
@@ -489,7 +489,7 @@ export struct HomePage{
                 itemClick: (_sheet: SheetItem): void => {
                   this.onSheetClick();
                 }
-              })
+              }).padding({ bottom: 16 })
             } else {
               // 其余组：横向滑动的歌单卡片
               List({ space: 12 }) {
@@ -505,7 +505,7 @@ export struct HomePage{
                       })
                     }
                     .alignItems(HorizontalAlign.Start)
-                  }
+                  }.padding({ bottom: 16 })
                 }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + index.toString())
               }
               .listDirection(Axis.Horizontal)
@@ -516,7 +516,7 @@ export struct HomePage{
           }
           .width('100%')
           .alignItems(HorizontalAlign.Start)
-        }//.padding({top: 16, bottom: 16})
+        }
       }, (l: SheetGroupItem, lIndex: number) => l.title + '_' + lIndex.toString())
     }
   }

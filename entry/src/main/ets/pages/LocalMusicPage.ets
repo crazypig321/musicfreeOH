@@ -106,7 +106,7 @@ function ListStyle() {
   .height('100%')
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
-  .contentStartOffset(appState.topRect + 46)
+  .contentStartOffset(appState.topRect + 55)
   .contentEndOffset(appState.bottomRect + 60)
   .padding({ left: 16, right: 16 })
 }
