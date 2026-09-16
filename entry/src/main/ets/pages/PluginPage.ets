@@ -782,7 +782,7 @@ export struct PluginPage {
         .width('100%')
         .justifyContent(FlexAlign.End)
         .padding({ right: 16 })
-        .margin({ top: appState.topRect + 66 })
+        .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,

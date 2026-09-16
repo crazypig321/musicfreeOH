@@ -140,7 +140,7 @@ export struct SheetCard{
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .width(this.widthValue)
-    .alignItems(HorizontalAlign.Start)
+    .alignItems(HorizontalAlign.Center)
     .onClick(() => {
       this.click()
     })

@@ -478,6 +478,7 @@ export struct HomePage{
                     Column() {
                       SheetCard({
                         sheet: sheet,
+                        widthValue: 70,
                         click: (): void => {
                           this.onSheetClick();
                         }
@@ -495,7 +496,7 @@ export struct HomePage{
           }
           .width('100%')
           .alignItems(HorizontalAlign.Start)
-        }
+        }.padding({top: 16, bottom: 16})
       }, (l: SheetGroupItem, lIndex: number) => l.title + '_' + lIndex.toString())
     }
   }
