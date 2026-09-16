@@ -1,0 +1,175 @@
+import { KVStore } from '../infra/KVStore';
+import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { HttpClient } from '../infra/HttpClient';
+import { appConfig } from '../core/AppConfig';
+import { pluginManager } from './PluginManager';
+import { InstallPluginResult } from './PluginTypes';
+
+/** 订阅源存储（storage KV，随备份清单自动备份） */
+const SOURCE_STORE = 'storage';
+const SOURCE_KEY = 'subscriptionSources';
+/** 订阅源自定义名称存储（url -> 名称） */
+const SOURCE_NAME_KEY = 'subscriptionSourceNames';
+
+/** 订阅安装计数 */
+export class InstallCount {
+  success: number = 0;
+  failed: number = 0;
+}
+
+/**
+ * 订阅源管理（订阅源 = 聚合插件地址：.json 为插件列表，.js 为单个插件）
+ * 供订阅源页面与插件页「同步订阅源」共用
+ */
+export class Subscriptions {
+  /** 获取全部订阅源 */
+  static getSources(): Array<string> {
+    const raw = KVStore.getOrCreate(SOURCE_STORE).get(SOURCE_KEY);
+    const parsed = JsonUtil.parseStringArray(raw);
+    return parsed !== null ? parsed : [];
+  }
+
+  /** 校验订阅源地址：必须以 .js 或 .json 结尾 */
+  static isValidSourceUrl(url: string): boolean {
+    return url.endsWith('.js') || url.endsWith('.json');
+  }
+
+  /** 添加订阅源（新源置顶、去重），返回是否新增 */
+  static addSource(url: string): boolean {
+    const sources = Subscriptions.getSources();
+    for (const s of sources) {
+      if (s === url) {
+        return false;
+      }
+    }
+    const next = [url].concat(sources);
+    KVStore.getOrCreate(SOURCE_STORE).set(SOURCE_KEY, JSON.stringify(next));
+    return true;
+  }
+
+  /** 获取订阅源自定义名称（未设置返回空串） */
+  static getSourceName(url: string): string {
+    const rec = JsonUtil.parseRecord(KVStore.getOrCreate(SOURCE_STORE).get(SOURCE_NAME_KEY));
+    return rec !== null ? JsonUtil.recStr(rec, url) : '';
+  }
+
+  /** 设置/清除订阅源自定义名称（空串清除） */
+  static setSourceName(url: string, name: string): void {
+    const store = KVStore.getOrCreate(SOURCE_STORE);
+    const parsed = JsonUtil.parseRecord(store.get(SOURCE_NAME_KEY));
+    const next: JsonRecord = {};
+    if (parsed !== null) {
+      for (const k of Object.keys(parsed)) {
+        if (k !== url) {
+          next[k] = parsed[k];
+        }
+      }
+    }
+    const trimmed = name.trim();
+    if (trimmed.length > 0) {
+      next[url] = trimmed;
+    }
+    store.set(SOURCE_NAME_KEY, JSON.stringify(next));
+  }
+
+  /** 删除订阅源（同时清理自定义名称） */
+  static removeSource(url: string): void {
+    const sources = Subscriptions.getSources();
+    const next: Array<string> = [];
+    for (const s of sources) {
+      if (s !== url) {
+        next.push(s);
+      }
+    }
+    KVStore.getOrCreate(SOURCE_STORE).set(SOURCE_KEY, JSON.stringify(next));
+    if (Subscriptions.getSourceName(url).length > 0) {
+      Subscriptions.setSourceName(url, '');
+    }
+  }
+
+  /** 解析订阅源为插件 URL 列表：.json 为插件列表，.js 为单插件；失败返回 null */
+  static async resolveUrls(url: string): Promise<Array<string> | null> {
+    if (url.endsWith('.json')) {
+      const resp = await HttpClient.get(url, {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      });
+      if (resp === null) {
+        return null;
+      }
+      const rec = JsonUtil.parseRecord(resp.body);
+      const plugins = rec !== null ? JsonUtil.recArray(rec, 'plugins') : null;
+      if (plugins === null) {
+        return null;
+      }
+      const urls: Array<string> = [];
+      for (const item of plugins) {
+        const itemRec = JsonUtil.objToRecord(item);
+        const u = itemRec !== null ? JsonUtil.recStr(itemRec, 'url') : '';
+        if (u.length > 0) {
+          urls.push(u);
+        }
+      }
+      return urls.length > 0 ? urls : null;
+    }
+    return [url];
+  }
+
+  /** 安装一组插件 URL，返回成功/失败计数 */
+  static async installUrls(urls: Array<string>): Promise<InstallCount> {
+    const count = new InstallCount();
+    for (const u of urls) {
+      try {
+        const r: InstallPluginResult =
+          await pluginManager.installPluginFromUrl(u, appConfig.getNotCheckPluginVersion());
+        if (r.success) {
+          count.success++;
+        } else {
+          count.failed++;
+        }
+      } catch (e) {
+        count.failed++;
+      }
+    }
+    return count;
+  }
+
+  /** 同步单个订阅源（安装/更新其中的插件），返回状态文本 */
+  static async syncSource(url: string): Promise<string> {
+    const urls = await Subscriptions.resolveUrls(url);
+    if (urls === null) {
+      return '订阅源获取失败或格式不正确';
+    }
+    const count = await Subscriptions.installUrls(urls);
+    return '更新完成：' + count.success.toString() + ' 个插件成功' +
+      (count.failed > 0 ? '，' + count.failed.toString() + ' 个失败' : '');
+  }
+
+  /** 同步全部订阅源，返回状态文本；onProgress 回调当前进度（done 从 0 开始） */
+  static async syncAll(onProgress?: (done: number, total: number) => void): Promise<string> {
+    const sources = Subscriptions.getSources();
+    if (sources.length === 0) {
+      return '暂无订阅源';
+    }
+    const total = new InstallCount();
+    for (let i = 0; i < sources.length; ++i) {
+      if (onProgress !== undefined) {
+        onProgress(i, sources.length);
+      }
+      const urls = await Subscriptions.resolveUrls(sources[i]);
+      if (urls !== null) {
+        const count = await Subscriptions.installUrls(urls);
+        total.success += count.success;
+        total.failed += count.failed;
+      } else {
+        total.failed++;
+      }
+    }
+    if (onProgress !== undefined) {
+      onProgress(sources.length, sources.length);
+    }
+    return '订阅同步完成：' + total.success.toString() + ' 个插件成功' +
+      (total.failed > 0 ? '，' + total.failed.toString() + ' 个失败' : '');
+  }
+}

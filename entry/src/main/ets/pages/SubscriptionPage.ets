@@ -25,11 +25,15 @@ export struct SubscriptionPage {
   scroller: Scroller = new Scroller();
   @Local sources: Array<string> = [];
   @Local importUrl: string = '';
+  @Local importName: string = '';
   @Local showImportSheet: boolean = false;
   @Local showDetailSheet: boolean = false;
   @Local detailUrl: string = '';
   @Local updating: boolean = false;
   @Local statusText: string = '';
+  // 详情内重命名（行内编辑态）
+  @Local renaming: boolean = false;
+  @Local renameText: string = '';
 
   aboutToAppear(): void {
     this.sources = Subscriptions.getSources();
@@ -43,8 +47,12 @@ export struct SubscriptionPage {
     }
   }
 
-  /** 订阅源标题：取 URL 最后一段文件名（去掉查询参数） */
+  /** 订阅源标题：自定义名称优先，否则取 URL 最后一段文件名（去掉查询参数） */
   private static sourceTitle(url: string): string {
+    const custom = Subscriptions.getSourceName(url);
+    if (custom.length > 0) {
+      return custom;
+    }
     const clean = url.split('?')[0];
     const idx = clean.lastIndexOf('/');
     const name = idx === -1 ? clean : clean.substring(idx + 1);
@@ -82,6 +90,7 @@ export struct SubscriptionPage {
     netItem.onAction = (): void => {
       MenuUtils.Dismiss();
       this.importUrl = '';
+      this.importName = '';
       this.showImportSheet = true;
     };
     const localItem = new MenuItemParams();
@@ -96,7 +105,7 @@ export struct SubscriptionPage {
     });
   }
 
-  /** 网络导入：添加订阅源并立即同步 */
+  /** 网络导入：添加订阅源（可填自定义名称）并立即同步 */
   private confirmImportUrl(): void {
     const url = this.importUrl.trim();
     if (url.length === 0) {
@@ -109,10 +118,16 @@ export struct SubscriptionPage {
     }
     if (!Subscriptions.addSource(url)) {
       this.showToast('该订阅源已存在');
+    } else {
+      const name = this.importName.trim();
+      if (name.length > 0) {
+        Subscriptions.setSourceName(url, name);
+      }
     }
     this.sources = Subscriptions.getSources();
     this.showImportSheet = false;
     this.importUrl = '';
+    this.importName = '';
     this.updateSource(url);
   }
 
@@ -276,6 +291,20 @@ export struct SubscriptionPage {
     this.removeSource(url);
   }
 
+  /** 详情内开始重命名（进入行内编辑态，预填当前标题） */
+  private startRename(): void {
+    this.renameText = SubscriptionPage.sourceTitle(this.detailUrl);
+    this.renaming = true;
+  }
+
+  /** 确认重命名（清空文本则恢复默认文件名） */
+  private confirmRename(): void {
+    Subscriptions.setSourceName(this.detailUrl, this.renameText);
+    this.renaming = false;
+    this.sources = Subscriptions.getSources();
+    this.showToast('已重命名');
+  }
+
   build() {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_subscription'), undefined, this.titleMenus()),
@@ -344,7 +373,8 @@ export struct SubscriptionPage {
               .onClick(() => {
                 this.openDetailSheet(url);
               })
-            }, (url: string, index: number) => url + '_' + index.toString())
+            }, (url: string, index: number) =>
+              url + '_' + index.toString() + '_' + Subscriptions.getSourceName(url))
           } else {
             // 空态说明
             ListItem() {
@@ -435,7 +465,7 @@ export struct SubscriptionPage {
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-      // 操作分组：更新 / 分享 / 导出 / 删除（卡片内以分割线隔开）
+      // 操作分组：更新 / 重命名 / 分享 / 导出 / 删除（卡片内以分割线隔开）
       Text('操作')
         .fontSize(14)
         .fontWeight(FontWeight.Medium)
@@ -458,6 +488,65 @@ export struct SubscriptionPage {
         .onClick(() => {
           this.updateFromSheet();
         })
+
+        Divider()
+          .DividerStyle()
+        // 重命名：点击进入行内编辑态（输入框 + 取消/确定）
+        if (this.renaming) {
+          Column({ space: 12 }) {
+            TextInput({ text: this.renameText, placeholder: '订阅源名称' })
+              .width('100%')
+              .height(44)
+              .fontSize(14)
+              .fontColor($r('sys.color.font_primary'))
+              .placeholderColor($r('sys.color.font_tertiary'))
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
+              .borderRadius(12)
+              .onChange((v: string) => {
+                this.renameText = v;
+              })
+              .onSubmit((_enterKey: EnterKeyType) => {
+                this.confirmRename();
+              })
+            Row({ space: 12 }) {
+              Button('取消')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(15)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .fontColor($r('sys.color.font_primary'))
+                .onClick(() => {
+                  this.renaming = false;
+                })
+              Button('确定')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(15)
+                .onClick(() => {
+                  this.confirmRename();
+                })
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+        } else {
+          Row({ space: 12 }) {
+            SymbolGlyph($r('sys.symbol.square_and_pencil'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+            Text('重命名')
+              .fontSize(15)
+              .fontColor($r('sys.color.font_primary'))
+              .layoutWeight(1)
+          }
+          .width('100%')
+          .height(48)
+          .padding({ left: 16, right: 16 })
+          .onClick(() => {
+            this.startRename();
+          })
+        }
 
         Divider()
           .DividerStyle()
@@ -548,6 +637,18 @@ export struct SubscriptionPage {
         .borderRadius(12)
         .onChange((v: string) => {
           this.importUrl = v;
+        })
+      TextInput({ text: this.importName, placeholder: '名称（可选，默认取文件名）' })
+        .width('100%')
+        .height(44)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(12)
+        .margin({ top: 12 })
+        .onChange((v: string) => {
+          this.importName = v;
         })
         .onSubmit((_enterKey: EnterKeyType) => {
           this.confirmImportUrl();

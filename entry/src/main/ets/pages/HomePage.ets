@@ -2,6 +2,7 @@ import { TimeTipUtils } from '../utils/TimeTipUtils'
 import { CommonNav, titleBarOf } from '../view/CommonNav'
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { CommonLoading, CommonNull, CommonSearch, SheetCard, CardStack, MenuItemParams } from '../view/CommonCom';
+import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -71,6 +72,9 @@ export struct HomePage{
   @Local localMusic: Array<MusicItem> = [];
   // 首页当前使用的插件（用户通过右上角菜单选择）
   @Local homePluginName: string = '';
+  // 本地音乐条目操作半模态（与搜索页共用）
+  @Local showOptions: boolean = false;
+  @Local optionsItem: MusicItem = new MusicItem();
 
   private scroller: Scroller = new Scroller();
   private recommendPlugin: Plugin | null = null;
@@ -154,6 +158,15 @@ export struct HomePage{
         .justifyContent(FlexAlign.End)
         .padding({ right: 16 })
         .margin({ top: appState.topRect + 20 })
+
+        // 本地音乐条目操作半模态（与搜索页共用）
+        MusicOptionsSheet({
+          optionsItem: this.optionsItem,
+          show: this.showOptions,
+          onClose: (): void => {
+            this.showOptions = false;
+          }
+        })
       }
       .width('100%')
       .height('100%')
@@ -321,6 +334,12 @@ export struct HomePage{
     trackPlayer.playWithReplacePlayList(item, this.localMusic).catch((_e: Object): void => {
       this.showToast('播放失败');
     });
+  }
+
+  /** 打开本地音乐条目操作半模态（与搜索结果一致） */
+  private openLocalOptions(item: MusicItem): void {
+    this.optionsItem = item.clone();
+    this.showOptions = true;
   }
 
   /** 切换推荐歌单标签 */
@@ -595,7 +614,7 @@ export struct HomePage{
       ForEach(this.localMusic.slice(0, LOCAL_PREVIEW_COUNT), (item: MusicItem, index: number) => {
         ListItem() {
           this.MusicRowBuilder(item)
-        }
+        }.padding({top: 16})
       }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + index.toString())
     }
   }
@@ -628,6 +647,12 @@ export struct HomePage{
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
+      SymbolGlyph($r('sys.symbol.ellipsis_circle'))
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_secondary')])
+        .onClick(() => {
+          this.openLocalOptions(item);
+        })
     }
     .width('100%')
     .height(56)
