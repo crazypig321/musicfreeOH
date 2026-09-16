@@ -82,6 +82,8 @@ struct Index {
         .vertical(false)
         .scrollable(false)
         .barPosition(BarPosition.End)
+        // 批量操作模式下隐藏 tab 栏
+        .barHeight(appState.isBatchMode ? 0 : 56)
         .barFloatingStyle({
           barBottomMargin: 28,
           systemMaterialEffect: {
@@ -131,6 +133,15 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+  }
+
+  /** 返回键：批量操作模式下先退出批量模式 */
+  onBackPress(): boolean {
+    if (appState.isBatchMode) {
+      appState.isBatchMode = false;
+      return true;
+    }
+    return false;
   }
 
   @Builder

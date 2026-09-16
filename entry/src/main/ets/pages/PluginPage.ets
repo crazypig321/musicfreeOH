@@ -48,6 +48,7 @@ export struct PluginPage {
   @Local detailSrcUrl: string = '';
   @Local detailUsage: string = '';
   @Local detailVars: Array<PluginVarField> = [];
+  @Local batchSelected: Array<string> = [];
   private detailHash: string = '';
   /** 是否正在同步订阅源 */
   private syncingSubscriptions: boolean = false;
@@ -256,26 +257,170 @@ export struct PluginPage {
     });
   }
 
-  /** 导出插件文件到 下载目录/插件文件夹 */
+  /** 导出单个插件文件到 下载目录/插件 文件夹 */
+  private exportPluginFile(plugin: Plugin): boolean {
+    if (plugin.path.length === 0 || !FileUtils.exists(plugin.path)) {
+      return false;
+    }
+    // downloadPath 可能无结尾斜杠（公共目录），先补齐再拼接，避免目录名黏连
+    const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
+    const destPath = base + '插件/' + FileUtils.escapeCharacter(plugin.name) + '.js';
+    return FileUtils.copyFile(plugin.path, destPath);
+  }
+
+  /** 导出当前详情插件文件 */
   private exportDetailFile(): void {
     if (this.detailName === '本地') {
       this.showToast('内置插件无法导出');
       return;
     }
     const plugin = pluginManager.getByName(this.detailName);
-    if (plugin === null || !FileUtils.exists(plugin.path)) {
-      this.showToast('插件文件不存在');
+    if (plugin === null) {
+      this.showToast('插件不存在');
       return;
     }
-    // downloadPath 可能无结尾斜杠（公共目录），先补齐再拼接，避免目录名黏连
-    const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
-    const destDir = base + '插件/';
-    const destPath = destDir + FileUtils.escapeCharacter(this.detailName) + '.js';
-    if (FileUtils.copyFile(plugin.path, destPath)) {
-      this.showToast('已导出到 ' + destPath);
+    if (this.exportPluginFile(plugin)) {
+      this.showToast('已导出到 下载目录/插件 文件夹');
     } else {
-      this.showToast('导出失败');
+      this.showToast('插件文件不存在或导出失败');
     }
+  }
+
+  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出） */
+  private enterBatchMode(): void {
+    appState.isBatchMode = true;
+    this.batchSelected = [];
+  }
+
+  /** 退出批量模式 */
+  private exitBatchMode(): void {
+    appState.isBatchMode = false;
+    this.batchSelected = [];
+  }
+
+  /** 行是否被勾选 */
+  private isSelected(row: PluginRow): boolean {
+    return this.batchSelected.indexOf(row.hash) !== -1;
+  }
+
+  /** 批量模式下点击行：切换勾选状态 */
+  private toggleBatchSelect(row: PluginRow): void {
+    if (row.name === '本地') {
+      this.showToast('内置插件不支持批量操作');
+      return;
+    }
+    const next = this.batchSelected.slice();
+    const idx = next.indexOf(row.hash);
+    if (idx === -1) {
+      next.push(row.hash);
+    } else {
+      next.splice(idx, 1);
+    }
+    this.batchSelected = next;
+  }
+
+  /** 全选/取消全选（不含内置插件） */
+  private toggleSelectAll(): void {
+    const all: Array<string> = [];
+    for (const row of this.pluginRows) {
+      if (row.name !== '本地') {
+        all.push(row.hash);
+      }
+    }
+    // 已全部勾选时再次点击则清空
+    this.batchSelected = this.batchSelected.length === all.length ? [] : all;
+  }
+
+  /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」） */
+  private batchButtonLabels(): Array<string> {
+    let selectable = 0;
+    for (const row of this.pluginRows) {
+      if (row.name !== '本地') {
+        selectable++;
+      }
+    }
+    const allSelected = selectable > 0 && this.batchSelected.length === selectable;
+    return [allSelected ? '取消全选' : '全选', '导出', '分享', '删除'];
+  }
+
+  /** 勾选的插件实体列表 */
+  private selectedPlugins(): Array<Plugin> {
+    const result: Array<Plugin> = [];
+    for (const hash of this.batchSelected) {
+      const p = pluginManager.getByHash(hash);
+      if (p !== null) {
+        result.push(p);
+      }
+    }
+    return result;
+  }
+
+  /** 批量导出选中插件文件 */
+  private batchExport(): void {
+    const plugins = this.selectedPlugins();
+    if (plugins.length === 0) {
+      this.showToast('请先勾选插件');
+      return;
+    }
+    let ok = 0;
+    let fail = 0;
+    for (const p of plugins) {
+      if (this.exportPluginFile(p)) {
+        ok++;
+      } else {
+        fail++;
+      }
+    }
+    if (fail === 0) {
+      this.showToast('已导出 ' + ok.toString() + ' 个插件文件');
+    } else {
+      this.showToast('导出完成：' + ok.toString() + ' 成功，' + fail.toString() + ' 失败');
+    }
+  }
+
+  /** 批量分享：复制选中插件的源地址 */
+  private batchShare(): void {
+    const plugins = this.selectedPlugins();
+    const urls: Array<string> = [];
+    for (const p of plugins) {
+      const srcUrl = p.instanceInfo !== null ? p.instanceInfo.srcUrl : '';
+      if (srcUrl.length > 0) {
+        urls.push(srcUrl);
+      }
+    }
+    if (urls.length === 0) {
+      this.showToast('选中插件没有源地址');
+      return;
+    }
+    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, urls.join('\n'));
+    pasteboard.getSystemPasteboard().setData(data).then((): void => {
+      this.showToast('已复制 ' + urls.length.toString() + ' 个源地址，可粘贴分享');
+    }).catch((_e: Object): void => {
+      this.showToast('复制失败');
+    });
+  }
+
+  /** 批量卸载选中插件 */
+  private async batchUninstall(): Promise<void> {
+    const plugins = this.selectedPlugins();
+    if (plugins.length === 0) {
+      this.showToast('请先勾选插件');
+      return;
+    }
+    let ok = 0;
+    let fail = 0;
+    for (const p of plugins) {
+      try {
+        await pluginManager.uninstallPlugin(p.hash);
+        ok++;
+      } catch (e) {
+        fail++;
+      }
+    }
+    this.exitBatchMode();
+    this.refreshPlugins();
+    this.showToast('已卸载 ' + ok.toString() + ' 个插件' +
+      (fail > 0 ? '，' + fail.toString() + ' 个失败' : ''));
   }
 
   /** 卸载当前详情插件 */
@@ -380,7 +525,15 @@ export struct PluginPage {
         this.syncSubscriptions();
       });
     };
-    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [updateItem, sortItem, syncSubItem], {
+    const batchItem = new MenuItemParams();
+    batchItem.icon = $r('sys.symbol.checkmark_square');
+    batchItem.label = '批量操作';
+    batchItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        this.enterBatchMode();
+      });
+    };
+    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [updateItem, sortItem, syncSubItem, batchItem], {
       placement: Placement.BottomRight
     });
   }
@@ -541,11 +694,17 @@ export struct PluginPage {
       isHideBackButton: true,
     }) {
       Stack({ alignContent: Alignment.Top }) {
-        List({ scroller: this.scroller, space: 16 }) {
+          List({ scroller: this.scroller, space: 16 }) {
           if (this.pluginRows.length > 0) {
             ForEach(this.pluginRows, (row: PluginRow, index: number) => {
               ListItem() {
                 Row({ space: 12 }) {
+                  // 批量模式：勾选圈
+                  if (appState.isBatchMode && row.name !== '本地') {
+                    SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+                      .fontSize(24)
+                      .fontColor([this.isSelected(row) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+                  }
                   Column() {
                     SymbolGlyph($r('sys.symbol.AI_panels'))
                       .fontSize(22)
@@ -573,7 +732,7 @@ export struct PluginPage {
                   .layoutWeight(1)
                   .alignItems(HorizontalAlign.Start)
 
-                  if (row.name !== '本地') {
+                  if (!appState.isBatchMode && row.name !== '本地') {
                     Toggle({ type: ToggleType.Switch, isOn: row.enabled })
                       .onChange((isOn: boolean) => {
                         this.togglePluginEnabled(row, isOn);
@@ -585,9 +744,14 @@ export struct PluginPage {
                 .borderRadius(12)
               }.ListItemStyle()
               .onClick(() => {
-                this.openDetailSheet(row);
+                if (appState.isBatchMode) {
+                  this.toggleBatchSelect(row);
+                } else {
+                  this.openDetailSheet(row);
+                }
               })
-            }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString() + '_' + row.enabled.toString())
+            }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString() + '_' + row.enabled.toString() +
+              (appState.isBatchMode && this.isSelected(row) ? '_sel' : ''))
           } else {
             ListItem() {
               Text($r('app.string.home_no_plugin'))
@@ -611,6 +775,61 @@ export struct PluginPage {
             appState.isForegroundBlur = true
           }
         })
+
+        // 底部批量模式时的渐变模糊组件
+        // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：全选 / 导出 / 分享 / 删除
+        if (appState.isBatchMode) {
+          Column()
+            .width('100%')
+            .height(116)
+            .position({ bottom: 0 })
+            .linearGradientBlur(60,
+              { fractionStops: [[0, 0], [0.9, 0.15], [1, 0.3], [1, 1]], direction: GradientDirection.Bottom })
+
+          Column({ space: 10 }) {
+            Row() {
+              Text('已选 ' + this.batchSelected.length.toString() + ' 个插件')
+                .fontSize(13)
+                .fontColor($r('sys.color.font_secondary'))
+              Blank()
+              Text('取消')
+                .fontSize(16)
+                .fontColor($r('sys.color.font_secondary'))
+                .onClick(() => {
+                  this.exitBatchMode();
+                })
+            }
+            .width('100%')
+
+            Row({ space: 8 }) {
+              ForEach(this.batchButtonLabels(), (v: string, i: number) => {
+                Button(v)
+                  .layoutWeight(1)
+                  .height(36)
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .borderRadius(10)
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    if (i === 0) {// 全选/取消全选
+                      this.toggleSelectAll();
+                    } else if (i === 1) {// 导出
+                      this.batchExport();
+                    } else if (i === 2) {// 分享
+                      this.batchShare();
+                    } else {// 删除
+                      this.batchUninstall();
+                    }
+                  })
+              }, (v: string, i: number) => v + '_' + i.toString())
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .position({ bottom: 0 })
+          .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+        }
 
         // openMenu 锚点（位于标题栏下方右上角，菜单在锚点处弹出）
         Row({ space: 12 }) {
@@ -944,7 +1163,8 @@ function ListStyle(){
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
   .contentStartOffset(appState.topRect + 66)
-  .contentEndOffset(appState.bottomRect + 60)
+  // 批量模式下底栏悬浮于列表之上，末尾内容需多留滚动空间
+  .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 : 60))
   .padding({ left: 16, right: 16 })
 }
 

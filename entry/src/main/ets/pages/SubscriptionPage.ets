@@ -1,11 +1,15 @@
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { picker } from '@kit.CoreFileKit';
+import { pasteboard } from '@kit.BasicServicesKit';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { appState } from '../entryability/AppState';
 import { JsonUtil } from '../common/JsonUtil';
 import { ContextHolder } from '../common/ContextHolder';
+import { PathConst } from '../common/PathConst';
+import { FileUtils } from '../utils/FileUtils';
+import { HttpClient } from '../infra/HttpClient';
 import { Subscriptions } from '../plugin/Subscriptions';
 import { PluginImport } from '../plugin/PluginImport';
 
@@ -22,6 +26,8 @@ export struct SubscriptionPage {
   @Local sources: Array<string> = [];
   @Local importUrl: string = '';
   @Local showImportSheet: boolean = false;
+  @Local showDetailSheet: boolean = false;
+  @Local detailUrl: string = '';
   @Local updating: boolean = false;
   @Local statusText: string = '';
 
@@ -37,10 +43,11 @@ export struct SubscriptionPage {
     }
   }
 
-  /** 订阅源标题：取 URL 最后一段文件名 */
+  /** 订阅源标题：取 URL 最后一段文件名（去掉查询参数） */
   private static sourceTitle(url: string): string {
-    const idx = url.lastIndexOf('/');
-    const name = idx === -1 ? url : url.substring(idx + 1);
+    const clean = url.split('?')[0];
+    const idx = clean.lastIndexOf('/');
+    const name = idx === -1 ? clean : clean.substring(idx + 1);
     return name.length > 0 ? name : url;
   }
 
@@ -215,6 +222,60 @@ export struct SubscriptionPage {
     this.showToast('已删除订阅源');
   }
 
+  /** 打开订阅源详情半模态 */
+  private openDetailSheet(url: string): void {
+    this.detailUrl = url;
+    this.showDetailSheet = true;
+  }
+
+  /** 详情内更新订阅源（先关闭半模态以便查看页面状态行） */
+  private updateFromSheet(): void {
+    const url = this.detailUrl;
+    this.showDetailSheet = false;
+    this.updateSource(url);
+  }
+
+  /** 分享订阅源地址（复制到剪贴板） */
+  private shareDetailUrl(): void {
+    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, this.detailUrl);
+    pasteboard.getSystemPasteboard().setData(data).then((): void => {
+      this.showToast('已复制源地址，可粘贴分享');
+    }).catch((_e: Object): void => {
+      this.showToast('复制失败');
+    });
+  }
+
+  /** 导出订阅源文件到 下载目录/订阅源 文件夹（拉取源内容后保存） */
+  private async exportDetailFile(): Promise<void> {
+    if (this.updating) {
+      this.showToast('正在处理中，请稍候');
+      return;
+    }
+    this.updating = true;
+    this.showToast('正在获取订阅源...');
+    const text = await HttpClient.downloadText(this.detailUrl);
+    this.updating = false;
+    if (text === null) {
+      this.showToast('订阅源获取失败');
+      return;
+    }
+    // downloadPath 可能无结尾斜杠（公共目录），先补齐再拼接，避免目录名黏连
+    const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
+    const destPath = base + '订阅源/' + FileUtils.escapeCharacter(SubscriptionPage.sourceTitle(this.detailUrl));
+    if (FileUtils.writeFileText(destPath, text)) {
+      this.showToast('已导出到 ' + destPath);
+    } else {
+      this.showToast('导出失败');
+    }
+  }
+
+  /** 详情内删除订阅源 */
+  private removeDetailSource(): void {
+    const url = this.detailUrl;
+    this.showDetailSheet = false;
+    this.removeSource(url);
+  }
+
   build() {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_subscription'), undefined, this.titleMenus()),
@@ -272,19 +333,6 @@ export struct SubscriptionPage {
                   }
                   .layoutWeight(1)
                   .alignItems(HorizontalAlign.Start)
-
-                  SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                    .onClick(() => {
-                      this.updateSource(url);
-                    })
-                  SymbolGlyph($r('sys.symbol.trash'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                    .onClick(() => {
-                      this.removeSource(url);
-                    })
                 }
                 .width('100%')
                 .height(56)
@@ -294,7 +342,7 @@ export struct SubscriptionPage {
               .padding(12)
               .backgroundColor($r('sys.color.comp_background_list_card'))
               .onClick(() => {
-                this.updateSource(url);
+                this.openDetailSheet(url);
               })
             }, (url: string, index: number) => url + '_' + index.toString())
           } else {
@@ -352,7 +400,132 @@ export struct SubscriptionPage {
       }
       .width('100%')
       .height('100%')
+      .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
+        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        dragBar: true,
+        onWillDisappear: () => {
+          this.showDetailSheet = false;
+          appState.isForegroundBlur = false
+        },
+        onWillAppear: () => {
+          appState.isForegroundBlur = true
+        }
+      })
     }
+  }
+
+  /** 订阅源详情半模态（UI 参考插件详情） */
+  @Builder
+  DetailSheetBuilder() {
+    Column() {
+      // 头部：源文件名 + 完整 URL
+      Text(SubscriptionPage.sourceTitle(this.detailUrl))
+        .fontSize(19)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ top: 4 })
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(this.detailUrl)
+        .fontSize(12)
+        .fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
+        .margin({ top: 4, bottom: 12 })
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      // 操作分组：更新 / 分享 / 导出 / 删除（卡片内以分割线隔开）
+      Text('操作')
+        .fontSize(14)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+        .margin({ top: 8, bottom: 6 })
+      Column() {
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('更新订阅源')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.updateFromSheet();
+        })
+
+        Divider()
+          .DividerStyle()
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.share'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('分享源地址')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+          Text(this.detailUrl)
+            .fontSize(11)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .constraintSize({ maxWidth: '45%' })
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.shareDetailUrl();
+        })
+
+        Divider()
+          .DividerStyle()
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.square_and_arrow_down'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('导出订阅源')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.exportDetailFile();
+        })
+
+        Divider()
+          .DividerStyle()
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.trash'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('删除订阅源')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.removeDetailSource();
+        })
+      }
+      .width('100%')
+      .borderRadius(16)
+      .backgroundColor($r('sys.color.comp_background_list_card'))
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
   }
 
   /** 网络导入：订阅源 URL 输入 */
@@ -393,4 +566,10 @@ export struct SubscriptionPage {
     .padding({ left: 20, right: 20, top: 12, bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
+}
+
+@Extend(Divider)
+function DividerStyle(){
+  .color($r('sys.color.comp_divider'))
+  .margin({ left: 48, right: 12 })
 }

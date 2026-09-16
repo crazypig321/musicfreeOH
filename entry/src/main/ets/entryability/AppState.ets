@@ -19,6 +19,8 @@ class AppState{
   @Trace isForegroundBlur: boolean = false;
   // 弹窗是否开启
   @Trace isDialogOpen: boolean = false;
+  // 批量操作模式（隐藏 tab 栏，返回键退出该模式）
+  @Trace isBatchMode: boolean = false;
 
   /**
    * 屏幕避让及断点
