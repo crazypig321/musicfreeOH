@@ -53,6 +53,11 @@ export class PluginMeta {
     return set;
   }
 
+  /** 清空内存缓存（备份恢复后调用，使禁用状态等从存储重新读取） */
+  static invalidateCache(): void {
+    PluginMeta.cachedDisabled = null;
+  }
+
   static isPluginEnabled(pluginPlatform: string): boolean {
     return !PluginMeta.getDisabledSet().has(pluginPlatform);
   }

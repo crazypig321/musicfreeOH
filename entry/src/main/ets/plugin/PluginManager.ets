@@ -196,14 +196,19 @@ export class PluginManager {
 
       if (plugin.state === PluginState.Mounted) {
         const fn = CryptoUtil.nanoid();
+        const newPluginPath = PathConst.pluginPath + fn + '.js';
+        // 先写入新文件，成功后再移除旧版本，避免写入失败导致插件丢失
+        if (!FileUtils.copyFile(pluginPath, newPluginPath)) {
+          result.success = false;
+          result.message = '插件文件写入失败';
+          return result;
+        }
+        plugin.path = newPluginPath;
+        allPlugins = allPlugins.concat([plugin]);
         if (oldVersionPlugin !== null) {
           allPlugins = allPlugins.filter((_: Plugin): boolean => _.hash !== oldVersionPlugin.hash);
           FileUtils.unlink(oldVersionPlugin.path);
         }
-        const newPluginPath = PathConst.pluginPath + fn + '.js';
-        FileUtils.copyFile(pluginPath, newPluginPath);
-        plugin.path = newPluginPath;
-        allPlugins = allPlugins.concat([plugin]);
         this.setPlugins(allPlugins);
 
         result.success = true;
@@ -267,7 +272,12 @@ export class PluginManager {
       if (plugin.hash.length > 0) {
         const fn = CryptoUtil.nanoid();
         const newPluginPath = PathConst.pluginPath + fn + '.js';
-        FileUtils.writeFileText(newPluginPath, funcCode);
+        // 先写入新文件，成功后再移除旧版本，避免写入失败导致插件丢失
+        if (!FileUtils.writeFileText(newPluginPath, funcCode)) {
+          result.success = false;
+          result.message = '插件文件写入失败';
+          return result;
+        }
         plugin.path = newPluginPath;
         allPlugins = allPlugins.concat([plugin]);
         if (oldVersionPlugin !== null) {
