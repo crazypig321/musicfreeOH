@@ -12,6 +12,7 @@ import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { SettingsPage } from './SettingsPage';
 import { SearchPage } from './SearchPage';
+import { SubscriptionPage } from './SubscriptionPage';
 import { PlayBar } from '../view/PlayBar';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
@@ -68,6 +69,8 @@ struct Index {
                 DownloadPage()
               } else if (i === 2) {
                 PluginPage()
+              } else if (i === 3) {
+                SubscriptionPage()
               } else {
                 SettingsPage()
               }

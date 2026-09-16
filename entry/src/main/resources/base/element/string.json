@@ -25,6 +25,10 @@
       "value": "插件管理"
     },
     {
+      "name": "tab_subscription",
+      "value": "订阅源"
+    },
+    {
       "name": "tab_settings",
       "value": "设置"
     },

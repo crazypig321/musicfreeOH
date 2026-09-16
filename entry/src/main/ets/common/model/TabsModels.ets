@@ -49,6 +49,16 @@ export const MENU_CONFIG: MenuItem[] = [
     pressBgColor: $r('sys.color.interactive_pressed')
   },
   {
+    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.dot_radiowaves_left_and_right')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+      .fontColor([$r('sys.color.icon_primary')]),
+    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.dot_radiowaves_left_and_right')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+      .fontColor([$r('sys.color.icon_emphasize')]),
+    label: $r('app.string.tab_subscription'),
+    defaultBgColor: Color.Transparent,
+    hoverBgColor: $r('sys.color.interactive_hover'),
+    pressBgColor: $r('sys.color.interactive_pressed')
+  },
+  {
     symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.gearshape')).renderingStrategy(SymbolRenderingStrategy.MULTIPLE_COLOR)
       .fontColor([$r('sys.color.icon_primary'), $r('sys.color.icon_secondary')]),
     symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.gearshape')).renderingStrategy(SymbolRenderingStrategy.MULTIPLE_COLOR)

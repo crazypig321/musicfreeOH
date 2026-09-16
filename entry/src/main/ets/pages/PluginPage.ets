@@ -13,8 +13,11 @@ import { fileIo as fs, picker } from '@kit.CoreFileKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
+import { FileUtils } from '../utils/FileUtils';
 import { JsonUtil } from '../common/JsonUtil';
 import { DialogManager, PluginVarField } from '../utils/DialogUtils';
+import { PluginImport } from '../plugin/PluginImport';
+import { Subscriptions } from '../plugin/Subscriptions';
 
 interface PluginRow {
   name: string;
@@ -46,6 +49,8 @@ export struct PluginPage {
   @Local detailUsage: string = '';
   @Local detailVars: Array<PluginVarField> = [];
   private detailHash: string = '';
+  /** 是否正在同步订阅源 */
+  private syncingSubscriptions: boolean = false;
 
   aboutToAppear(): void {
     this.refreshPlugins();
@@ -251,6 +256,28 @@ export struct PluginPage {
     });
   }
 
+  /** 导出插件文件到 下载目录/插件文件夹 */
+  private exportDetailFile(): void {
+    if (this.detailName === '本地') {
+      this.showToast('内置插件无法导出');
+      return;
+    }
+    const plugin = pluginManager.getByName(this.detailName);
+    if (plugin === null || !FileUtils.exists(plugin.path)) {
+      this.showToast('插件文件不存在');
+      return;
+    }
+    // downloadPath 可能无结尾斜杠（公共目录），先补齐再拼接，避免目录名黏连
+    const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
+    const destDir = base + '插件/';
+    const destPath = destDir + FileUtils.escapeCharacter(this.detailName) + '.js';
+    if (FileUtils.copyFile(plugin.path, destPath)) {
+      this.showToast('已导出到 ' + destPath);
+    } else {
+      this.showToast('导出失败');
+    }
+  }
+
   /** 卸载当前详情插件 */
   private uninstallDetail(): void {
     if (this.detailName === '本地') {
@@ -345,7 +372,15 @@ export struct PluginPage {
         this.openSortSheet();
       });
     };
-    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [updateItem, sortItem], {
+    const syncSubItem = new MenuItemParams();
+    syncSubItem.icon = $r('sys.symbol.dot_radiowaves_left_and_right');
+    syncSubItem.label = '同步订阅源';
+    syncSubItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        this.syncSubscriptions();
+      });
+    };
+    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [updateItem, sortItem, syncSubItem], {
       placement: Placement.BottomRight
     });
   }
@@ -378,19 +413,19 @@ export struct PluginPage {
       });
   }
 
-  /** 本地导入 */
+  /** 本地导入（支持批量选择，最多 20 个） */
   private pickLocalPlugin(): void {
     try {
       const ctx = ContextHolder.get();
       const documentPicker = new picker.DocumentViewPicker(ctx);
       const options = new picker.DocumentSelectOptions();
-      options.maxSelectNumber = 1;
+      options.maxSelectNumber = 20;
       options.fileSuffixFilters = ['.js'];
       documentPicker.select(options).then((uris: Array<string>) => {
         if (uris.length === 0) {
           return;
         }
-        this.installLocalPlugin(uris[0]);
+        this.installLocalPlugins(uris);
       }).catch((_e: Object): void => {
         this.showToast('选择文件失败');
       });
@@ -399,32 +434,36 @@ export struct PluginPage {
     }
   }
 
-  private installLocalPlugin(fileUriStr: string): void {
-    const destPath = PathConst.cachePath + 'plugin_import_' + Date.now().toString() + '.js';
-    try {
-      const src = fs.openSync(fileUriStr, fs.OpenMode.READ_ONLY);
-      const dst = fs.openSync(destPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
-      fs.copyFileSync(src.fd, dst.fd);
-      fs.closeSync(src);
-      fs.closeSync(dst);
-    } catch (error) {
-      this.showToast('读取插件文件失败');
-      return;
-    }
+  /** 批量安装本地插件文件：逐个导入并汇总结果 */
+  private async installLocalPlugins(uris: Array<string>): Promise<void> {
     if (this.installing) {
       return;
     }
     this.installing = true;
-    pluginManager.installPluginFromLocalFile(destPath, appConfig.getNotCheckPluginVersion())
-      .then((r: InstallPluginResult) => {
-        this.installing = false;
-        this.showToast(r.success ? '安装成功: ' + r.pluginName : '安装失败: ' + r.message);
-        this.refreshPlugins();
-      })
-      .catch((e: Object) => {
-        this.installing = false;
-        this.showToast('安装失败: ' + (e instanceof Error ? e.message : ''));
-      });
+    this.showToast('开始导入 ' + uris.length.toString() + ' 个插件');
+    const summary = await PluginImport.installLocalJsFiles(uris);
+    this.installing = false;
+    this.refreshPlugins();
+    if (summary.failed === 0) {
+      this.showToast('成功导入 ' + summary.success.toString() + ' 个插件');
+    } else {
+      this.showToast('导入完成：' + summary.success.toString() + ' 成功，' + summary.failed.toString() + ' 失败' +
+        (summary.lastMessage.length > 0 ? '（' + summary.lastMessage + '）' : ''));
+    }
+  }
+
+  /** 同步全部订阅源：安装/更新其中的插件 */
+  private async syncSubscriptions(): Promise<void> {
+    if (this.syncingSubscriptions) {
+      this.showToast('正在同步中，请稍候');
+      return;
+    }
+    this.syncingSubscriptions = true;
+    this.showToast('开始同步订阅源');
+    const message = await Subscriptions.syncAll();
+    this.syncingSubscriptions = false;
+    this.refreshPlugins();
+    this.showToast(message);
   }
 
   /** 更新全部插件 */
@@ -845,6 +884,23 @@ export struct PluginPage {
         .padding({ left: 16, right: 16 })
         .onClick(() => {
           this.shareDetailSrc();
+        })
+
+        Divider().DividerStyle()
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.square_and_arrow_down'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('导出插件文件')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.exportDetailFile();
         })
 
         Divider().DividerStyle()
