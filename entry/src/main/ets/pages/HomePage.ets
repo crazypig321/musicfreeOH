@@ -75,7 +75,6 @@ export struct HomePage{
     CommonNav({
       titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle'), this.titleMenus(), { builder: (): void => { this.search() } }),
       isHideBackButton: true,
-      scroller: this.scroller
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {
@@ -414,6 +413,7 @@ export struct HomePage{
               // 第一组：卡片堆叠轮播（后面卡片露出上边缘，滑动/点击切换）
               CardStack({
                 items: l.data,
+                coverAspect: 0.8,
                 itemClick: (_sheet: SheetItem): void => {
                   this.onSheetClick();
                 }
