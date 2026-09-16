@@ -16,11 +16,7 @@ export struct HomePage{
   /** 主体build */
   build() {
     CommonNav({
-      titleBarOp: {
-        title: { mainTitle: TimeTipUtils(), subTitle: $r('app.string.home_subtitle') },
-        menu: { value: this.titleMenus() },
-        bottomBuilder: { builder: this.search() },
-      },
+      titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle'), this.titleMenus(), { builder: (): void => { this.search() } }),
       isHideBackButton: true,
       scroller: this.scroller
     }) {
@@ -49,7 +45,7 @@ export struct HomePage{
       click: () => {
         NavPathUtils.push('search')
       }
-    })
+    }).padding({ left: 16, right: 16 })
   }
 
   /** titleBar 菜单按钮（选择插件） */
@@ -73,7 +69,7 @@ function ListStyle(){
   .height('100%')
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
-  .contentStartOffset(appState.topRect + 66)
+  .contentStartOffset(appState.topRect + 120)
   .contentEndOffset(appState.bottomRect + 60)
   .padding({ left: 16, right: 16 })
 }
