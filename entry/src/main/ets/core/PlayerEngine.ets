@@ -1,5 +1,6 @@
 import media from '@ohos.multimedia.media';
 import audio from '@ohos.multimedia.audio';
+import fs from '@ohos.file.fs';
 import { BusinessError } from '@ohos.base';
 import { Log } from '../utils/Log';
 import { Delay } from '../utils/Delay';
@@ -29,6 +30,8 @@ export class PlayerEngine {
   private stateInternal: PlayState = PlayState.Idle;
   private rate: number = 1;
   private playingBeforeInterrupt: boolean = false;
+  /** 本地播放文件句柄（fd:// 播放期间需保持打开） */
+  private localFile: fs.File | null = null;
 
   /** 被其他应用打断后是否自动恢复播放（basic.notInterrupt 取反） */
   resumeAfterInterrupt: boolean = true;
@@ -176,13 +179,27 @@ export class PlayerEngine {
     return p;
   }
 
+  /** 关闭本地播放文件句柄（需在播放器 reset/release 之后调用） */
+  private closeLocalFile(): void {
+    if (this.localFile !== null) {
+      try {
+        fs.closeSync(this.localFile);
+      } catch (e) {
+        // 忽略关闭失败
+      }
+      this.localFile = null;
+    }
+  }
+
   /**
    * 加载音源并 prepare 完成
-   * @param url 网络地址或本地路径（支持 file:// 前缀）
+   * @param url 网络地址或本地路径（支持 file:// 前缀；本地文件以 fd:// 方式播放）
    * @param headers 自定义 HTTP 头（网络源生效）
    */
   async load(url: string, headers: Record<string, string> | null): Promise<void> {
     const p = await this.recycle();
+    // 播放器已回收，上一首本地文件句柄不再被占用
+    this.closeLocalFile();
     const isHttp = url.startsWith('http://') || url.startsWith('https://');
     let sourceSet = false;
     if (isHttp && headers !== null && Object.keys(headers).length > 0) {
@@ -197,7 +214,11 @@ export class PlayerEngine {
       if (isHttp) {
         p.url = url;
       } else {
-        p.url = url.startsWith('file://') ? url.substring('file://'.length) : url;
+        // AVPlayer 不支持裸磁盘路径，本地文件需打开为 fd://
+        const path = url.startsWith('file://') ? url.substring('file://'.length) : url;
+        const file = fs.openSync(path, fs.OpenMode.READ_ONLY);
+        this.localFile = file;
+        p.url = 'fd://' + file.fd.toString();
       }
     }
     // url 赋值/setMediaSource 后播放器异步迁移 idle → initialized，
@@ -301,6 +322,7 @@ export class PlayerEngine {
     const p = this.player;
     this.player = null;
     this.stateInternal = PlayState.Released;
+    this.closeLocalFile();
     if (p !== null) {
       try {
         await p.release();

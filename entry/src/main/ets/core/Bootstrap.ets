@@ -54,6 +54,14 @@ export class Bootstrap {
     // 5. 本地音乐
     await localMusicSheet.setup();
 
+    // 5.1 下载目录自动扫描（非阻塞）：解析公共下载目录后导入其中全部音频，
+    // 文件名符合 platform@id@title@artist 的还原元信息，其余归入「本地」平台
+    PathConst.bootstrapPublicDownloadDir().then(() => {
+      return localMusicSheet.importLocal([PathConst.downloadPath]);
+    }).catch(() => {
+      // 静默失败，不影响启动
+    });
+
     // 6. 非阻塞收尾
     Bootstrap.extraMakeup().catch(() => {
     });
