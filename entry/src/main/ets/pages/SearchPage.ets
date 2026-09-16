@@ -13,6 +13,7 @@ import { MediaUtils } from '../utils/MediaUtils';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { appState } from '../entryability/AppState';
+import { CommonSearch } from '../view/CommonCom';
 
 /** 搜索结果不足以铺满首屏时自动续拉的阈值 */
 const AUTO_LOAD_MORE_THRESHOLD = 30;
@@ -459,14 +460,13 @@ export struct SearchPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf($r('app.string.search_title')),
+      titleBarOp: titleBarOf($r('app.string.search_title'), undefined, undefined, { builder: (): void => {this.SearchBarBuilder()} }),
       isShowPlayBar: false,
       backPressed: (): boolean => false
     }) {
       List({ scroller: this.scroller }) {
         ListItem() {
           Column() {
-            this.SearchBarBuilder()
             this.PluginSelectorBuilder()
             if (this.searchStatus.length > 0) {
               Text(this.searchStatus)
@@ -523,7 +523,7 @@ export struct SearchPage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .contentStartOffset(appState.topRect + 66)
+      .contentStartOffset(appState.topRect + 110)
       .contentEndOffset(appState.bottomRect)
       .padding({ left: 16, right: 16 })
       .onReachEnd(() => {
@@ -546,42 +546,19 @@ export struct SearchPage {
 
   @Builder
   SearchBarBuilder() {
-    Row({ space: 8 }) {
-      SymbolGlyph($r('sys.symbol.magnifyingglass'))
-        .fontSize(20)
-        .fontColor([$r('sys.color.icon_secondary')])
-      TextInput({ text: this.keyword, placeholder: $r('app.string.home_search_placeholder') })
-        .layoutWeight(1)
-        .height(44)
-        .backgroundColor(Color.Transparent)
-        .padding(0)
-        .fontSize(15)
-        .fontColor($r('sys.color.font_primary'))
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .placeholderFont({ size: 15 })
-        .enterKeyType(EnterKeyType.Search)
-        .defaultFocus(true)
-        .onChange((v: string) => {
-          this.keyword = v;
-        })
-        .onSubmit((_enterKey: EnterKeyType) => {
-          this.doSearch();
-        })
-      if (this.keyword.length > 0) {
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.icon_tertiary')])
-          .onClick(() => {
-            this.clearKeyword();
-          })
+    CommonSearch({
+      searchValue: '',
+      placeholderValue: $r('app.string.home_search_placeholder'),
+      change: (v) => {
+        this.keyword = v;
+      },
+      submit: () => {
+        this.doSearch();
+      },
+      didDelete: ()=>{
+        this.clearKeyword()
       }
-    }
-    .width('100%')
-    .height(44)
-    .padding({ left: 16, right: 16 })
-    .borderRadius(22)
-    .backgroundColor($r('sys.color.comp_background_tertiary'))
-    .margin({ top: 4 })
+    }).padding({ left: 16, right: 16 })
   }
 
   @Builder

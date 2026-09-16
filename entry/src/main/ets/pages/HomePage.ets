@@ -42,6 +42,7 @@ export struct HomePage{
     CommonSearch({
       searchValue: '',
       placeholderValue: $r('app.string.home_search_placeholder'),
+      isFocusable: false,
       click: () => {
         NavPathUtils.push('search')
       }
