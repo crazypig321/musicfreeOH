@@ -179,8 +179,7 @@ export struct DownloadPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf($r('app.string.tab_download'), undefined, undefined),
-      isHideBackButton: true
+      titleBarOp: titleBarOf($r('app.string.tab_download'), undefined, undefined)
     }) {
       List({ scroller: this.scroller }) {
         // 下载任务分组
@@ -245,7 +244,7 @@ export struct DownloadPage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .contentStartOffset(appState.topRect + 46)
+      .contentStartOffset(appState.topRect + 55)
       .contentEndOffset(appState.bottomRect + 60)
       .padding({ left: 16, right: 16 })
       .bindSheet(!!this.showOptions, this.OptionsSheetBuilder(), {

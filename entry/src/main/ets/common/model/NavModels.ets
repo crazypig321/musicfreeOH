@@ -5,6 +5,7 @@ import { appState } from "../../entryability/AppState";
 import { MediaTag } from "./SheetTypes";
 
 export const ROUTE_SEARCH: string = 'search';
+export const ROUTE_DOWNLOAD: string = 'download';
 export const ROUTE_LOCAL_MUSIC: string = 'localMusic';
 export const ROUTE_RECOMMEND_SHEETS: string = 'recommendSheets';
 

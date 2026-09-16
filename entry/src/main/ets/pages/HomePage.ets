@@ -6,7 +6,7 @@ import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
 import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
-import { ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, RecommendSheetNavParams } from '../common/model/NavModels';
+import { ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, RecommendSheetNavParams } from '../common/model/NavModels';
 import { MusicItem } from '../common/model/MediaTypes';
 import { MusicRow } from '../view/MusicRow';
 import { SheetGridItem } from '../view/SheetGridItem';
@@ -378,8 +378,17 @@ export struct HomePage{
     });
   }
 
-  /** titleBar 菜单按钮（选择插件） */
+  /** titleBar 菜单按钮：下载 + 选择插件 */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const download: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.download'),
+        label: '下载',
+        action: (): void => {
+          NavPathUtils.push(ROUTE_DOWNLOAD);
+        }
+      }
+    };
     const menu: HdsNavigationMenuItemOptions = {
       content: {
         icon: $r('sys.symbol.AI_panels'),
@@ -389,7 +398,7 @@ export struct HomePage{
         }
       }
     };
-    return [menu];
+    return [download, menu];
   }
 
   // ==================== UI 构建 ====================

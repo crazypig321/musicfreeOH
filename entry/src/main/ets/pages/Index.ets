@@ -7,7 +7,7 @@ import {
   HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { SettingsPage } from './SettingsPage';
@@ -68,10 +68,8 @@ struct Index {
               if (i === 0) {
                 HomePage({ bootReady: this.bootReady })
               } else if (i === 1) {
-                DownloadPage()
-              } else if (i === 2) {
                 PluginPage()
-              } else if (i === 3) {
+              } else if (i === 2) {
                 SubscriptionPage()
               } else {
                 SettingsPage()
@@ -150,6 +148,8 @@ struct Index {
   pageMap(name: string) {
     if (name === ROUTE_SEARCH) {
       SearchPage({ bootReady: this.bootReady })
+    } else if (name === ROUTE_DOWNLOAD) {
+      DownloadPage()
     } else if (name === ROUTE_LOCAL_MUSIC) {
       LocalMusicPage()
     } else if (name === ROUTE_RECOMMEND_SHEETS) {

@@ -742,6 +742,17 @@ export struct PluginPage {
                 .width('100%')
                 .height(56)
                 .borderRadius(12)
+                .gesture(
+                  LongPressGesture({ repeat: false, duration: 500 })
+                    .onAction((_event: GestureEvent) => {
+                      // 长按进入批量模式并勾选当前条目（内置插件仅进入批量模式）
+                      if (appState.isBatchMode) {
+                        return;
+                      }
+                      this.enterBatchMode();
+                      this.toggleBatchSelect(row);
+                    })
+                )
               }.ListItemStyle()
               .onClick(() => {
                 if (appState.isBatchMode) {
