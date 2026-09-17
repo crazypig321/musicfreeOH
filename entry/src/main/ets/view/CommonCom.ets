@@ -328,3 +328,20 @@ export struct CardStack{
     .width('100%')
   }
 }
+
+/**
+ * 底部公共渐变模糊组件
+ */
+@ComponentV2
+export struct CommonBlur{
+  @Param heightValue: Length = 116
+  @Param gradientDirection: GradientDirection = GradientDirection.Bottom
+
+  build() {
+    Column()
+      .width('100%')
+      .height(this.heightValue)
+      .linearGradientBlur(60,
+        { fractionStops: [[0, 0], [0.9, 0.15], [1, 0.3], [1, 1]], direction: this.gradientDirection })
+  }
+}

@@ -111,8 +111,8 @@ export struct CommonNav{
         scrollEffectOpts: {
           enableScrollEffect: true,
           scrollEffectType: ScrollEffectType.IMMERSIVE_GRADIENT_BLUR, // 设置模糊类型
-          blurEffectiveStartOffset: LengthMetrics.vp(0), // 动态样式线性过渡的起始位置
-          blurEffectiveEndOffset: LengthMetrics.vp(80) // 动态样式线性过渡的终点位置
+         // blurEffectiveStartOffset: LengthMetrics.vp(0), // 动态样式线性过渡的起始位置
+         // blurEffectiveEndOffset: LengthMetrics.vp(80) // 动态样式线性过渡的终点位置
         },
         blurStrategy: BlurStrategy.ADAPTIVE,
         originalStyle: {

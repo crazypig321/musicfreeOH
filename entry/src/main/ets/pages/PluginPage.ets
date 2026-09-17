@@ -7,7 +7,7 @@ import { appConfig } from '../core/AppConfig';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
-import { MenuItemParams } from '../view/CommonCom';
+import { CommonBlur, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { fileIo as fs, picker } from '@kit.CoreFileKit';
 import { pasteboard } from '@kit.BasicServicesKit';
@@ -792,12 +792,7 @@ export struct PluginPage {
         // 底部批量模式时的渐变模糊组件
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：全选 / 导出 / 分享 / 删除
         if (appState.isBatchMode) {
-          Column()
-            .width('100%')
-            .height(116)
-            .position({ bottom: 0 })
-            .linearGradientBlur(60,
-              { fractionStops: [[0, 0], [0.9, 0.15], [1, 0.3], [1, 1]], direction: GradientDirection.Bottom })
+          CommonBlur().position({ bottom: 0 })
 
           Column({ space: 10 }) {
             Row() {
