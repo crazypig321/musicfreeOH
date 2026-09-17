@@ -11,8 +11,8 @@ class AppState{
   // 沉浸光感参数
   @Trace materialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.ADAPTIVE;
   @Trace materialType: hdsMaterial.MaterialType = hdsMaterial.MaterialType.IMMERSIVE;
-  
-  // tabs和mini排列模式
+
+  // tabs和mini排列模式：1 = VERTICAL 上下两排 / 0 = HORIZONTAL 单排（API>=6.1.1(24) 生效）
   @Trace hdsBarLayoutMode: number = 1
 
   // 是否开启模糊

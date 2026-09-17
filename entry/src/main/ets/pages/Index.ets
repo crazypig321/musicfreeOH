@@ -6,6 +6,7 @@ import {
   HdsBarStyle,
   HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
+import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
 import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_PLAYER } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
@@ -100,9 +101,20 @@ struct Index {
             miniBarBuilder: () => {
               this.miniBarBuilder()
             },
+            barLayoutMode: IsApiVersion_24() ? appState.hdsBarLayoutMode : undefined,
             miniBarStyle: appState.miniBarStyle,
             onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
-              appState.miniBarStyle = miniBarStyle
+              if (!IsApiVersion_24()) {
+                appState.miniBarStyle = miniBarStyle
+              } else {
+                // API>=24：点击折叠时切换回上下两排
+                if (miniBarStyle === HdsBarStyle.COLLAPSE) {
+                  this.getUIContext().animateTo({ duration: 300, curve: Curve.Smooth }, () => {
+                    appState.hdsBarLayoutMode = 1
+                    appState.miniBarStyle = miniBarStyle
+                  })
+                }
+              }
             },
           },
         })

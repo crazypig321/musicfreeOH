@@ -4,6 +4,7 @@ import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { CommonLoading, CommonNull, CommonSearch, SheetCard, CardStack, MenuItemParams } from '../view/CommonCom';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { NavPathUtils } from '../utils/NavPathUtils';
+import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
 import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
 import { ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, RecommendSheetNavParams, SheetDetailNavParams } from '../common/model/NavModels';
@@ -116,6 +117,10 @@ export struct HomePage{
             }, (g: IconTextItem, gi: number) => 'home_section_' + gi.toString())
           }
         }.ListStyle()
+        .onScrollFrameBegin((offset: number) => {
+          BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
+          return { offsetRemain: offset }
+        })
 
         // 插件选择菜单锚点（隐藏组件，仅用于 openMenu 定位，位于标题栏右上角按钮下方）
         Row({ space: 12 }) {
@@ -653,6 +658,7 @@ function ListStyle(){
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
   .contentStartOffset(appState.topRect + 120)
-  .contentEndOffset(appState.bottomRect + 60)
+  // 上下两排时底栏更高，末尾内容需多留滚动空间
+  .contentEndOffset(appState.bottomRect + (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60))
   .padding({ left: 16, right: 16 })
 }

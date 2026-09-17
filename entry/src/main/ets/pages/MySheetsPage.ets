@@ -8,6 +8,7 @@ import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { SheetDetailNavParams, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
 import { NavPathUtils } from '../utils/NavPathUtils';
+import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 
 /** 我的歌单页条目 */
 interface SheetRow {
@@ -373,6 +374,10 @@ export struct MySheetsPage {
           }
         }
         .ListStyle()
+        .onScrollFrameBegin((offset: number) => {
+          BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
+          return { offsetRemain: offset }
+        })
         .bindSheet(!!this.showCreateSheet, this.CreateSheetBuilder(), {
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
@@ -638,7 +643,8 @@ function ListStyle(){
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
   .contentStartOffset(appState.topRect + 66)
-  // 批量模式下底栏悬浮于列表之上，末尾内容需多留滚动空间
-  .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 : 60))
+  // 批量模式/上下两排时底栏更高，末尾内容需多留滚动空间
+  .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 :
+    (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60)))
   .padding({ left: 16, right: 16 })
 }

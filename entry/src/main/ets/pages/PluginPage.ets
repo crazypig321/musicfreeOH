@@ -9,6 +9,7 @@ import { appState } from '../entryability/AppState';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { CommonBlur, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
+import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { fileIo as fs, picker } from '@kit.CoreFileKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { ContextHolder } from '../common/ContextHolder';
@@ -800,6 +801,10 @@ export struct PluginPage {
           }
         }
         .ListStyle()
+        .onScrollFrameBegin((offset: number) => {
+          BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
+          return { offsetRemain: offset }
+        })
         .bindSheet(!!this.showSortSheet, this.SortSheetBuilder(), {
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
@@ -1197,8 +1202,9 @@ function ListStyle(){
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
   .contentStartOffset(appState.topRect + 66)
-  // 批量模式下底栏悬浮于列表之上，末尾内容需多留滚动空间
-  .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 : 60))
+  // 批量模式/上下两排时底栏更高，末尾内容需多留滚动空间
+  .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 :
+    (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60)))
   .padding({ left: 16, right: 16 })
 }
 

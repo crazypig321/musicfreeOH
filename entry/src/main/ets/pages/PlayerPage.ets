@@ -18,6 +18,7 @@ import { pluginManager } from '../plugin/PluginManager';
 import { downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
+import { PlayingVisual } from '../view/PlayingVisual';
 
 /**
  * 全屏播放页（结构参考官方多设备音乐最佳实践）：
@@ -536,127 +537,135 @@ export struct PlayerPage {
             .width('100%')
             .height(32)
 
-            // 封面区 / 歌词区（同一区域，点击或横向滑动切换）
-            if (!this.showLyric) {
-              // 封面（点击/左滑进入歌词模式）
-              Column() {
-                if (this.currentMusic.artwork.length > 0) {
-                  Image(this.currentMusic.artwork)
-                    .width(280)
-                    .height(280)
-                    .borderRadius(24)
-                    .objectFit(ImageFit.Cover)
-                } else {
+
+
+              // 封面区 / 歌词区（同一区域，点击或横向滑动切换）
+              if (!this.showLyric) {
+                Stack(){
+                  // 封面（点击/左滑进入歌词模式）
                   Column() {
-                    SymbolGlyph($r('sys.symbol.music'))
-                      .fontSize(64)
-                      .fontColor([$r('sys.color.icon_secondary')])
+                    if (this.currentMusic.artwork.length > 0) {
+                      Image(this.currentMusic.artwork)
+                        .width(280)
+                        .height(280)
+                        .borderRadius(24)
+                        .objectFit(ImageFit.Cover)
+                    } else {
+                      Column() {
+                        SymbolGlyph($r('sys.symbol.music'))
+                          .fontSize(64)
+                          .fontColor([$r('sys.color.icon_secondary')])
+                      }
+                      .width(280)
+                      .height(280)
+                      .borderRadius(24)
+                      .backgroundColor($r('sys.color.comp_background_tertiary'))
+                      .justifyContent(FlexAlign.Center)
+                      .alignItems(HorizontalAlign.Center)
+                    }
                   }
-                  .width(280)
-                  .height(280)
-                  .borderRadius(24)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .width('100%')
+                  .layoutWeight(1)
                   .justifyContent(FlexAlign.Center)
-                  .alignItems(HorizontalAlign.Center)
-                }
-              }
-              .width('100%')
-              .layoutWeight(1)
-              .justifyContent(FlexAlign.Center)
-              .onClick(() => {
-                this.enterLyricMode();
-              })
-              .gesture(
-                SwipeGesture({ direction: SwipeDirection.Horizontal })
-                  .onAction(() => {
+                  .onClick(() => {
                     this.enterLyricMode();
                   })
-              )
-            } else {
-              // 歌词区：横向滑动返回封面
-              Column() {
-                if (this.lyricLoading) {
-                  Column({ space: 8 }) {
-                    LoadingProgress()
-                      .width(28)
-                      .height(28)
-                      .color($r('sys.color.icon_tertiary'))
-                    Text('歌词加载中…')
-                      .fontSize(13)
-                      .fontColor($r('sys.color.font_tertiary'))
-                  }
-                  .width('100%')
-                  .layoutWeight(1)
-                  .justifyContent(FlexAlign.Center)
-                  .alignItems(HorizontalAlign.Center)
-                } else if (this.lyrics.length === 0) {
-                  Column() {
-                    Text('暂无歌词')
-                      .fontSize(14)
-                      .fontColor($r('sys.color.font_tertiary'))
-                  }
-                  .width('100%')
-                  .layoutWeight(1)
-                  .justifyContent(FlexAlign.Center)
-                  .alignItems(HorizontalAlign.Center)
-                } else {
-                  // 歌词列表：当前行居中高亮，点击行跳转进度，拖动时暂停自动滚动
-                  List({ scroller: this.lyricScroller }) {
-                    // 顶部占位：保证首行也能居中
-                    ListItem() {
-                      Column().width('100%').height(120)
+                  .gesture(
+                    SwipeGesture({ direction: SwipeDirection.Horizontal })
+                      .onAction(() => {
+                        this.enterLyricMode();
+                      })
+                  )
+                  // 播放中跳动柱形 + 粒子（歌词页隐藏）
+                  PlayingVisual().offset({ y: '20%' }).width(280)
+                }.layoutWeight(1)
+              } else {
+                // 歌词区：横向滑动返回封面
+                Column() {
+                  if (this.lyricLoading) {
+                    Column({ space: 8 }) {
+                      LoadingProgress()
+                        .width(28)
+                        .height(28)
+                        .color($r('sys.color.icon_tertiary'))
+                      Text('歌词加载中…')
+                        .fontSize(13)
+                        .fontColor($r('sys.color.font_tertiary'))
                     }
-                    ForEach(this.lyrics, (item: ParsedLrcItem) => {
+                    .width('100%')
+                    .layoutWeight(1)
+                    .justifyContent(FlexAlign.Center)
+                    .alignItems(HorizontalAlign.Center)
+                  } else if (this.lyrics.length === 0) {
+                    Column() {
+                      Text('暂无歌词')
+                        .fontSize(14)
+                        .fontColor($r('sys.color.font_tertiary'))
+                    }
+                    .width('100%')
+                    .layoutWeight(1)
+                    .justifyContent(FlexAlign.Center)
+                    .alignItems(HorizontalAlign.Center)
+                  } else {
+                    // 歌词列表：当前行居中高亮，点击行跳转进度，拖动时暂停自动滚动
+                    List({ scroller: this.lyricScroller }) {
+                      // 顶部占位：保证首行也能居中
                       ListItem() {
-                        Column({ space: 4 }) {
-                          Text(item.lrc)
-                            .fontSize(this.isCurrentLyric(item) ? 18 : 16)
-                            .fontWeight(this.isCurrentLyric(item) ? FontWeight.Bold : FontWeight.Normal)
-                            .fontColor(this.isCurrentLyric(item) ?
-                              $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
-                            .maxLines(2)
-                            .textOverflow({ overflow: TextOverflow.Ellipsis })
-                          if (this.hasTranslation && item.translation.length > 0) {
-                            Text(item.translation)
-                              .fontSize(this.isCurrentLyric(item) ? 14 : 12)
+                        Column().width('100%').height(120)
+                      }
+                      ForEach(this.lyrics, (item: ParsedLrcItem) => {
+                        ListItem() {
+                          Column({ space: 4 }) {
+                            Text(item.lrc)
+                              .fontSize(this.isCurrentLyric(item) ? 18 : 16)
+                              .fontWeight(this.isCurrentLyric(item) ? FontWeight.Bold : FontWeight.Normal)
                               .fontColor(this.isCurrentLyric(item) ?
-                                $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
+                                $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
                               .maxLines(2)
                               .textOverflow({ overflow: TextOverflow.Ellipsis })
+                            if (this.hasTranslation && item.translation.length > 0) {
+                              Text(item.translation)
+                                .fontSize(this.isCurrentLyric(item) ? 14 : 12)
+                                .fontColor(this.isCurrentLyric(item) ?
+                                  $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
+                                .maxLines(2)
+                                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                            }
                           }
+                          .width('100%')
+                          .alignItems(HorizontalAlign.Center)
+                          .padding({ top: 10, bottom: 10 })
+                          .onClick(() => {
+                            trackPlayer.seekTo(item.time);
+                          })
                         }
-                        .width('100%')
-                        .alignItems(HorizontalAlign.Center)
-                        .padding({ top: 10, bottom: 10 })
-                        .onClick(() => {
-                          trackPlayer.seekTo(item.time);
-                        })
+                      }, (item: ParsedLrcItem) => item.index.toString() + '_' + item.time.toString())
+                      // 底部占位：保证末行也能居中
+                      ListItem() {
+                        Column().width('100%').height(120)
                       }
-                    }, (item: ParsedLrcItem) => item.index.toString() + '_' + item.time.toString())
-                    // 底部占位：保证末行也能居中
-                    ListItem() {
-                      Column().width('100%').height(120)
                     }
+                    .width('100%')
+                    .layoutWeight(1)
+                    .scrollBar(BarState.Off)
+                    .edgeEffect(EdgeEffect.Spring)
+                    .alignListItem(ListItemAlign.Center)
+                    .onTouch((event: TouchEvent): void => {
+                      this.handleLyricTouch(event);
+                    })
                   }
-                  .width('100%')
-                  .layoutWeight(1)
-                  .scrollBar(BarState.Off)
-                  .edgeEffect(EdgeEffect.Spring)
-                  .alignListItem(ListItemAlign.Center)
-                  .onTouch((event: TouchEvent): void => {
-                    this.handleLyricTouch(event);
-                  })
                 }
+                .width('100%')
+                .layoutWeight(1)
+                .gesture(
+                  SwipeGesture({ direction: SwipeDirection.Horizontal })
+                    .onAction(() => {
+                      this.showLyric = false;
+                    })
+                )
               }
-              .width('100%')
-              .layoutWeight(1)
-              .gesture(
-                SwipeGesture({ direction: SwipeDirection.Horizontal })
-                  .onAction(() => {
-                    this.showLyric = false;
-                  })
-              )
-            }
+
+
 
             // 歌曲信息
             Column({ space: 6 }) {
@@ -830,11 +839,11 @@ export struct PlayerPage {
                 SymbolGlyph(this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
                   .fontSize(24)
                   .fontColor([this.isFavorited ?
-                    $r('sys.color.icon_emphasize') : $r('sys.color.icon_secondary')])
+                    '#E84026' : $r('sys.color.icon_secondary')])
                 Text('收藏')
                   .fontSize(10)
                   .fontColor(this.isFavorited ?
-                    $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+                    '#E84026' : $r('sys.color.font_secondary'))
               }
               .alignItems(HorizontalAlign.Center)
               .onClick(() => {

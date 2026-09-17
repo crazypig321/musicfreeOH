@@ -5,10 +5,14 @@ import { appState } from '../entryability/AppState';
 import { ROUTE_PLAYER } from '../common/model/NavModels';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { QueueSheet } from './QueueSheet';
+import { HdsBarStyle } from '@kit.UIDesignKit';
+import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 
 /**
- * 迷你播放条：封面/标题区（非按钮区）点击进入全屏播放页；
- * 播放队列半模态内容复用 QueueSheet
+ * 迷你播放条（参考 ting_read TabsPlayBar）：
+ * - API>=24：单排(HORIZONTAL)时封面 44，上下两排(VERTICAL)时封面略小 30，动效过渡
+ * - 按钮在 API>=24 恒显示，API<24 仅展开时显示
+ * - 封面/标题区点击进入全屏播放页；播放队列半模态复用 QueueSheet
  */
 @ComponentV2
 export struct PlayBar {
@@ -35,6 +39,14 @@ export struct PlayBar {
   aboutToDisappear(): void {
     this.offCurrent();
     this.offState();
+  }
+
+  /** 封面尺寸：单排 44 / 上下两排略小 30；API<24 恒 44 */
+  private coverSize(): number {
+    if (!IsApiVersion_24()) {
+      return 44;
+    }
+    return appState.hdsBarLayoutMode === 0 ? 44 : 30;
   }
 
   private togglePlay(): void {
@@ -65,21 +77,23 @@ export struct PlayBar {
       Row({ space: 12 }) {
         if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
           Image(this.currentMusic.artwork)
-            .width(44)
-            .height(44)
+            .width(this.coverSize())
+            .height(this.coverSize())
             .borderRadius(100)
             .objectFit(ImageFit.Cover)
+            .animation({ duration: 500, curve: Curve.Smooth })
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music'))
               .fontSize(22)
               .fontColor([$r('sys.color.icon_secondary')])
           }
-          .width(44)
-          .height(44)
+          .width(this.coverSize())
+          .height(this.coverSize())
           .borderRadius(100)
           .backgroundColor($r('sys.color.comp_background_tertiary'))
           .justifyContent(FlexAlign.Center)
+          .animation({ duration: 500, curve: Curve.Smooth })
         }
 
         Column({ space: 2 }) {
@@ -103,35 +117,48 @@ export struct PlayBar {
       .layoutWeight(1)
       .alignItems(VerticalAlign.Center)
       .onClick(() => {
-        this.openPlayer();
+        // API<24：折叠态点击先展开；其余进入播放页
+        if (!IsApiVersion_24() && appState.miniBarStyle === HdsBarStyle.COLLAPSE) {
+          this.getUIContext().animateTo({ duration: 300, curve: Curve.Smooth }, () => {
+            appState.miniBarStyle = HdsBarStyle.EXPAND
+          })
+        } else {
+          this.openPlayer();
+        }
       })
 
-      SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill'))
-        .fontSize(26)
-        .fontColor([$r('sys.color.icon_primary')])
-        .onClick(() => {
-          this.togglePlay()
-        })
+      if ((appState.miniBarStyle === HdsBarStyle.EXPAND) || IsApiVersion_24()) {
+        SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill'))
+          .fontSize(26)
+          .fontColor([$r('sys.color.icon_primary')])
+          .animation({ duration: 500, curve: Curve.Smooth })
+          .onClick(() => {
+            this.togglePlay()
+          })
 
-      SymbolGlyph($r('sys.symbol.forward_end_fill'))
-        .fontSize(22)
-        .fontColor([$r('sys.color.icon_primary')])
-        .onClick(() => {
-          this.skipToNext()
-        })
+        SymbolGlyph($r('sys.symbol.forward_end_fill'))
+          .fontSize(22)
+          .fontColor([$r('sys.color.icon_primary')])
+          .animation({ duration: 500, curve: Curve.Smooth })
+          .onClick(() => {
+            this.skipToNext()
+          })
 
-      // 播放队列入口
-      SymbolGlyph($r('sys.symbol.music_note_list'))
-        .fontSize(20)
-        .fontColor([$r('sys.color.icon_primary')])
-        .onClick(() => {
-          this.showQueue = true;
-        })
+        // 播放队列入口
+        SymbolGlyph($r('sys.symbol.music_note_list'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_primary')])
+          .animation({ duration: 500, curve: Curve.Smooth })
+          .onClick(() => {
+            this.showQueue = true;
+          })
+      }
     }
     .width('100%')
     .height(52)
     .padding({ left: 8, right: 12 })
     .alignItems(VerticalAlign.Center)
+    .animation({ duration: 500, curve: Curve.Smooth })
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true,

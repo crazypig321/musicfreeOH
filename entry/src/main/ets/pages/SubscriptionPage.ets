@@ -13,6 +13,7 @@ import { HttpClient } from '../infra/HttpClient';
 import { Subscriptions } from '../plugin/Subscriptions';
 import { PluginImport } from '../plugin/PluginImport';
 import { DialogManager } from '../utils/DialogUtils';
+import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 
 /** 导入菜单锚点（标题栏下方右上角） */
 const IMPORT_ANCHOR_ID = 'subscription_import_anchor';
@@ -418,7 +419,12 @@ export struct SubscriptionPage {
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .contentStartOffset(appState.topRect + 66)
-        .contentEndOffset(appState.bottomRect + 60)
+        // 上下两排时底栏更高，末尾内容需多留滚动空间
+        .contentEndOffset(appState.bottomRect + (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60))
+        .onScrollFrameBegin((offset: number) => {
+          BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
+          return { offsetRemain: offset }
+        })
         .padding({ left: 16, right: 16 })
 
         // openMenu 锚点（位于标题栏下方右上角，菜单在锚点处弹出）
