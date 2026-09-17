@@ -1,16 +1,22 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { SheetGridItem } from '../view/SheetGridItem';
 import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
-import { MediaTag, PageResult, SheetItem } from '../common/model/SheetTypes';
+import { MediaTag, PageResult, RecommendSheetTagsResult, SheetItem } from '../common/model/SheetTypes';
 import { RecommendSheetNavParams } from '../common/model/NavModels';
 import { Plugin } from '../plugin/Plugin';
 import { pluginManager } from '../plugin/PluginManager';
+import { PluginAbility } from '../common/Consts';
+import { MenuItemParams } from '../view/CommonCom';
+import { MenuUtils } from '../utils/MenuUtils';
+import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
 
 const GRID_COLUMNS = 3;
+const RECOMMEND_MENU_ANCHOR_ID = 'recommend_menu_anchor';
 
 /**
  * 推荐歌单页：首页推荐歌单板块的完整版（标签切换 + 三列网格 + 触底续拉）
+ * 右上角插件选择菜单与首页一致，切换后本页重新加载标签与歌单
  */
 @ComponentV2
 export struct RecommendSheetsPage {
@@ -18,6 +24,8 @@ export struct RecommendSheetsPage {
   @Local selectedIndex: number = 0;
   @Local sheets: Array<SheetItem> = [];
   @Local loading: boolean = false;
+  /** 当前使用的插件名（菜单中带勾选标记） */
+  @Local pluginName: string = '';
 
   private scroller: Scroller = new Scroller();
   private rowSource: SheetRowDataSource = new SheetRowDataSource();
@@ -34,6 +42,7 @@ export struct RecommendSheetsPage {
 
   aboutToAppear(): void {
     this.plugin = pluginManager.getByName(RecommendSheetNavParams.pluginName);
+    this.pluginName = RecommendSheetNavParams.pluginName;
     this.tags = RecommendSheetNavParams.tags;
     this.selectedIndex = RecommendSheetNavParams.selectedIndex;
     this.loadSheets(true);
@@ -82,6 +91,98 @@ export struct RecommendSheetsPage {
     this.loadSheets(true);
   }
 
+  /** 弹出插件选择菜单（当前插件带勾选标记，与首页一致） */
+  private openPluginMenu(): void {
+    const candidates = pluginManager.getSortedPluginsWithAbility(PluginAbility.GetRecommendSheetsByTag);
+    if (candidates.length === 0) {
+      this.showToast('暂无可用插件');
+      return;
+    }
+    // 计算当前生效的插件名（用户选择 or 默认第一个）
+    let selectedName = '';
+    for (const p of candidates) {
+      if (p.name === this.pluginName) {
+        selectedName = p.name;
+        break;
+      }
+    }
+    if (selectedName.length === 0) {
+      selectedName = candidates[0].name;
+    }
+    // 组装菜单项
+    const items: Array<MenuItemParams> = [];
+    for (const p of candidates) {
+      const item = new MenuItemParams();
+      if (p.name === selectedName) {
+        item.icon = $r('sys.symbol.checkmark');
+      }
+      item.label = p.name;
+      const name = p.name;
+      item.onAction = (): void => {
+        MenuUtils.Dismiss();
+        this.switchPlugin(name);
+      };
+      items.push(item);
+    }
+    MenuUtils.Open(this.getUIContext(), RECOMMEND_MENU_ANCHOR_ID, items, {
+      placement: Placement.BottomRight,
+      offset: { x: 0, y: -45 }
+    });
+  }
+
+  /** 切换插件：重新拉取标签并加载默认标签下的第一页歌单 */
+  private switchPlugin(name: string): void {
+    if (name === this.pluginName) {
+      return;
+    }
+    this.pluginName = name;
+    this.plugin = pluginManager.getByName(name);
+    if (this.plugin === null) {
+      this.tags = [];
+      this.sheets = [];
+      return;
+    }
+    this.plugin.methods.getRecommendSheetTags().then((result: RecommendSheetTagsResult): void => {
+      // 标签条：默认 + 固定标签 + 各分组子标签（展平），与首页一致
+      const tags: Array<MediaTag> = [RecommendSheetsPage.defaultTag()];
+      for (const tag of result.pinned) {
+        tags.push(tag);
+      }
+      for (const group of result.data) {
+        for (const tag of group.data) {
+          tags.push(tag);
+        }
+      }
+      this.tags = tags;
+      this.selectedIndex = 0;
+      this.loadSheets(true);
+    }).catch((_e: Object): void => {
+      this.tags = [];
+      this.sheets = [];
+    });
+  }
+
+  /** 默认标签（空 id，由插件返回默认推荐） */
+  private static defaultTag(): MediaTag {
+    const tag = new MediaTag();
+    tag.title = '默认';
+    return tag;
+  }
+
+  /** titleBar 菜单按钮：选择插件 */
+  private titleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const menu: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.AI_panels'),
+        label: '选择插件',
+        action: (): void => {
+          this.openPluginMenu();
+        }
+      }
+    };
+    return [menu];
+  }
+
   /** 歌单按列数切分成行 */
   private static chunkRows(sheets: Array<SheetItem>): Array<Array<SheetItem>> {
     const rows: Array<Array<SheetItem>> = [];
@@ -101,11 +202,12 @@ export struct RecommendSheetsPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf('推荐歌单', undefined, undefined),
+      titleBarOp: titleBarOf('推荐歌单', undefined, this.titleMenus()),
       scroller: this.scroller,
       doubleTapToTop: true
     }) {
-      List({ scroller: this.scroller, space: 12 }) {
+      Stack({ alignContent: Alignment.Top }) {
+        List({ scroller: this.scroller, space: 12 }) {
         // 插件不可用提示
         if (this.plugin === null) {
           ListItem() {
@@ -216,6 +318,21 @@ export struct RecommendSheetsPage {
       .onReachEnd(() => {
         this.loadSheets(false);
       })
+
+      // 插件选择菜单锚点（隐藏组件，仅用于 openMenu 定位，位于标题栏右上角按钮下方）
+      Row({ space: 12 }) {
+        Column()
+          .id(RECOMMEND_MENU_ANCHOR_ID)
+          .width(24)
+          .height(24)
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.End)
+      .padding({ right: 16 })
+      .margin({ top: appState.topRect + 20 })
+      }
+      .width('100%')
+      .height('100%')
     }
   }
 

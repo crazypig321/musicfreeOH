@@ -5,6 +5,7 @@ import { SheetItem } from '../common/model/SheetTypes';
 import { pluginManager } from '../plugin/PluginManager';
 import { trackPlayer } from '../core/TrackPlayer';
 import { musicSheet } from '../core/MusicSheet';
+import { localMusicSheet } from '../core/LocalMusicSheet';
 import { downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { ScheduleClose } from '../utils/ScheduleClose';
@@ -458,14 +459,17 @@ export struct MusicOptionsSheet {
             value: this.optionsItem.album
           })
         }
-        ListItem() {
-          ActionRowItem({
-            icon: $r('sys.symbol.square_and_arrow_down'),
-            label: '下载',
-            onTap: (): void => {
-              this.downloadCurrent();
-            }
-          })
+        // 本地音乐已在设备上，不提供下载入口
+        if (localMusicSheet.isLocalMusic(this.optionsItem) === null) {
+          ListItem() {
+            ActionRowItem({
+              icon: $r('sys.symbol.square_and_arrow_down'),
+              label: '下载',
+              onTap: (): void => {
+                this.downloadCurrent();
+              }
+            })
+          }
         }
         ListItem() {
           ActionRowItem({
