@@ -6,7 +6,7 @@ import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
 import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
-import { ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, RecommendSheetNavParams } from '../common/model/NavModels';
+import { ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, RecommendSheetNavParams, SheetDetailNavParams } from '../common/model/NavModels';
 import { MusicItem } from '../common/model/MediaTypes';
 import { MusicRow } from '../view/MusicRow';
 import { SheetGridItem } from '../view/SheetGridItem';
@@ -306,9 +306,17 @@ export struct HomePage{
     }
   }
 
-  /** 歌单卡片点击（歌单详情页开发中） */
-  private onSheetClick(): void {
-    this.showToast('歌单详情页开发中');
+  /** 歌单卡片点击：进入歌单详情页（榜单条目的 platform 可能为空，用来源插件名） */
+  private onSheetClick(sheet: SheetItem, isTopList: boolean): void {
+    const pluginName = isTopList ? this.topListPluginName : this.recommendPluginName;
+    if (pluginName.length === 0) {
+      this.showToast('插件不可用');
+      return;
+    }
+    SheetDetailNavParams.pluginName = pluginName;
+    SheetDetailNavParams.sheet = sheet;
+    SheetDetailNavParams.isTopList = isTopList;
+    NavPathUtils.push(ROUTE_SHEET_DETAIL);
   }
 
   /** 播放本地音乐（以本地列表为播放队列） */
@@ -505,8 +513,8 @@ export struct HomePage{
                 spacing: 70,
                 dimOpacity: 0.7,
                 scaleStep: 0.12,
-                itemClick: (_sheet: SheetItem): void => {
-                  this.onSheetClick();
+                itemClick: (sheet: SheetItem): void => {
+                  this.onSheetClick(sheet, true);
                 }
               }).padding({ bottom: 16 })
             } else {
@@ -519,7 +527,7 @@ export struct HomePage{
                         sheet: sheet,
                         widthValue: 90,
                         click: (): void => {
-                          this.onSheetClick();
+                          this.onSheetClick(sheet, true);
                         }
                       })
                     }
@@ -585,7 +593,7 @@ export struct HomePage{
                 SheetGridItem({
                   sheet: sheet,
                   onTap: (): void => {
-                    this.onSheetClick();
+                    this.onSheetClick(sheet, false);
                   }
                 })
               }, (sheet: SheetItem, index: number) => sheet.platform + '_' + sheet.id + '_' + rowIndex.toString() + '_' + index.toString())

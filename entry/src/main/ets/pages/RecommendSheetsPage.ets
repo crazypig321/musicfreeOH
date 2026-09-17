@@ -2,12 +2,13 @@ import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { SheetGridItem } from '../view/SheetGridItem';
 import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
 import { MediaTag, PageResult, RecommendSheetTagsResult, SheetItem } from '../common/model/SheetTypes';
-import { RecommendSheetNavParams } from '../common/model/NavModels';
+import { RecommendSheetNavParams, ROUTE_SHEET_DETAIL, SheetDetailNavParams } from '../common/model/NavModels';
 import { Plugin } from '../plugin/Plugin';
 import { pluginManager } from '../plugin/PluginManager';
 import { PluginAbility } from '../common/Consts';
 import { MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
+import { NavPathUtils } from '../utils/NavPathUtils';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
 
@@ -89,6 +90,18 @@ export struct RecommendSheetsPage {
     }
     this.selectedIndex = index;
     this.loadSheets(true);
+  }
+
+  /** 歌单点击：进入歌单详情页 */
+  private onSheetClick(sheet: SheetItem): void {
+    if (this.pluginName.length === 0 || this.plugin === null) {
+      this.showToast('插件不可用');
+      return;
+    }
+    SheetDetailNavParams.pluginName = this.pluginName;
+    SheetDetailNavParams.sheet = sheet;
+    SheetDetailNavParams.isTopList = false;
+    NavPathUtils.push(ROUTE_SHEET_DETAIL);
   }
 
   /** 弹出插件选择菜单（当前插件带勾选标记，与首页一致） */
@@ -263,7 +276,7 @@ export struct RecommendSheetsPage {
                 SheetGridItem({
                   sheet: sheet,
                   onTap: (): void => {
-                    this.showToast('歌单详情页开发中');
+                    this.onSheetClick(sheet);
                   }
                 })
               }, (sheet: SheetItem, index: number) =>

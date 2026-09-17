@@ -796,8 +796,10 @@ export class TrackPlayer {
         continue;
       }
       const v = info[k];
-      if (k === 'url') {
-        if (typeof v !== 'string' || v.trim().length === 0) {
+      // null/undefined/空字符串不覆盖已有非空字符串值（如插件对本地文件返回空 artwork/artist，避免清空已有封面）
+      if (v === null || v === undefined || (typeof v === 'string' && v.length === 0)) {
+        const baseVal = baseRec[k];
+        if (typeof baseVal === 'string' && baseVal.length > 0) {
           continue;
         }
       }

@@ -2,12 +2,13 @@ import { BlurStrategy, HdsNavigationTitleBarOptions, ScrollEffectType } from "@k
 import { LengthMetrics } from "@kit.ArkUI";
 import { TimeTipUtils } from "../../utils/TimeTipUtils";
 import { appState } from "../../entryability/AppState";
-import { MediaTag } from "./SheetTypes";
+import { MediaTag, SheetItem } from "./SheetTypes";
 
 export const ROUTE_SEARCH: string = 'search';
 export const ROUTE_DOWNLOAD: string = 'download';
 export const ROUTE_LOCAL_MUSIC: string = 'localMusic';
 export const ROUTE_RECOMMEND_SHEETS: string = 'recommendSheets';
+export const ROUTE_SHEET_DETAIL: string = 'sheetDetail';
 
 /**
  * 推荐歌单页跳转参数（push 前由首页赋值，页面 aboutToAppear 读取）
@@ -16,6 +17,17 @@ export class RecommendSheetNavParams {
   static pluginName: string = '';
   static tags: Array<MediaTag> = [];
   static selectedIndex: number = 0;
+}
+
+/**
+ * 歌单详情页跳转参数（push 前由来源页赋值，页面 aboutToAppear 读取）
+ */
+export class SheetDetailNavParams {
+  /** 插件名（榜单条目的 platform 可能为空，需显式传来源插件名） */
+  static pluginName: string = '';
+  static sheet: SheetItem | null = null;
+  /** true：榜单（getTopListDetail）；false：歌单（getMusicSheetInfo） */
+  static isTopList: boolean = false;
 }
 
 export function NavTitleBarOp() : HdsNavigationTitleBarOptions {

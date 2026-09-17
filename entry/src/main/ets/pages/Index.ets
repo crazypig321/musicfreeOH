@@ -7,7 +7,7 @@ import {
   HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { SettingsPage } from './SettingsPage';
@@ -15,6 +15,7 @@ import { SearchPage } from './SearchPage';
 import { SubscriptionPage } from './SubscriptionPage';
 import { LocalMusicPage } from './LocalMusicPage';
 import { RecommendSheetsPage } from './RecommendSheetsPage';
+import { SheetDetailPage } from './SheetDetailPage';
 import { PlayBar } from '../view/PlayBar';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
@@ -154,6 +155,8 @@ struct Index {
       LocalMusicPage()
     } else if (name === ROUTE_RECOMMEND_SHEETS) {
       RecommendSheetsPage()
+    } else if (name === ROUTE_SHEET_DETAIL) {
+      SheetDetailPage()
     }
   }
 

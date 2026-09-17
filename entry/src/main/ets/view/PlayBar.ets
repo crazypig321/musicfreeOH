@@ -48,17 +48,17 @@ export struct PlayBar {
         Image(this.currentMusic.artwork)
           .width(44)
           .height(44)
-          .borderRadius(11)
+          .borderRadius(100)
           .objectFit(ImageFit.Cover)
       } else {
         Column() {
-          SymbolGlyph($r('sys.symbol.music_note_list'))
+          SymbolGlyph($r('sys.symbol.music'))
             .fontSize(22)
             .fontColor([$r('sys.color.icon_secondary')])
         }
         .width(44)
         .height(44)
-        .borderRadius(11)
+        .borderRadius(100)
         .backgroundColor($r('sys.color.comp_background_tertiary'))
         .justifyContent(FlexAlign.Center)
       }
