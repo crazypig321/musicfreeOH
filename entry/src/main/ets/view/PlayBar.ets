@@ -23,6 +23,9 @@ export struct PlayBar {
   /** 播放队列半模态 */
   @Local showQueue: boolean = false;
   @Param isTwoPage: boolean = false
+  /** 二级页 tabbar 槽位尺寸（CommonNav 测得；首页实例不使用） */
+  @Param barSlotW: number = 0
+  @Param barSlotH: number = 0
   /** 本实例测量 id 前缀（getRectangleById 用，避免多实例同 id 测错对象） */
   private readonly myId: string = 'pb_' + (playBarSeq++).toString();
   private offCurrent: () => void = (): void => {
@@ -87,7 +90,15 @@ export struct PlayBar {
     const rowHNum = typeof rowH === 'number' ? rowH : this.barH;
     // 飞行封面：点击行首子节点、行内垂直居中
     const coverY = rowY + (rowHNum - size) / 2;
-    // 播放条矩形（裁剪窗口锚点）：根左 padding 8，子行在根内垂直居中
+    if (this.isTwoPage) {
+      // 二级页：PlayBar 无根 padding、高度不固定，锚点矩形用 CommonNav 测得的 tabbar 槽位
+      const slotW = this.barSlotW > 0 ? this.barSlotW : this.barW;
+      const slotH = this.barSlotH > 0 ? this.barSlotH : this.barH;
+      const barY = rowY - (slotH - rowHNum) / 2;
+      PlayerExpandAnimController.expand(rowX, coverY, size, rowX, barY, slotW, slotH);
+      return;
+    }
+    // 首页：根左 padding 8，子行在根内垂直居中
     const barY = rowY - (this.barH - rowHNum) / 2;
     PlayerExpandAnimController.expand(rowX, coverY, size, rowX - 8, barY, this.barW, this.barH);
   }

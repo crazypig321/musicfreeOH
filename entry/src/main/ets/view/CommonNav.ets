@@ -51,6 +51,9 @@ export struct CommonNav{
   private lastTitleTapTime: number = 0;
   /** 页面宽度（vp，用于排除右侧菜单按钮区域） */
   private pageWidthVp: number = 0;
+  /** 二级页 tabbar 槽位尺寸（供 PlayBar 一镜到底锚点计算） */
+  @Local tabBarSlotW: number = 0;
+  @Local tabBarSlotH: number = 0;
 
   /** 标题栏区域触摸：双击回滚到顶部 */
   private handleTouch(event: TouchEvent): void {
@@ -174,6 +177,19 @@ export struct CommonNav{
 
   @Builder
   playBar(){
-    PlayBar({ isTwoPage: true }).offset({ x: -5 })
+    // 测量容器：填充 HdsTabs tabbar 槽位，捕获真实槽位尺寸传给 PlayBar 做一镜到底锚点
+    Column() {
+      PlayBar({ isTwoPage: true, barSlotW: this.tabBarSlotW, barSlotH: this.tabBarSlotH })
+        .offset({ x: -5 })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .onAreaChange((_old: Area, newArea: Area): void => {
+      if (typeof newArea.width === 'number' && typeof newArea.height === 'number') {
+        this.tabBarSlotW = newArea.width;
+        this.tabBarSlotH = newArea.height;
+      }
+    })
   }
 }
