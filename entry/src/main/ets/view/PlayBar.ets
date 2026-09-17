@@ -13,12 +13,17 @@ import { IsApiVersion_24 } from '../utils/BarScrollHelper';
  * - 按钮在 API>=24 恒显示，API<24 仅展开时显示
  * - 封面/标题区点击进入全屏播放页；播放队列半模态复用 QueueSheet
  */
+/** 实例序号：PlayBar 存在多实例（Index 悬浮条/DownloadPage tabBar 槽），测量 id 必须唯一 */
+let playBarSeq: number = 0;
+
 @ComponentV2
 export struct PlayBar {
   @Local currentMusic: MusicItem | null = null;
   @Local isPlaying: boolean = false;
   /** 播放队列半模态 */
   @Local showQueue: boolean = false;
+  /** 本实例测量 id 前缀（getRectangleById 用，避免多实例同 id 测错对象） */
+  private readonly myId: string = 'pb_' + (playBarSeq++).toString();
   private offCurrent: () => void = (): void => {
   };
   private offState: () => void = (): void => {
@@ -63,11 +68,27 @@ export struct PlayBar {
     });
   }
 
-  /** 进入全屏播放页（一镜到底展开） */
-  private openPlayer(): void {
-    if (this.currentMusic !== null) {
-      PlayerExpandAnimController.expand();
+  /** 根布局尺寸（onAreaChange 捕获；translate 不影响布局尺寸，尺寸可信） */
+  private barW: number = 0;
+  private barH: number = 52;
+
+  /** 进入全屏播放页（一镜到底展开）：
+   * 锚点从点击事件的窗口坐标推算——HdsTabs 对迷你条做过平移摆放，
+   * getRectangleById 的 windowOffset 不含 translate，测到的是布局占位而非视觉位置 */
+  private openPlayer(event: ClickEvent): void {
+    if (this.currentMusic === null) {
+      return;
     }
+    const size = this.coverSize();
+    const rowX = event.windowX - event.x;
+    const rowY = event.windowY - event.y;
+    const rowH = event.target.area.height;
+    const rowHNum = typeof rowH === 'number' ? rowH : this.barH;
+    // 飞行封面：点击行首子节点、行内垂直居中
+    const coverY = rowY + (rowHNum - size) / 2;
+    // 播放条矩形（裁剪窗口锚点）：根左 padding 8，子行在根内垂直居中
+    const barY = rowY - (this.barH - rowHNum) / 2;
+    PlayerExpandAnimController.expand(rowX, coverY, size, rowX - 8, barY, this.barW, this.barH);
   }
 
   build() {
@@ -81,7 +102,7 @@ export struct PlayBar {
             .borderRadius(100)
             .objectFit(ImageFit.Cover)
             .animation({ duration: 500, curve: Curve.Smooth })
-            .id('mini_playbar_cover')
+            .id(this.myId + '_cover')
             .opacity(playerAnim.miniCoverOpacity)
         } else {
           Column() {
@@ -95,7 +116,7 @@ export struct PlayBar {
           .backgroundColor($r('sys.color.comp_background_tertiary'))
           .justifyContent(FlexAlign.Center)
           .animation({ duration: 500, curve: Curve.Smooth })
-          .id('mini_playbar_cover')
+          .id(this.myId + '_cover')
           .opacity(playerAnim.miniCoverOpacity)
         }
 
@@ -119,14 +140,14 @@ export struct PlayBar {
       }
       .layoutWeight(1)
       .alignItems(VerticalAlign.Center)
-      .onClick(() => {
+      .onClick((event: ClickEvent) => {
         // API<24：折叠态点击先展开；其余进入播放页
         if (!IsApiVersion_24() && appState.miniBarStyle === HdsBarStyle.COLLAPSE) {
           this.getUIContext().animateTo({ duration: 300, curve: Curve.Smooth }, () => {
             appState.miniBarStyle = HdsBarStyle.EXPAND
           })
         } else {
-          this.openPlayer();
+          this.openPlayer(event);
         }
       })
 
@@ -162,7 +183,13 @@ export struct PlayBar {
     .padding({ left: 8, right: 12 })
     .alignItems(VerticalAlign.Center)
     .animation({ duration: 500, curve: Curve.Smooth })
-    .id('mini_playbar_root')
+    .id(this.myId + '_root')
+    .onAreaChange((_old: Area, newArea: Area): void => {
+      if (typeof newArea.width === 'number' && typeof newArea.height === 'number') {
+        this.barW = newArea.width;
+        this.barH = newArea.height;
+      }
+    })
     .opacity(playerAnim.miniBarOpacity)
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],

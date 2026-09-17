@@ -887,7 +887,7 @@ export struct DownloadPage {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 52, right: 4 })
+          .margin({ left: appState.isBatchMode ? 35 :52, right: 4 })
       }
     }
     .width('100%')
@@ -984,7 +984,7 @@ export struct DownloadPage {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 52, right: 4 })
+          .margin({ left: appState.isBatchMode ? 35 : 52, right: 4 })
       }
     }
     .width('100%')

@@ -39,6 +39,7 @@ struct Index {
     playerAnim.collapsedOffset = d.height / d.densityPixels + 100;
     playerAnim.screenWidth = d.width / d.densityPixels;
     playerAnim.screenHeight = d.height / d.densityPixels;
+    playerAnim.density = d.densityPixels;
     playerAnim.pageTranslateY = playerAnim.collapsedOffset;
     WebPluginExecutor.getInstance().attachController(this.controller);
     // 公共弹窗：注册打开动作与轻提示
@@ -157,11 +158,14 @@ struct Index {
         .opacity(0)
 
       // 播放页覆盖层：一镜到底动画宿主（常驻挂载；收起时整体平移到屏幕外，不参与命中测试）
+      // 锚点展开：页面固定在最终位置，clip 窗口从迷你条矩形生长到全屏
       Column() {
         PlayerPage()
       }
       .width('100%')
       .height('100%')
+      .backgroundColor($r('sys.color.background_secondary'))
+      .clipShape(new Path({ commands: playerAnim.clipCommands() }))
       .translate({ y: playerAnim.pageTranslateY })
       .opacity(playerAnim.pageOpacity)
 

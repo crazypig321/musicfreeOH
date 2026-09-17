@@ -595,7 +595,7 @@ export struct PlayerPage {
                       })
                   )
                   // 播放中跳动柱形 + 粒子（歌词页隐藏）
-                  PlayingVisual().offset({ y: '20%' }).width(280)
+                  PlayingVisual().offset({ y: '20%' }).width(280).hitTestBehavior(HitTestMode.Transparent)
                 }.layoutWeight(1)
               } else {
                 // 歌词区：横向滑动返回封面
