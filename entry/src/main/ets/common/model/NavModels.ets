@@ -9,6 +9,7 @@ export const ROUTE_DOWNLOAD: string = 'download';
 export const ROUTE_LOCAL_MUSIC: string = 'localMusic';
 export const ROUTE_RECOMMEND_SHEETS: string = 'recommendSheets';
 export const ROUTE_SHEET_DETAIL: string = 'sheetDetail';
+export const ROUTE_PLAYER: string = 'player';
 
 /**
  * 推荐歌单页跳转参数（push 前由首页赋值，页面 aboutToAppear 读取）

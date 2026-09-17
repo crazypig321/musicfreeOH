@@ -941,13 +941,16 @@ export class TrackPlayer {
     };
   }
 
-  onProgressChanged(cb: (position: number, duration: number) => void): void {
+  onProgressChanged(cb: (position: number, duration: number) => void): () => void {
     const wrapper: EventListenerFn = (payload?: Object) => {
       if (payload instanceof ProgressChangedEvent) {
         cb(payload.position, payload.duration);
       }
     };
     this.ee.on('progress-changed', wrapper);
+    return (): void => {
+      this.ee.off('progress-changed', wrapper);
+    };
   }
 
   onPlayStateChanged(cb: (state: PlayState) => void): () => void {

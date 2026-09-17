@@ -322,22 +322,28 @@ export class LyricManager {
     return null;
   }
 
-  onLyricStateChanged(cb: (state: LyricState) => void): void {
+  onLyricStateChanged(cb: (state: LyricState) => void): () => void {
     const wrapper: EventListenerFn = (payload?: Object) => {
       if (payload instanceof LyricStateChangedEvent) {
         cb(payload.state);
       }
     };
     this.ee.on('lyric-state-changed', wrapper);
+    return (): void => {
+      this.ee.off('lyric-state-changed', wrapper);
+    };
   }
 
-  onCurrentLyricChanged(cb: (item: ParsedLrcItem | null) => void): void {
+  onCurrentLyricChanged(cb: (item: ParsedLrcItem | null) => void): () => void {
     const wrapper: EventListenerFn = (payload?: Object) => {
       if (payload instanceof CurrentLyricChangedEvent) {
         cb(payload.item);
       }
     };
     this.ee.on('current-lyric-changed', wrapper);
+    return (): void => {
+      this.ee.off('current-lyric-changed', wrapper);
+    };
   }
 }
 
