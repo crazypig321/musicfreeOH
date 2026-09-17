@@ -316,6 +316,7 @@ export class MusicSheet {
     this.emitMusicListUpdated(sheetId, 'length');
     const patch = new SheetBasePatch();
     patch.worksNum = musicList.length;
+    this.applyCoverFollowPatch(sheetId, musicList, patch);
     this.updateMusicSheetBase(sheetId, patch);
     return Promise.resolve();
   }
@@ -331,8 +332,22 @@ export class MusicSheet {
     this.emitMusicListUpdated(sheetId, 'length');
     const patch = new SheetBasePatch();
     patch.worksNum = musicList.length;
+    this.applyCoverFollowPatch(sheetId, musicList, patch);
     this.updateMusicSheetBase(sheetId, patch);
     return Promise.resolve();
+  }
+
+  /** 删除歌曲后让封面跟随剩余第一首（用户本地封面 file:// 不覆盖；清空时置空封面） */
+  private applyCoverFollowPatch(sheetId: string, musicList: SortedMusicList, patch: SheetBasePatch): void {
+    const sheet = this.findSheet(sheetId);
+    if (sheet === null || sheet.coverImg.startsWith('file://')) {
+      return;
+    }
+    const first = musicList.at(0);
+    const nextCover = first !== null ? first.artwork : '';
+    if (sheet.coverImg !== nextCover) {
+      patch.coverImg = nextCover;
+    }
   }
 
   /** 备份所有歌单 */

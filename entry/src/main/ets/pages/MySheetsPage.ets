@@ -3,7 +3,8 @@ import { CommonBlur } from '../view/CommonCom';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
 import { SheetItem } from '../common/model/SheetTypes';
 import { appState } from '../entryability/AppState';
-import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
+import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
+import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { SheetDetailNavParams, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
 import { NavPathUtils } from '../utils/NavPathUtils';
@@ -22,7 +23,8 @@ interface SheetRow {
 /**
  * 我的歌单页：展示全部本地歌单（含默认歌单「我喜欢」）
  * 顶部右侧：添加（弹窗输入名称+简介）/ 批量操作（全选/分享/删除，UI 同歌单详情页批量底栏）
- * 条目 UI 同插件页；点击进入歌单详情页（本地歌单模式），长按进入批量模式
+ * 条目 UI 同插件页；左滑呼出 编辑/删除（HdsListItem，默认歌单与批量模式下不提供横滑）
+ * 点击进入歌单详情页（本地歌单模式），长按进入批量模式
  */
 @ComponentV2
 export struct MySheetsPage {
@@ -34,6 +36,11 @@ export struct MySheetsPage {
   @Local newSheetTitle: string = '';
   @Local newSheetDesc: string = '';
   @Local creating: boolean = false;
+  /** 编辑歌单半模态 */
+  @Local showEditSheet: boolean = false;
+  @Local editSheetId: string = '';
+  @Local editSheetTitle: string = '';
+  @Local editSheetDesc: string = '';
 
   aboutToAppear(): void {
     this.refreshSheets();
@@ -147,12 +154,69 @@ export struct MySheetsPage {
     });
   }
 
+  /** 横滑操作（左滑呼出 编辑/删除）；默认歌单与批量模式下不提供 */
+  private swipeOptions(row: SheetRow): HdsSwipeActionOptions | undefined {
+    if (row.isDefault || appState.isBatchMode) {
+      return undefined;
+    }
+    const options: HdsSwipeActionOptions = {
+      icons: [
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: $r('sys.color.background_emphasize'),
+          onAction: (): void => {
+            this.openEditSheet(row);
+          }
+        }
+      ],
+      deleteIconOptions: {
+        onAction: (): void => {
+          this.deleteSheet(row);
+        }
+      }
+    };
+    return options;
+  }
+
+  /** 打开编辑歌单半模态（预填当前名称/简介） */
+  private openEditSheet(row: SheetRow): void {
+    this.editSheetId = row.id;
+    this.editSheetTitle = row.title;
+    this.editSheetDesc = row.description;
+    this.showEditSheet = true;
+  }
+
+  /** 确认保存歌单编辑（名称+简介） */
+  private confirmEditSheet(): void {
+    const title = this.editSheetTitle.trim();
+    if (title.length === 0) {
+      this.showToast('请输入歌单名称');
+      return;
+    }
+    const patch = new SheetBasePatch();
+    patch.title = title;
+    patch.description = this.editSheetDesc.trim();
+    musicSheet.updateMusicSheetBase(this.editSheetId, patch);
+    this.showEditSheet = false;
+    this.showToast('已保存');
+  }
+
+  /** 删除歌单条目 */
+  private deleteSheet(row: SheetRow): void {
+    if (row.isDefault) {
+      this.showToast('默认歌单无法删除');
+      return;
+    }
+    musicSheet.removeSheet(row.id);
+    this.showToast('已删除「' + row.title + '」');
+  }
+
   /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出） */
   private enterBatchMode(): void {
     appState.isBatchMode = true;
     this.batchSelected = [];
   }
-
   /** 退出批量模式 */
   private exitBatchMode(): void {
     appState.isBatchMode = false;
@@ -288,79 +352,14 @@ export struct MySheetsPage {
         List({ scroller: this.scroller, space: 16 }) {
           if (this.sheetRows.length > 0) {
             ForEach(this.sheetRows, (row: SheetRow, index: number) => {
-              ListItem() {
-                Row({ space: 12 }) {
-                  // 批量模式：勾选圈
-                  if (appState.isBatchMode) {
-                    SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
-                      .fontSize(24)
-                      .fontColor([this.isSelected(row) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
-                  }
-                  // 封面：有图用 Image，无图用歌单占位图标
-                  if (row.coverUrl.length > 0) {
-                    Image(row.coverUrl)
-                      .width(40)
-                      .height(40)
-                      .borderRadius(10)
-                      .objectFit(ImageFit.Cover)
-                      .alt($r('app.media.altImage'))
-                  } else {
-                    Column() {
-                      SymbolGlyph($r('sys.symbol.music_note_list'))
-                        .fontSize(20)
-                        .fontColor([$r('sys.color.icon_secondary')])
-                    }
-                    .width(40)
-                    .height(40)
-                    .borderRadius(10)
-                    .backgroundColor($r('sys.color.comp_background_tertiary'))
-                    .justifyContent(FlexAlign.Center)
-                  }
-
-                  Column({ space: 2 }) {
-                    Text(row.title)
-                      .fontSize(15)
-                      .fontColor($r('sys.color.font_primary'))
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    Text(this.rowSubtitle(row))
-                      .fontSize(12)
-                      .fontColor($r('sys.color.font_tertiary'))
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  }
-                  .layoutWeight(1)
-                  .alignItems(HorizontalAlign.Start)
-
-                  if (!appState.isBatchMode) {
-                    SymbolGlyph($r('sys.symbol.chevron_right'))
-                      .fontSize(16)
-                      .fontColor([$r('sys.color.icon_tertiary')])
-                  }
-                }
-                .width('100%')
-                .height(56)
-                .borderRadius(12)
-                .gesture(
-                  LongPressGesture({ repeat: false, duration: 500 })
-                    .onAction((_event: GestureEvent) => {
-                      // 长按进入批量模式并勾选当前条目（默认歌单仅进入批量模式）
-                      if (appState.isBatchMode) {
-                        return;
-                      }
-                      this.enterBatchMode();
-                      this.toggleBatchSelect(row);
-                    })
-                )
-              }.ListItemStyle()
-              .onClick(() => {
-                if (appState.isBatchMode) {
-                  this.toggleBatchSelect(row);
-                } else {
-                  this.openSheetDetail(row);
-                }
+              HdsListItem({
+                customItemBuilder: (): void => {
+                  this.SheetRowBuilder(row);
+                },
+                swipeActionOptions: this.swipeOptions(row)
               })
-            }, (row: SheetRow, index: number) => row.id + '_' + index.toString() +
+            }, (row: SheetRow, index: number) => row.id + '_' + index.toString() + '_' + row.title +
+              '_' + row.coverUrl + '_' + row.worksNum.toString() +
               (appState.isBatchMode && this.isSelected(row) ? '_sel' : ''))
           } else {
             ListItem() {
@@ -433,10 +432,106 @@ export struct MySheetsPage {
           .position({ bottom: 0 })
           .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
         }
+
+        // 编辑歌单半模态锚点（独立节点挂载半模态，不与新建歌单 sheet 共用宿主）
+        Column()
+          .width('100%')
+          .height(0)
+          .bindSheet(!!this.showEditSheet, this.EditSheetBuilder(), {
+            detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            dragBar: true,
+            onWillDisappear: () => {
+              this.showEditSheet = false;
+              appState.isForegroundBlur = false
+            },
+            onWillAppear: () => {
+              appState.isForegroundBlur = true
+            }
+          })
       }
       .width('100%')
       .height('100%')
     }
+  }
+
+  /** 歌单条目行（卡片样式；批量模式下点击勾选、长按进入批量模式，否则点击进入详情） */
+  @Builder
+  SheetRowBuilder(row: SheetRow) {
+    Column() {
+      Row({ space: 12 }) {
+        // 批量模式：勾选圈
+        if (appState.isBatchMode) {
+          SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+            .fontSize(24)
+            .fontColor([this.isSelected(row) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+        }
+        // 封面：有图用 Image，无图用歌单占位图标
+        if (row.coverUrl.length > 0) {
+          Image(row.coverUrl)
+            .width(40)
+            .height(40)
+            .borderRadius(10)
+            .objectFit(ImageFit.Cover)
+            .alt($r('app.media.altImage'))
+        } else {
+          Column() {
+            SymbolGlyph($r('sys.symbol.music_note_list'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(10)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .justifyContent(FlexAlign.Center)
+        }
+
+        Column({ space: 2 }) {
+          Text(row.title)
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.rowSubtitle(row))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        if (!appState.isBatchMode) {
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+        }
+      }
+      .width('100%')
+      .height(56)
+      .gesture(
+        LongPressGesture({ repeat: false, duration: 500 })
+          .onAction((_event: GestureEvent) => {
+            // 长按进入批量模式并勾选当前条目（默认歌单仅进入批量模式）
+            if (appState.isBatchMode) {
+              return;
+            }
+            this.enterBatchMode();
+            this.toggleBatchSelect(row);
+          })
+      )
+      .onClick(() => {
+        if (appState.isBatchMode) {
+          this.toggleBatchSelect(row);
+        } else {
+          this.openSheetDetail(row);
+        }
+      })
+    }
+    .width('100%')
+    .borderRadius(16)
+    .padding(12)
+    .backgroundColor($r('sys.color.comp_background_list_card'))
   }
 
   /** 新建歌单半模态：名称（必填）+ 简介（可选） */
@@ -486,14 +581,54 @@ export struct MySheetsPage {
     .padding({ left: 20, right: 20, top: 12, bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
-}
 
-@Extend(ListItem)
-function ListItemStyle(){
-  .width('100%')
-  .borderRadius(16)
-  .padding(12)
-  .backgroundColor($r('sys.color.comp_background_list_card'))
+  /** 编辑歌单半模态：修改名称+简介（预填当前值） */
+  @Builder
+  EditSheetBuilder() {
+    Column() {
+      Text('编辑歌单')
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ top: 4, bottom: 16 })
+      TextInput({ text: this.editSheetTitle, placeholder: '歌单名称' })
+        .width('100%')
+        .height(44)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(12)
+        .onChange((v: string) => {
+          this.editSheetTitle = v;
+        })
+      TextArea({ text: this.editSheetDesc, placeholder: '简介（可选）' })
+        .width('100%')
+        .height(88)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(12)
+        .margin({ top: 12 })
+        .onChange((v: string) => {
+          this.editSheetDesc = v;
+        })
+      Button('保存')
+        .width('100%')
+        .height(42)
+        .fontSize(15)
+        .margin({ top: 20 })
+        .backgroundColor($r('sys.color.background_emphasize'))
+        .onClick(() => {
+          this.confirmEditSheet();
+        })
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
+  }
 }
 
 @Extend(List)

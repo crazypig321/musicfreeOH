@@ -344,10 +344,14 @@ export struct SheetDetailPage {
     this.batchSelected = this.batchSelected.length === all.length ? [] : all;
   }
 
-  /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」） */
+  /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」；本地歌单末位为删除） */
   private batchLabels(): Array<string> {
     const allSelected = this.musicCount > 0 && this.batchSelected.length === this.musicCount;
-    return [allSelected ? '取消全选' : '全选', '下一首播放', '添加到歌单', '下载'];
+    const selectLabel = allSelected ? '取消全选' : '全选';
+    if (this.isLocalSheet) {
+      return [selectLabel, '下一首播放', '下载', '删除'];
+    }
+    return [selectLabel, '下一首播放', '添加到歌单', '下载'];
   }
 
   /** 勾选的歌曲实体列表（按列表顺序） */
@@ -429,6 +433,25 @@ export struct SheetDetailPage {
       this.showToast('已添加 ' + fresh.length.toString() + ' 首到「' + sheet.title + '」');
     }).catch((_e: Object): void => {
       this.showToast('添加失败');
+    });
+  }
+
+  /** 批量删除本地歌单中的选中歌曲 */
+  private batchRemoveFromSheet(): void {
+    const items = this.selectedItems();
+    if (items.length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    const sheet = this.sheet;
+    if (sheet === null) {
+      return;
+    }
+    musicSheet.removeMusic(sheet.id, items).then((): void => {
+      this.exitBatchMode();
+      this.showToast('已删除 ' + items.length.toString() + ' 首歌曲');
+    }).catch((_e: Object): void => {
+      this.showToast('删除失败');
     });
   }
 
@@ -596,7 +619,7 @@ export struct SheetDetailPage {
         })
 
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
-        // 已选行 + 全选 / 下一首播放 / 添加到歌单 / 下载
+        // 已选行 + 全选 / 下一首播放 / 添加到歌单(本地歌单：下载/删除) / 下载
         if (appState.isBatchMode) {
           // 渐变模糊高度与底栏内容高度一致：14(顶距) + 22(已选行) + 10 + 36(按钮行) + 12(底距) + 导航栏避让
           CommonBlur({ heightValue: appState.bottomRect + 94 }).position({ bottom: 0 })
@@ -632,10 +655,20 @@ export struct SheetDetailPage {
                       this.toggleSelectAll();
                     } else if (i === 1) {
                       this.batchPlayNext();
-                    } else if (i === 2) {
-                      this.openBatchSheetPicker();
+                    } else if (this.isLocalSheet) {
+                      // 本地歌单：下载 / 删除
+                      if (i === 2) {
+                        this.batchDownload();
+                      } else {
+                        this.batchRemoveFromSheet();
+                      }
                     } else {
-                      this.batchDownload();
+                      // 插件歌单/榜单：添加到歌单 / 下载
+                      if (i === 2) {
+                        this.openBatchSheetPicker();
+                      } else {
+                        this.batchDownload();
+                      }
                     }
                   })
               }, (v: string, i: number) => v + '_' + i.toString())
