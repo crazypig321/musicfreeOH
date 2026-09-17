@@ -353,7 +353,7 @@ export struct MusicOptionsSheet {
             .height(64)
             .borderRadius(10)
             .objectFit(ImageFit.Cover)
-            .alt($r('app.media.startIcon'))
+            .alt($r('app.media.altImage'))
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music_note_list'))

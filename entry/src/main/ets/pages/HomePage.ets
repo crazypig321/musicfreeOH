@@ -450,9 +450,12 @@ export struct HomePage{
 
       if (gi === 1 || gi === 2) {
         Blank()
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.icon_tertiary')])
+        Row({ space: 10 }){
+          Text('更多')
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+        }
       }
     }
     .width('100%')

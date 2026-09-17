@@ -147,12 +147,12 @@ export struct CommonCover{
           .aspectRatio(this.aspect)
           .borderRadius(this.radius)
           .objectFit(ImageFit.Cover)
-          .alt($r('app.media.startIcon'))
+          .alt($r('app.media.altImage'))
       } else {
         Image(this.src)
           .width(this.widthValue)
           .borderRadius(this.radius)
-          .alt($r('app.media.startIcon'))
+          .alt($r('app.media.altImage'))
       }
     } else {
       Column() {

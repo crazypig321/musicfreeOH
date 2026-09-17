@@ -8,6 +8,7 @@ import { Qualities } from '../utils/Qualities';
 import { MinDistance } from '../utils/MinDistance';
 import { Delay } from '../utils/Delay';
 import { Log } from '../utils/Log';
+import { BackgroundTask } from '../utils/BackgroundTask';
 import { PersistStatus } from './PersistStatus';
 import { appConfig } from './AppConfig';
 import { musicHistory } from './MusicHistory';
@@ -210,9 +211,18 @@ export class TrackPlayer {
     ev.state = state;
     this.ee.emit('play-state-changed', ev);
     if (state === PlayState.Playing) {
+      // 播放中申请音频长时任务，避免退后台后被系统挂起
+      BackgroundTask.start();
       this.startProgressTimer();
     } else {
       this.stopProgressTimer();
+      // 暂停/停止/出错/释放时取消长时任务；
+      // 换曲期间的 completed→idle→playing 不经过这些状态，任务不会抖动
+      if (state === PlayState.Paused || state === PlayState.Stopped ||
+        state === PlayState.Completed || state === PlayState.Error ||
+        state === PlayState.Released) {
+        BackgroundTask.stop();
+      }
     }
   }
 
