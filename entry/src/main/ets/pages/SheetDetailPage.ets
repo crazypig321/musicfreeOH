@@ -14,6 +14,7 @@ import { musicSheet } from '../core/MusicSheet';
 import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
+import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 
 /**
  * 歌单详情页：主页榜单卡片 / 推荐歌单网格点击进入
@@ -54,6 +55,14 @@ export struct SheetDetailPage {
   private isEnd: boolean = false;
   /** 请求序号（仅应用最新一次请求的结果） */
   private reqSeq: number = 0;
+  /** 本地歌单模式（我的歌单页进入，直接读取本地数据） */
+  private isLocalSheet: boolean = false;
+  /** 后台补齐播放队列进行中 */
+  private bgLoadingAll: boolean = false;
+  /** 页面存活标记（销毁后停止 UI 写入，队列补齐继续） */
+  private pageAlive: boolean = true;
+  /** 后台补齐安全页数上限 */
+  private static readonly MAX_BG_PAGES: number = 100;
 
   aboutToAppear(): void {
     this.sheet = SheetDetailNavParams.sheet;
@@ -61,6 +70,17 @@ export struct SheetDetailPage {
     this.sheetTitle = this.sheet !== null ? this.sheet.title : '';
     this.coverUrl = this.sheet !== null ? this.sheet.coverUrl() : '';
     this.description = this.sheet !== null ? this.sheet.description : '';
+    // 本地歌单：不走插件接口，直接读取本地曲目
+    if (this.sheet !== null && this.sheet.platform === LOCAL_PLUGIN_PLATFORM) {
+      this.isLocalSheet = true;
+      this.loadLocalSheet();
+      musicSheet.onMusicListUpdated((sheetId: string, _updateType: string): void => {
+        if (this.sheet !== null && sheetId === this.sheet.id) {
+          this.loadLocalSheet();
+        }
+      });
+      return;
+    }
     const name = SheetDetailNavParams.pluginName.length > 0 ?
       SheetDetailNavParams.pluginName : (this.sheet !== null ? this.sheet.platform : '');
     this.plugin = name.length > 0 ? pluginManager.getByName(name) : null;
@@ -69,6 +89,23 @@ export struct SheetDetailPage {
       this.isTopList = false;
     }
     this.loadPage(true);
+  }
+
+  /** 加载本地歌单曲目（全量） */
+  private loadLocalSheet(): void {
+    const sheet = this.sheet;
+    if (sheet === null) {
+      return;
+    }
+    const list = musicSheet.getMusicList(sheet.id);
+    this.dataSource.clear();
+    this.dataSource.appendData(list);
+    this.musicCount = list.length;
+    this.isEnd = true;
+  }
+
+  aboutToDisappear(): void {
+    this.pageAlive = false;
   }
 
   /** 加载歌单内容：reset 重新加载第一页，否则触底续拉 */
@@ -167,16 +204,89 @@ export struct SheetDetailPage {
     });
   }
 
-  /** 全部播放：从第一首开始 */
+  /** 全部播放：立即以已加载歌曲开始播放，剩余页后台补齐到播放队列 */
   private playAll(): void {
     const playList = this.dataSource.getItems();
     if (playList.length === 0) {
-      this.showToast('暂无歌曲');
+      this.showToast(this.loading ? '加载中，请稍候' : '暂无歌曲');
       return;
     }
     trackPlayer.playWithReplacePlayList(playList[0], playList).catch((_e: Object): void => {
       this.showToast('播放失败');
     });
+    this.loadRemainingToQueue();
+  }
+
+  /** 后台加载剩余页并追加到播放队列尾部（同时补全页面列表）；loadingMore=true 阻断手动触底加载 */
+  private loadRemainingToQueue(): void {
+    if (this.bgLoadingAll || this.isLocalSheet || this.isEnd) {
+      return;
+    }
+    if (this.plugin === null || this.sheet === null) {
+      return;
+    }
+    this.bgLoadingAll = true;
+    this.loadingMore = true;
+    this.loadNextPageToQueue();
+  }
+
+  /** 逐页拉取剩余歌曲：终止条件（已结束/超过安全页数/超过队列上限）后收尾 */
+  private loadNextPageToQueue(): void {
+    const plugin = this.plugin;
+    const sheet = this.sheet;
+    if (plugin === null || sheet === null || this.isEnd ||
+      this.page >= SheetDetailPage.MAX_BG_PAGES || this.dataSource.totalCount() >= MAX_PLAYLIST_SIZE) {
+      this.finishBgLoad(false);
+      return;
+    }
+    const nextPage = this.page + 1;
+    if (this.isTopList) {
+      plugin.methods.getTopListDetail(sheet, nextPage).then((r: TopListInfoResult): void => {
+        this.applyBgPage(r.musicList, r.isEnd, nextPage);
+      }).catch((_e: Object): void => {
+        this.finishBgLoad(true);
+      });
+    } else {
+      plugin.methods.getMusicSheetInfo(sheet, nextPage).then((r: SheetInfoResult | null): void => {
+        if (r === null) {
+          this.finishBgLoad(true);
+          return;
+        }
+        this.applyBgPage(r.musicList, r.isEnd, nextPage);
+      }).catch((_e: Object): void => {
+        this.finishBgLoad(true);
+      });
+    }
+  }
+
+  /** 应用一页后台加载结果：补全页面列表 + 追加到播放队列（传 clone 副本，避免 addAll 原地改写污染 dataSource 对象） */
+  private applyBgPage(musicList: Array<MusicItem>, isEnd: boolean, page: number): void {
+    this.page = page;
+    // 空页但未声明结束：视为结束，防止死循环
+    this.isEnd = isEnd || musicList.length === 0;
+    if (musicList.length > 0) {
+      if (this.pageAlive) {
+        this.dataSource.appendData(musicList);
+        this.musicCount = this.dataSource.totalCount();
+      }
+      const copies: Array<MusicItem> = [];
+      for (const it of musicList) {
+        copies.push(it.clone());
+      }
+      trackPlayer.addAll(copies);
+    }
+    this.loadNextPageToQueue();
+  }
+
+  /** 后台补齐收尾 */
+  private finishBgLoad(failed: boolean): void {
+    this.bgLoadingAll = false;
+    if (this.pageAlive) {
+      this.loadingMore = false;
+      if (failed) {
+        this.showToast('剩余歌曲加载中断');
+      }
+    }
   }
 
   /** 打开单项操作半模态（与搜索结果一致） */
@@ -385,7 +495,7 @@ export struct SheetDetailPage {
             this.HeaderBuilder()
           }
 
-          if (this.plugin === null) {
+          if (this.plugin === null && !this.isLocalSheet) {
             // 插件不可用
             ListItem() {
               Text('插件不可用，请返回重新进入')

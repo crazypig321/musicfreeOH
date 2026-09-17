@@ -29,6 +29,16 @@ export const MENU_CONFIG: MenuItem[] = [
     pressBgColor: $r('sys.color.interactive_pressed')
   },
   {
+    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.music_note_list')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+      .fontColor([$r('sys.color.icon_primary')]),
+    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.music_note_list')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+      .fontColor([$r('sys.color.icon_emphasize')]),
+    label: $r('app.string.tab_my_sheets'),
+    defaultBgColor: Color.Transparent,
+    hoverBgColor: $r('sys.color.interactive_hover'),
+    pressBgColor: $r('sys.color.interactive_pressed')
+  },
+  {
     symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.AI_panels')).renderingStrategy(SymbolRenderingStrategy.SINGLE)
       .fontColor([$r('sys.color.icon_primary')]),
     symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.AI_panels')).renderingStrategy(SymbolRenderingStrategy.SINGLE)

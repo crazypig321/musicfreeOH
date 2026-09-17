@@ -17,6 +17,10 @@
       "value": "主页"
     },
     {
+      "name": "tab_my_sheets",
+      "value": "我的歌单"
+    },
+    {
       "name": "tab_download",
       "value": "下载管理"
     },

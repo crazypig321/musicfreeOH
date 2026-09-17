@@ -10,6 +10,7 @@ import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModel
 import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
+import { MySheetsPage } from './MySheetsPage';
 import { SettingsPage } from './SettingsPage';
 import { SearchPage } from './SearchPage';
 import { SubscriptionPage } from './SubscriptionPage';
@@ -69,8 +70,10 @@ struct Index {
               if (i === 0) {
                 HomePage({ bootReady: this.bootReady })
               } else if (i === 1) {
-                PluginPage()
+                MySheetsPage()
               } else if (i === 2) {
+                PluginPage()
+              } else if (i === 3) {
                 SubscriptionPage()
               } else {
                 SettingsPage()
