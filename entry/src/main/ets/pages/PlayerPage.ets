@@ -550,6 +550,13 @@ export struct PlayerPage {
                         .height(280)
                         .borderRadius(24)
                         .objectFit(ImageFit.Cover)
+                        // 光晕：阴影颜色取封面主色（ColoringStrategy.PRIMARY）
+                        .shadow({
+                          radius: 30,
+                          color: '#6bffffff',
+                          offsetX: 0,
+                          offsetY: 0,
+                        })
                     } else {
                       Column() {
                         SymbolGlyph($r('sys.symbol.music'))
@@ -924,7 +931,7 @@ export struct PlayerPage {
             .justifyContent(FlexAlign.SpaceBetween)
             .alignItems(VerticalAlign.Center)
             .padding({ left: 4, right: 4 })
-            .margin({ top: 18 })
+            .margin({ top: 25 })
           }
           .width('100%')
           .height('100%')

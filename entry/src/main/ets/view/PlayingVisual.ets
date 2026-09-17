@@ -104,7 +104,7 @@ export struct PlayingVisual {
             size: [width, 3]
           },
           color: {
-            range: ['#ffffffff', '#9CC3FF']
+            range: ['#ffffffff', '#ff9cc3ff']
           },
           opacity: {
             range: [0.9, 1.0],
