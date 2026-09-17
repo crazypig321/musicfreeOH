@@ -1,30 +1,59 @@
 import { MusicItem } from '../common/model/MediaTypes';
 import { trackPlayer } from '../core/TrackPlayer';
 import { PlayState } from '../core/PlayerEngine';
+import { MusicRepeatMode } from '../common/Consts';
+import { MusicDataSource } from '../common/model/MusicDataSource';
+import { MediaUtils } from '../utils/MediaUtils';
+import { appState } from '../entryability/AppState';
 
 @ComponentV2
 export struct PlayBar {
   @Local currentMusic: MusicItem | null = null;
   @Local isPlaying: boolean = false;
+  /** 播放队列半模态 */
+  @Local showQueue: boolean = false;
+  /** 队列条目数（驱动头部/空态刷新） */
+  @Local queueCount: number = 0;
+  /** 循环模式（切换后本地同步以刷新图标） */
+  @Local repeatMode: MusicRepeatMode = MusicRepeatMode.QUEUE;
+  /** 播放队列数据源（LazyForEach） */
+  private queueDataSource: MusicDataSource = new MusicDataSource();
+  private queueScroller: Scroller = new Scroller();
   private offCurrent: () => void = (): void => {
   };
   private offState: () => void = (): void => {
+  };
+  private offPlayList: () => void = (): void => {
   };
 
   aboutToAppear(): void {
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
+    this.repeatMode = trackPlayer.repeatMode;
+    this.refreshQueue();
     this.offCurrent = trackPlayer.onCurrentMusicChanged((music: MusicItem | null) => {
       this.currentMusic = music;
     });
     this.offState = trackPlayer.onPlayStateChanged((state: PlayState) => {
       this.isPlaying = state === PlayState.Playing;
     });
+    this.offPlayList = trackPlayer.onPlayListChanged(() => {
+      this.refreshQueue();
+    });
   }
 
   aboutToDisappear(): void {
     this.offCurrent();
     this.offState();
+    this.offPlayList();
+  }
+
+  /** 刷新播放队列数据源 */
+  private refreshQueue(): void {
+    const list = trackPlayer.playList.slice();
+    this.queueDataSource.clear();
+    this.queueDataSource.appendData(list);
+    this.queueCount = list.length;
   }
 
   private togglePlay(): void {
@@ -40,6 +69,83 @@ export struct PlayBar {
   private skipToNext(): void {
     trackPlayer.skipToNext().catch((): void => {
     });
+  }
+
+  /** 当前播放歌曲在队列中的下标 */
+  private currentQueueIndex(): number {
+    const current = this.currentMusic;
+    if (current === null) {
+      return -1;
+    }
+    const items = this.queueDataSource.getItems();
+    for (let i = 0; i < items.length; i++) {
+      if (MediaUtils.isSameMediaItem(items[i], current)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private isCurrent(item: MusicItem): boolean {
+    return trackPlayer.isCurrentMusic(item);
+  }
+
+  /** 循环模式图标：随机 / 单曲循环 / 列表循环 */
+  private repeatIcon(): Resource {
+    if (this.repeatMode === MusicRepeatMode.SHUFFLE) {
+      return $r('sys.symbol.shuffle');
+    }
+    if (this.repeatMode === MusicRepeatMode.SINGLE) {
+      return $r('sys.symbol.repeat_1');
+    }
+    return $r('sys.symbol.repeat');
+  }
+
+  /** 切换循环模式 */
+  private toggleRepeatMode(): void {
+    trackPlayer.toggleRepeatMode();
+    this.repeatMode = trackPlayer.repeatMode;
+    this.showToast(this.repeatMode === MusicRepeatMode.SHUFFLE ? '随机播放' :
+      (this.repeatMode === MusicRepeatMode.SINGLE ? '单曲循环' : '列表循环'));
+  }
+
+  /** 清空播放队列 */
+  private clearQueue(): void {
+    if (this.queueCount === 0) {
+      return;
+    }
+    trackPlayer.clearPlayList().then((): void => {
+      this.showToast('已清空播放队列');
+    }).catch((_e: Object): void => {
+      this.showToast('清空失败');
+    });
+  }
+
+  /** 全部播放：从队列第一首开始 */
+  private playAllFromQueue(): void {
+    const items = this.queueDataSource.getItems();
+    if (items.length === 0) {
+      this.showToast('播放队列为空');
+      return;
+    }
+    trackPlayer.play(items[0]).catch((_e: Object): void => {
+      this.showToast('播放失败');
+    });
+  }
+
+  /** 从队列中移除单个条目 */
+  private removeFromQueue(item: MusicItem): void {
+    trackPlayer.remove(item).catch((_e: Object): void => {
+      this.showToast('移除失败');
+    });
+  }
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
+    } catch (error) {
+      // TODO: Implement error handling.
+    }
   }
 
   build() {
@@ -94,10 +200,207 @@ export struct PlayBar {
         .onClick(() => {
           this.skipToNext()
         })
+
+      // 播放队列入口
+      SymbolGlyph($r('sys.symbol.music_note_list'))
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_primary')])
+        .onClick(() => {
+          this.refreshQueue();
+          this.showQueue = true;
+        })
     }
     .width('100%')
     .height(52)
     .padding({ left: 8, right: 12 })
     .alignItems(VerticalAlign.Center)
+    .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      dragBar: true,
+      onWillDisappear: () => {
+        this.showQueue = false;
+        appState.isForegroundBlur = false;
+      },
+      onWillAppear: () => {
+        appState.isForegroundBlur = true;
+      }
+    })
+  }
+
+  /** 播放队列半模态：标题+共N首副标题、全部播放行（右侧循环/清空图标），点击切歌 */
+  @Builder
+  QueueSheetBuilder() {
+    Column() {
+      Column({ space: 2 }) {
+        Text('当前播放队列')
+          .fontSize(17)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text('共 ' + this.queueCount.toString() + ' 首')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+      .margin({ top: 4, bottom: 4 })
+
+      // 全部播放 + 循环模式/清空（UI 同歌单详情页）
+      if (this.queueCount > 0) {
+        Row() {
+          Row({ space: 6 }) {
+            SymbolGlyph($r('sys.symbol.play_circle_fill'))
+              .fontSize(36)
+              .fontColor([$r('sys.color.font')])
+            Text('全部播放 · ' + this.queueCount.toString())
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font'))
+          }
+          .height(40)
+          .onClick(() => {
+            this.playAllFromQueue();
+          })
+
+          Row({ space: 24 }) {
+            SymbolGlyph(this.repeatIcon())
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+              .onClick(() => {
+                this.toggleRepeatMode();
+              })
+            SymbolGlyph($r('sys.symbol.trash'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+              .onClick(() => {
+                this.clearQueue();
+              })
+          }
+        }
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width('100%')
+        .margin({ top: 16 })
+      }
+
+      if (this.queueCount === 0) {
+        Column({ space: 8 }) {
+          SymbolGlyph($r('sys.symbol.music_note_list'))
+            .fontSize(44)
+            .fontColor([$r('sys.color.icon_tertiary')])
+          Text('播放队列为空')
+            .fontSize(14)
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .margin({ top: 32 })
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        List({ scroller: this.queueScroller }) {
+          LazyForEach(this.queueDataSource, (item: MusicItem, index: number) => {
+            ListItem() {
+              this.QueueRowBuilder(item, index)
+            }
+          }, (item: MusicItem, _index: number) => item.platform + '_' + item.id)
+        }
+        .width('100%')
+        .margin({ top: 4 })
+        .scrollBar(BarState.Off)
+        .nestedScroll({
+          scrollForward: NestedScrollMode.PARENT_FIRST,
+          scrollBackward: NestedScrollMode.SELF_FIRST
+        })
+        .onAppear(() => {
+          // 打开时定位到当前播放曲目
+          const idx = this.currentQueueIndex();
+          if (idx > 0) {
+            this.queueScroller.scrollToIndex(idx, false, ScrollAlign.CENTER);
+          }
+        })
+      }
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 队列条目：序号 + 标题/歌手·专辑 + 播放中标记 + 来源标签 + 移除按钮 */
+  @Builder
+  QueueRowBuilder(item: MusicItem, index: number) {
+    Column() {
+      Row({ space: 10 }) {
+        // 序号（当前曲目高亮）
+        Text((index + 1).toString())
+          .fontSize(13)
+          .fontColor(this.isCurrent(item) ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
+          .width(16)
+          .textAlign(TextAlign.Start)
+
+        Column({ space: 2 }) {
+          Text(item.title)
+            .fontSize(15)
+            .fontWeight(this.isCurrent(item) ? FontWeight.Medium : FontWeight.Normal)
+            .fontColor(this.isCurrent(item) ? $r('sys.color.font_emphasize') : $r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        if (this.isCurrent(item)) {
+          Row({ space: 4 }) {
+            SymbolGlyph($r('sys.symbol.play_fill'))
+              .fontSize(12)
+              .fontColor([$r('sys.color.icon_emphasize')])
+            Text('播放中')
+              .fontSize(11)
+              .fontColor($r('sys.color.font_emphasize'))
+          }
+        }
+
+        // 来源标签（样式同首页来源标签）
+        if (item.platform.length > 0) {
+          Text(item.platform)
+            .fontSize(10)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .constraintSize({ maxWidth: 64 })
+            .padding({ top: 3, bottom: 3, left: 5, right: 5 })
+            .borderRadius(3)
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+        }
+
+        // 从队列移除
+        SymbolGlyph($r('sys.symbol.xmark'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_secondary')])
+          .onClick(() => {
+            this.removeFromQueue(item);
+          })
+      }
+      .width('100%')
+      .height(52)
+      .alignItems(VerticalAlign.Center)
+      .onClick(() => {
+        if (!this.isCurrent(item)) {
+          trackPlayer.play(item).catch((_e: Object): void => {
+            this.showToast('播放失败');
+          });
+        }
+      })
+
+      // 条目间分割线（避开序号区域，与标题对齐）
+      if (index < this.queueDataSource.totalCount() - 1) {
+        Divider()
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 26 })
+      }
+    }
+    .width('100%')
   }
 }

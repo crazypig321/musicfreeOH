@@ -348,7 +348,7 @@ export struct DownloadPage {
     if (this.downloadedCount > 0) {
       menus.push({
         content: {
-          icon: $r('sys.symbol.checkmark_square'),
+          icon: $r('sys.symbol.list_checkmask'),
           label: '批量操作',
           action: (): void => {
             this.enterBatchMode();

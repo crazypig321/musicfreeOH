@@ -962,11 +962,14 @@ export class TrackPlayer {
     };
   }
 
-  onPlayListChanged(cb: () => void): void {
+  onPlayListChanged(cb: () => void): () => void {
     const wrapper: EventListenerFn = (_payload?: Object) => {
       cb();
     };
     this.ee.on('play-list-changed', wrapper);
+    return (): void => {
+      this.ee.off('play-list-changed', wrapper);
+    };
   }
 
   onCellularForbidden(cb: () => void): void {
