@@ -11,7 +11,7 @@ import { lyricManager, LyricState } from '../core/LyricManager';
 import { ParsedLrcItem } from '../utils/LyricParser';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
-import { NavPathUtils } from '../utils/NavPathUtils';
+import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { QueueSheet } from '../view/QueueSheet';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { pluginManager } from '../plugin/PluginManager';
@@ -108,9 +108,14 @@ export struct PlayerPage {
       this.currentLyric = item;
       this.autoScrollToCurrentLyric();
     });
+    // 收起完成时重置歌词态，保证下次展开时封面占位可测量
+    playerAnim.onCollapsed = (): void => {
+      this.showLyric = false;
+    };
   }
 
   aboutToDisappear(): void {
+    playerAnim.onCollapsed = null;
     this.offCurrent();
     this.offState();
     this.offProgress();
@@ -440,10 +445,9 @@ export struct PlayerPage {
   }
 
   build() {
-    NavDestination() {
-      Stack() {
-        // 背景：封面高斯模糊 + 主题色蒙层
-        if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
+    Stack() {
+      // 背景：封面高斯模糊 + 主题色蒙层
+      if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
           Image(this.currentMusic.artwork)
             .width('100%')
             .height('100%')
@@ -479,7 +483,8 @@ export struct PlayerPage {
                   .fontSize(26)
                   .fontColor([$r('sys.color.icon_primary')])
                   .onClick(() => {
-                    NavPathUtils.pop();
+                    // 一镜到底收起回迷你条
+                    PlayerExpandAnimController.collapse();
                   })
               }
               .layoutWeight(1)
@@ -536,6 +541,7 @@ export struct PlayerPage {
             }
             .width('100%')
             .height(32)
+            .opacity(playerAnim.topBarOpacity)
 
 
 
@@ -552,11 +558,14 @@ export struct PlayerPage {
                         .objectFit(ImageFit.Cover)
                         // 光晕：阴影颜色取封面主色（ColoringStrategy.PRIMARY）
                         .shadow({
-                          radius: 30,
-                          color: '#6bffffff',
+                          radius: 80,
+                          color: ColoringStrategy.PRIMARY,
                           offsetX: 0,
-                          offsetY: 0,
+                          offsetY: 0
                         })
+                        // 一镜到底落点：动画期间作为隐形占位，由顶层飞行封面代替
+                        .id('player_page_cover')
+                        .opacity(playerAnim.bigCoverHidden ? 0 : 1)
                     } else {
                       Column() {
                         SymbolGlyph($r('sys.symbol.music'))
@@ -569,6 +578,8 @@ export struct PlayerPage {
                       .backgroundColor($r('sys.color.comp_background_tertiary'))
                       .justifyContent(FlexAlign.Center)
                       .alignItems(HorizontalAlign.Center)
+                      .id('player_page_cover')
+                      .opacity(playerAnim.bigCoverHidden ? 0 : 1)
                     }
                   }
                   .width('100%')
@@ -973,6 +984,17 @@ export struct PlayerPage {
       }
       .width('100%')
       .height('100%')
+      .backgroundColor($r('sys.color.background_secondary'))
+      // 展开态下拉收起：跟手 → 松手半屏判定回弹/收起（distance 20 防误触）
+      .gesture(
+        PanGesture({ fingers: 1, direction: PanDirection.Vertical, distance: 20 })
+          .onActionUpdate((event: GestureEvent): void => {
+            PlayerExpandAnimController.updateDrag(event.offsetY);
+          })
+          .onActionEnd((): void => {
+            PlayerExpandAnimController.endDrag();
+          })
+      )
       .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
         detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,
@@ -985,11 +1007,6 @@ export struct PlayerPage {
           appState.isForegroundBlur = true;
         }
       })
-    }
-    .hideTitleBar(true)
-    .backgroundColor($r('sys.color.background_secondary'))
-    .width('100%')
-    .height('100%')
   }
 
   @Builder

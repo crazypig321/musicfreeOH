@@ -1,4 +1,5 @@
 import web_webview from '@ohos.web.webview';
+import { display } from '@kit.ArkUI';
 import { WebPluginExecutor } from '../plugin/WebPluginExecutor';
 import { Bootstrap } from '../core/Bootstrap';
 import { trackPlayer } from '../core/TrackPlayer';
@@ -8,7 +9,7 @@ import {
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_PLAYER } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { MySheetsPage } from './MySheetsPage';
@@ -20,6 +21,7 @@ import { RecommendSheetsPage } from './RecommendSheetsPage';
 import { SheetDetailPage } from './SheetDetailPage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
+import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
 import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent } from '../utils/DialogUtils';
@@ -32,6 +34,12 @@ struct Index {
   @Local bootReady: boolean = false;
 
   aboutToAppear(): void {
+    // 播放页覆盖层初始平移到屏幕外（此时 UIContext 尚未初始化，用 densityPixels 换算 vp）
+    const d = display.getDefaultDisplaySync();
+    playerAnim.collapsedOffset = d.height / d.densityPixels + 100;
+    playerAnim.screenWidth = d.width / d.densityPixels;
+    playerAnim.screenHeight = d.height / d.densityPixels;
+    playerAnim.pageTranslateY = playerAnim.collapsedOffset;
     WebPluginExecutor.getInstance().attachController(this.controller);
     // 公共弹窗：注册打开动作与轻提示
     DialogManager.Register((): void => {
@@ -147,13 +155,37 @@ struct Index {
         .width(1)
         .height(1)
         .opacity(0)
+
+      // 播放页覆盖层：一镜到底动画宿主（常驻挂载；收起时整体平移到屏幕外，不参与命中测试）
+      Column() {
+        PlayerPage()
+      }
+      .width('100%')
+      .height('100%')
+      .translate({ y: playerAnim.pageTranslateY })
+      .opacity(playerAnim.pageOpacity)
+
+      // 飞行封面：迷你条封面与播放页大封面之间逐帧插值，动画期间可见
+      // 不加 PRIMARY 阴影：封面逐帧缩放会导致主色提取逐帧像素回读，严重掉帧
+      Image(trackPlayer.currentMusic === null ? '' : trackPlayer.currentMusic.artwork)
+        .position({ x: playerAnim.coverX, y: playerAnim.coverY })
+        .width(playerAnim.coverSize)
+        .height(playerAnim.coverSize)
+        .borderRadius(playerAnim.coverRadius)
+        .objectFit(ImageFit.Cover)
+        .opacity(playerAnim.coverOpacity)
+        .hitTestBehavior(HitTestMode.None)
     }
     .width('100%')
     .height('100%')
   }
 
-  /** 返回键：批量操作模式下先退出批量模式 */
+  /** 返回键：展开态先收起播放页；批量操作模式下先退出批量模式 */
   onBackPress(): boolean {
+    if (playerAnim.isExpand || playerAnim.isAnimating) {
+      PlayerExpandAnimController.collapse();
+      return true;
+    }
     if (appState.isBatchMode) {
       appState.isBatchMode = false;
       return true;
@@ -173,8 +205,6 @@ struct Index {
       RecommendSheetsPage()
     } else if (name === ROUTE_SHEET_DETAIL) {
       SheetDetailPage()
-    } else if (name === ROUTE_PLAYER) {
-      PlayerPage()
     }
   }
 

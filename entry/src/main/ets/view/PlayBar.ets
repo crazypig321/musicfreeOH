@@ -2,8 +2,7 @@ import { MusicItem } from '../common/model/MediaTypes';
 import { trackPlayer } from '../core/TrackPlayer';
 import { PlayState } from '../core/PlayerEngine';
 import { appState } from '../entryability/AppState';
-import { ROUTE_PLAYER } from '../common/model/NavModels';
-import { NavPathUtils } from '../utils/NavPathUtils';
+import { playerAnim, PlayerExpandAnimController } from './PlayerExpandAnim';
 import { QueueSheet } from './QueueSheet';
 import { HdsBarStyle } from '@kit.UIDesignKit';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
@@ -64,10 +63,10 @@ export struct PlayBar {
     });
   }
 
-  /** 进入全屏播放页 */
+  /** 进入全屏播放页（一镜到底展开） */
   private openPlayer(): void {
     if (this.currentMusic !== null) {
-      NavPathUtils.push(ROUTE_PLAYER);
+      PlayerExpandAnimController.expand();
     }
   }
 
@@ -82,6 +81,8 @@ export struct PlayBar {
             .borderRadius(100)
             .objectFit(ImageFit.Cover)
             .animation({ duration: 500, curve: Curve.Smooth })
+            .id('mini_playbar_cover')
+            .opacity(playerAnim.miniCoverOpacity)
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music'))
@@ -94,6 +95,8 @@ export struct PlayBar {
           .backgroundColor($r('sys.color.comp_background_tertiary'))
           .justifyContent(FlexAlign.Center)
           .animation({ duration: 500, curve: Curve.Smooth })
+          .id('mini_playbar_cover')
+          .opacity(playerAnim.miniCoverOpacity)
         }
 
         Column({ space: 2 }) {
@@ -159,6 +162,8 @@ export struct PlayBar {
     .padding({ left: 8, right: 12 })
     .alignItems(VerticalAlign.Center)
     .animation({ duration: 500, curve: Curve.Smooth })
+    .id('mini_playbar_root')
+    .opacity(playerAnim.miniBarOpacity)
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true,

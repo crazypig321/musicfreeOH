@@ -108,7 +108,7 @@ export struct MySheetsPage {
     };
     const batch: HdsNavigationMenuItemOptions = {
       content: {
-        icon: $r('sys.symbol.checkmark_square'),
+        icon: $r('sys.symbol.list_checkmask'),
         label: '批量操作',
         action: (): void => {
           this.enterBatchMode();
