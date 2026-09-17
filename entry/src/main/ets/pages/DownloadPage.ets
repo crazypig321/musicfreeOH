@@ -5,6 +5,7 @@ import { musicSheet } from '../core/MusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { CommonBlur } from '../view/CommonCom';
+import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { appState } from '../entryability/AppState';
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
@@ -36,6 +37,8 @@ export struct DownloadPage {
   /** 已下载歌曲数（分组标题与空态使用） */
   @Local downloadedCount: number = 0;
   @Local showOptions: boolean = false;
+  /** 本地模式单项操作面板（与主页/搜索页共用的 MusicOptionsSheet） */
+  @Local showLocalOptions: boolean = false;
   @Local optionsItem: MusicItem = new MusicItem();
   /** 批量模式下已勾选的歌曲键（platform_id） */
   @Local batchSelected: Array<string> = [];
@@ -696,7 +699,7 @@ export struct DownloadPage {
       .contentStartOffset(appState.topRect + 55)
       .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 216 : 60))
       .padding({ left: 16, right: 16 })
-      .bindSheet(!!this.showOptions, this.OptionsSheetBuilder(), {
+      .bindSheet(!this.isLocalMode && !!this.showOptions, this.OptionsSheetBuilder(), {
         detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,
         onWillDisappear: () => {
@@ -705,17 +708,6 @@ export struct DownloadPage {
         },
         onWillAppear: () => {
           appState.isForegroundBlur = true
-        }
-      })
-      .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
-        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
-        onWillDisappear: () => {
-          this.showBatchSheetPicker = false;
-          appState.isForegroundBlur = false;
-        },
-        onWillAppear: () => {
-          appState.isForegroundBlur = true;
         }
       })
 
@@ -795,6 +787,33 @@ export struct DownloadPage {
           .width('100%')
           .position({ bottom: 0 })
           .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+        }
+
+        // 批量「添加到歌单」选择器锚点（独立节点挂载半模态，不与单项操作 sheet 共用宿主）
+        Column()
+          .width('100%')
+          .height(0)
+          .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
+            detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            dragBar: true,
+            onWillDisappear: () => {
+              this.showBatchSheetPicker = false;
+              appState.isForegroundBlur = false;
+            },
+            onWillAppear: () => {
+              appState.isForegroundBlur = true;
+            }
+          })
+
+        // 本地模式：单项操作面板与主页本地音乐条目完全一致（收藏/添加到歌单/搜索歌词等）
+        if (this.isLocalMode) {
+          MusicOptionsSheet({
+            optionsItem: this.optionsItem,
+            show: this.showLocalOptions,
+            onClose: (): void => {
+              this.showLocalOptions = false;
+            }
+          })
         }
       }
       .width('100%')
@@ -884,16 +903,26 @@ export struct DownloadPage {
             .fontSize(24)
             .fontColor([this.isSelected(item) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
         }
-        Column() {
-          SymbolGlyph($r('sys.symbol.music_note_list'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
+        // 封面：有图用 Image，无图用音符占位
+        if (item.artwork.length > 0) {
+          Image(item.artwork)
+            .width(40)
+            .height(40)
+            .borderRadius(10)
+            .objectFit(ImageFit.Cover)
+            .alt($r('app.media.altImage'))
+        } else {
+          Column() {
+            SymbolGlyph($r('sys.symbol.music'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(10)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .justifyContent(FlexAlign.Center)
         }
-        .width(40)
-        .height(40)
-        .borderRadius(10)
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .justifyContent(FlexAlign.Center)
 
         Column({ space: 2 }) {
           Text(item.title)
@@ -919,7 +948,12 @@ export struct DownloadPage {
             .fontColor([$r('sys.color.icon_secondary')])
             .onClick(() => {
               this.optionsItem = item.clone();
-              this.showOptions = true;
+              // 本地模式：与主页本地音乐条目一致的完整操作面板；下载模式：本页简化面板
+              if (this.isLocalMode) {
+                this.showLocalOptions = true;
+              } else {
+                this.showOptions = true;
+              }
             })
         }
       }
@@ -959,18 +993,27 @@ export struct DownloadPage {
   @Builder
   OptionsSheetBuilder() {
     Column() {
-      // 头部：图标 + 标题 + 歌手 + 专辑
+      // 头部：封面 + 标题 + 歌手 + 专辑
       Row({ space: 12 }) {
-        Column() {
-          SymbolGlyph($r('sys.symbol.music_note_list'))
-            .fontSize(28)
-            .fontColor([$r('sys.color.icon_tertiary')])
+        if (this.optionsItem.artwork.length > 0) {
+          Image(this.optionsItem.artwork)
+            .width(64)
+            .height(64)
+            .borderRadius(10)
+            .objectFit(ImageFit.Cover)
+            .alt($r('app.media.altImage'))
+        } else {
+          Column() {
+            SymbolGlyph($r('sys.symbol.music_note_list'))
+              .fontSize(28)
+              .fontColor([$r('sys.color.icon_tertiary')])
+          }
+          .width(64)
+          .height(64)
+          .borderRadius(10)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .justifyContent(FlexAlign.Center)
         }
-        .width(64)
-        .height(64)
-        .borderRadius(10)
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .justifyContent(FlexAlign.Center)
 
         Column({ space: 3 }) {
           Text(this.optionsItem.title)

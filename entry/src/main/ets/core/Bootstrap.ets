@@ -105,6 +105,7 @@ export class Bootstrap {
     FileUtils.checkAndCreateDir(PathConst.pluginPath);
     FileUtils.checkAndCreateDir(PathConst.lrcCachePath);
     FileUtils.checkAndCreateDir(PathConst.downloadCachePath);
+    FileUtils.checkAndCreateDir(PathConst.artworkCachePath);
     FileUtils.checkAndCreateDir(PathConst.localLrcPath);
     FileUtils.checkAndCreateDir(PathConst.downloadPath);
     FileUtils.checkAndCreateDir(PathConst.downloadMusicPath);

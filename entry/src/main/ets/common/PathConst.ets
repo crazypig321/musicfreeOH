@@ -18,6 +18,8 @@ export class PathConst {
   static localLrcPath: string = '';
   static lrcCachePath: string = '';
   static downloadCachePath: string = '';
+  /** 本地音乐内嵌封面缓存目录（沙箱 cache，可被系统清理后由下次扫描重建） */
+  static artworkCachePath: string = '';
   static downloadPath: string = '';
   static downloadMusicPath: string = '';
   /** 公共下载目录是否已解析过（每次进程生命周期内只尝试一次） */
@@ -33,6 +35,7 @@ export class PathConst {
     PathConst.localLrcPath = PathConst.basePath + '/local_lrc/';
     PathConst.lrcCachePath = PathConst.cachePath + 'lrc/';
     PathConst.downloadCachePath = PathConst.cachePath + 'download/';
+    PathConst.artworkCachePath = PathConst.cachePath + 'artwork/';
     // 默认沙箱回落；启动后由 bootstrapPublicDownloadDir 异步解析公共目录刷新
     PathConst.downloadPath = PathConst.basePath + '/download/';
     PathConst.downloadMusicPath = PathConst.downloadPath;

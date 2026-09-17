@@ -1,6 +1,10 @@
 import media from '@ohos.multimedia.media';
+import image from '@ohos.multimedia.image';
 import fs from '@ohos.file.fs';
 import { Log } from './Log';
+import { PathConst } from '../common/PathConst';
+import { FileUtils } from './FileUtils';
+import { CryptoUtil } from './CryptoUtil';
 
 /**
  * 媒体元信息提取（替代 RN 的 Mp3Util，基于 AVMetadataExtractor）
@@ -11,6 +15,8 @@ export class MediaBasicMeta {
   album: string = '';
   /** 时长（毫秒） */
   durationMs: number = 0;
+  /** 内嵌专辑封面缓存路径（file:// URI，无封面为空） */
+  artwork: string = '';
 }
 
 export class MediaMetadata {
@@ -46,6 +52,12 @@ export class MediaMetadata {
           meta.durationMs = d;
         }
       }
+      // 内嵌专辑封面（失败不影响基础元信息）
+      try {
+        meta.artwork = await MediaMetadata.extractArtwork(path, extractor);
+      } catch (e) {
+        // 无封面或提取失败，保持为空
+      }
     } catch (e) {
       Log.warn('读取媒体元信息失败: ' + path);
     } finally {
@@ -62,5 +74,41 @@ export class MediaMetadata {
       }
     }
     return meta;
+  }
+
+  /**
+   * 提取内嵌专辑封面并缓存为 JPEG（沙箱 artwork 目录）；
+   * 命中缓存直接返回缓存路径，避免重复解码。返回 file:// URI，无封面返回空串
+   */
+  private static async extractArtwork(path: string,
+    extractor: media.AVMetadataExtractor): Promise<string> {
+    const hash = await CryptoUtil.md5(path);
+    const coverPath = PathConst.artworkCachePath + hash + '.jpg';
+    const coverUri = FileUtils.addFileScheme(coverPath);
+    if (FileUtils.exists(coverUri)) {
+      return coverUri;
+    }
+    const pixelMap = await extractor.fetchAlbumCover();
+    if (pixelMap === undefined || pixelMap === null) {
+      return '';
+    }
+    const packer = image.createImagePacker();
+    let coverFile: fs.File | null = null;
+    try {
+      const data: ArrayBuffer = await packer.packing(pixelMap, { format: 'image/jpeg', quality: 85 });
+      coverFile = fs.openSync(coverPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      fs.writeSync(coverFile.fd, data);
+      return coverUri;
+    } finally {
+      packer.release();
+      pixelMap.release();
+      if (coverFile !== null) {
+        try {
+          fs.closeSync(coverFile);
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
   }
 }

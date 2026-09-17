@@ -23,7 +23,7 @@ export struct MusicRow {
             .alt($r('app.media.altImage'))
         } else {
           Column() {
-            SymbolGlyph($r('sys.symbol.music_note_list'))
+            SymbolGlyph($r('sys.symbol.music'))
               .fontSize(20)
               .fontColor([$r('sys.color.icon_secondary')])
           }

@@ -414,41 +414,51 @@ export struct SearchPage {
 
   @Builder
   ResultRowBuilder(item: MusicItem, index: number) {
-    Row({ space: 12 }) {
-      Text((index + 1).toString())
-        .fontSize(14)
-        .fontColor(index < 3 ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
-        .width(24)
-        .textAlign(TextAlign.Center)
-      Column({ space: 2 }) {
-        Text(item.title)
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
+    Column() {
+      Row({ space: 12 }) {
+        Text((index + 1).toString())
+          .fontSize(14)
+          .fontColor(index < 3 ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
+          .width(24)
+          .textAlign(TextAlign.Center)
+        Column({ space: 2 }) {
+          Text(item.title)
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        Text(SearchPage.formatDuration(item.duration))
           .fontSize(12)
           .fontColor($r('sys.color.font_tertiary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        SymbolGlyph($r('sys.symbol.ellipsis_circle'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+          .onClick(() => {
+            this.openOptions(item);
+          })
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      Text(SearchPage.formatDuration(item.duration))
-        .fontSize(12)
-        .fontColor($r('sys.color.font_tertiary'))
-      SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-        .fontSize(20)
-        .fontColor([$r('sys.color.icon_secondary')])
-        .onClick(() => {
-          this.openOptions(item);
-        })
+      .width('100%')
+      .height(56)
+      .borderRadius(12)
+      .onClick(() => {
+        this.playResult(item);
+      })
+      if (index < this.resultCount - 1) {
+        Divider()
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 33 })
+      }
     }
     .width('100%')
-    .height(56)
-    .borderRadius(12)
-    .onClick(() => {
-      this.playResult(item);
-    })
+    .alignItems(HorizontalAlign.Start)
   }
 }
