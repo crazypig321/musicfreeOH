@@ -32,6 +32,8 @@ export class PlayerEngine {
   private playingBeforeInterrupt: boolean = false;
   /** 本地播放文件句柄（fd:// 播放期间需保持打开） */
   private localFile: fs.File | null = null;
+  /** 音效开关（true=系统默认音效 EFFECT_DEFAULT / false=关闭音效 EFFECT_NONE） */
+  private audioEffectOn: boolean = true;
 
   /** 被其他应用打断后是否自动恢复播放（basic.notInterrupt 取反） */
   resumeAfterInterrupt: boolean = true;
@@ -93,6 +95,10 @@ export class PlayerEngine {
   private setupListeners(p: media.AVPlayer): void {
     p.on('stateChange', (state: media.AVPlayerState, _reason: media.StateChangeReason) => {
       this.stateInternal = PlayerEngine.mapState(state);
+      if (state === 'prepared') {
+        // 换源后音效模式恢复为默认值，需重新应用
+        this.applyAudioEffectMode();
+      }
       if (state === 'completed') {
         this.onEndReached();
       }
@@ -315,6 +321,31 @@ export class PlayerEngine {
     if (p.state === 'prepared' || p.state === 'playing' || p.state === 'paused' ||
       p.state === 'completed') {
       p.setVolume(volume);
+    }
+  }
+
+  get audioEffectEnabled(): boolean {
+    return this.audioEffectOn;
+  }
+
+  /** 开关系统音效（立即应用到当前实例，换源后自动重应用） */
+  setAudioEffectEnabled(enabled: boolean): void {
+    this.audioEffectOn = enabled;
+    this.applyAudioEffectMode();
+  }
+
+  /** 应用音效模式（仅在 prepared/playing/paused/completed 状态可设置，否则忽略） */
+  private applyAudioEffectMode(): void {
+    const p = this.player;
+    if (p === null) {
+      return;
+    }
+    try {
+      p.audioEffectMode = this.audioEffectOn
+        ? audio.AudioEffectMode.EFFECT_DEFAULT
+        : audio.AudioEffectMode.EFFECT_NONE;
+    } catch (e) {
+      // 状态不允许设置时忽略，prepared 后会重新应用
     }
   }
 
