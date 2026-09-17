@@ -12,6 +12,8 @@ import { appState } from "../entryability/AppState";
 import { LengthMetrics } from "@kit.ArkUI";
 import { PlayBar } from "./PlayBar";
 import { themeUtils } from "../utils/ThemeUtils";
+import { playerAnim, PlayerExpandAnimController } from "./PlayerExpandAnim";
+import { appConfig } from "../core/AppConfig";
 
 export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr,
   menus?: Array<HdsNavigationMenuItemOptions>, bottomBuilder?: BottomBuilderParams): TitleBarContentOptions {
@@ -85,7 +87,7 @@ export struct CommonNav{
         HdsTabs({ controller: this.tabsController }) {
           TabContent(){
             this.content()
-          }.tabBar(this.playBar()).align(Alignment.Top)
+          }.tabBar(this.playBar())//.align(Alignment.Top)
         }
         .barOverlap(true)
         .vertical(false)
@@ -157,6 +159,11 @@ export struct CommonNav{
       ).animation({duration: 300, curve: Curve.Smooth})
     )
     .onBackPressed(() => {
+      // 播放页覆盖层展开时，返回手势先收起播放页，再由页面自行处理返回
+      if (playerAnim.isExpand || playerAnim.isAnimating) {
+        PlayerExpandAnimController.collapse();
+        return true;
+      }
       return this.backPressed()
     })
     .dynamicHideTitleBar({
@@ -167,6 +174,6 @@ export struct CommonNav{
 
   @Builder
   playBar(){
-    PlayBar()
+    PlayBar({ isTwoPage: true }).offset({ x: -5 })
   }
 }

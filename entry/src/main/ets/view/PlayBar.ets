@@ -22,6 +22,7 @@ export struct PlayBar {
   @Local isPlaying: boolean = false;
   /** 播放队列半模态 */
   @Local showQueue: boolean = false;
+  @Param isTwoPage: boolean = false
   /** 本实例测量 id 前缀（getRectangleById 用，避免多实例同 id 测错对象） */
   private readonly myId: string = 'pb_' + (playBarSeq++).toString();
   private offCurrent: () => void = (): void => {
@@ -50,7 +51,7 @@ export struct PlayBar {
     if (!IsApiVersion_24()) {
       return 44;
     }
-    return appState.hdsBarLayoutMode === 0 ? 44 : 30;
+    return appState.hdsBarLayoutMode === 0 || this.isTwoPage ? 44 : 30;
   }
 
   private togglePlay(): void {
@@ -179,8 +180,7 @@ export struct PlayBar {
       }
     }
     .width('100%')
-    .height(52)
-    .padding({ left: 8, right: 12 })
+    .padding(this.isTwoPage ? 0 : { left: 8, right: 12 })
     .alignItems(VerticalAlign.Center)
     .animation({ duration: 500, curve: Curve.Smooth })
     .id(this.myId + '_root')

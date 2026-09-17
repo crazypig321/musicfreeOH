@@ -3,6 +3,7 @@ import { promptAction } from '@kit.ArkUI';
 import { AVCastPicker } from '@kit.AVSessionKit';
 import { MusicItem, QualityKey, QUALITY_KEYS } from '../common/model/MediaTypes';
 import { CommentItem, CommentsResult } from '../common/model/SheetTypes';
+import { CommentDataSource } from '../common/model/CommentDataSource';
 import { PlayState, playerEngine } from '../core/PlayerEngine';
 import { MusicRepeatMode } from '../common/Consts';
 import { musicSheet } from '../core/MusicSheet';
@@ -51,6 +52,8 @@ export struct PlayerPage {
   @Local comments: Array<CommentItem> = [];
   @Local commentsLoading: boolean = false;
   @Local commentsEnded: boolean = false;
+  /** 评论懒加载数据源（与 comments 同步） */
+  private commentSource: CommentDataSource = new CommentDataSource();
   /** 音效开关 */
   @Local audioEffectOn: boolean = true;
   /** 用户拖动进度条期间不回写进度事件 */
@@ -253,6 +256,7 @@ export struct PlayerPage {
       return;
     }
     this.comments = [];
+    this.commentSource.reload(this.comments);
     this.commentsEnded = false;
     this.commentsLoading = true;
     this.commentsPage = 1;
@@ -278,6 +282,7 @@ export struct PlayerPage {
       } else {
         this.comments = this.comments.concat(result.data);
       }
+      this.commentSource.reload(this.comments);
       this.commentsEnded = result.isEnd;
       this.commentsPage = page;
       this.commentsLoading = false;
@@ -1061,7 +1066,7 @@ export struct PlayerPage {
         .alignItems(HorizontalAlign.Center)
       } else {
         List() {
-          ForEach(this.comments, (item: CommentItem, index: number) => {
+          LazyForEach(this.commentSource, (item: CommentItem) => {
             ListItem() {
               Column({ space: 8 }) {
                 Row({ space: 10 }) {
@@ -1152,6 +1157,12 @@ export struct PlayerPage {
         }
         .width('100%')
         .layoutWeight(1)
+        .divider({
+          strokeWidth: 0.5,
+          color: $r('sys.color.comp_divider'),
+          startMargin: 0,
+          endMargin: 0
+        })
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .onReachEnd(() => {
