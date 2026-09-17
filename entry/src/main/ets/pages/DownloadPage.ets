@@ -615,6 +615,7 @@ export struct DownloadPage {
       titleBarOp: titleBarOf(this.isLocalMode ? '本地音乐' : $r('app.string.tab_download'), undefined,
         this.titleMenus()),
       isShowPlayBar: appState.isBatchMode ? false : true,
+      doubleTapToTop: true,
       backPressed: (): boolean => {
         // 批量操作模式下返回键先退出批量模式
         if (appState.isBatchMode) {

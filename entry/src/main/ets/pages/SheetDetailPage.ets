@@ -502,6 +502,7 @@ export struct SheetDetailPage {
       titleBarOp: titleBarOf('歌单详情'),
       scroller: this.scroller,
       doubleTapToTop: true,
+      isShowPlayBar: appState.isBatchMode ? false : true,
       backPressed: (): boolean => {
         // 批量操作模式下返回键先退出批量模式
         if (appState.isBatchMode) {

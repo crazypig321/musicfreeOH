@@ -217,6 +217,7 @@ export struct RecommendSheetsPage {
     CommonNav({
       titleBarOp: titleBarOf('推荐歌单', undefined, this.titleMenus()),
       scroller: this.scroller,
+      isShowPlayBar: appState.isBatchMode ? false : true,
       doubleTapToTop: true
     }) {
       Stack({ alignContent: Alignment.Top }) {
