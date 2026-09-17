@@ -18,7 +18,7 @@ import { RecommendSheetsPage } from './RecommendSheetsPage';
 import { PlayBar } from '../view/PlayBar';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent } from '../utils/DialogUtils';
+import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -210,6 +210,8 @@ struct Index {
       // 预留：分组名称输入框
     } else if (key === '重命名') {
       RenameDialogContent()
+    } else if (key === '跳转排序') {
+      SortJumpDialogContent()
     }
   }
 }

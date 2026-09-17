@@ -139,6 +139,7 @@ export class PluginManager {
     for (const p of plugins) {
       this.updatePluginCache(p);
     }
+    this.ee.emit('order-updated', new PluginOrderUpdatedEvent());
   }
 
   private updatePluginCache(plugin: Plugin): void {

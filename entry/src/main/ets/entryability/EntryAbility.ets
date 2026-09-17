@@ -6,6 +6,8 @@ import { PathConst } from '../common/PathConst';
 import { Network } from '../infra/Network';
 import { FileUtils } from '../utils/FileUtils';
 import { mediaSession } from '../core/MediaSession';
+import { trackPlayer } from '../core/TrackPlayer';
+import { PlayState } from '../core/PlayerEngine';
 import { screenInfo } from '../utils/ScreenInfo';
 import { themeUtils } from '../utils/ThemeUtils';
 
@@ -43,8 +45,12 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
-    mediaSession.destroy().catch(() => {
-    });
+    // 播放中（长时任务续跑、进程存活）不销毁媒体会话，
+    // 否则系统播控中心/锁屏播控会随 Ability 销毁一起消失
+    if (trackPlayer.playState !== PlayState.Playing) {
+      mediaSession.destroy().catch(() => {
+      });
+    }
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

@@ -28,6 +28,8 @@ export class Bootstrap {
   /** 执行完整初始化（幂等；失败时 Promise 拒绝，与 RN Fatal 态一致不自动重试） */
   static async setup(): Promise<void> {
     if (Bootstrap.inited) {
+      // 进程未死、Ability 重建：媒体会话可能已随旧 Ability 销毁被释放，需补建
+      await mediaSession.setup();
       return;
     }
     Bootstrap.inited = true;

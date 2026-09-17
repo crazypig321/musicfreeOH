@@ -94,6 +94,26 @@ export struct RenameDialogContent {
 }
 
 
+/** 「跳转排序」弹窗内容：目标序号输入框 */
+@ComponentV2
+export struct SortJumpDialogContent {
+  build() {
+    TextInput({ text: DialogManager.sortJumpValue, placeholder: '目标序号（1-' + DialogManager.sortJumpMax.toString() + '）' })
+      .type(InputType.Number)
+      .width('100%')
+      .height(44)
+      .fontSize(14)
+      .fontColor($r('sys.color.font_primary'))
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .borderRadius(10)
+      .onChange((v: string): void => {
+        DialogManager.sortJumpValue = v;
+      })
+  }
+}
+
+
 /**
  * 公共弹窗管理：各页面通过 OpenDialog(key) 打开 Index 的公共弹窗，
  * 标题 / 按钮 / 确认取消逻辑集中在这里
@@ -115,6 +135,12 @@ export class DialogManager {
   public static renameValue: string = '';
   /** 「重命名」确认回调（打开前由调用方赋值，弹窗关闭后自动清空） */
   public static renameConfirm: ((name: string) => void) | null = null;
+  /** 「跳转排序」目标序号（打开前赋初值，弹窗内编辑） */
+  public static sortJumpValue: string = '';
+  /** 「跳转排序」允许的最大序号（打开前由调用方赋值） */
+  public static sortJumpMax: number = 0;
+  /** 「跳转排序」确认回调（target 为 0 基索引，弹窗关闭后自动清空） */
+  public static sortJumpConfirm: ((target: number) => void) | null = null;
 
   // ===== 由 Index 注册的宿主动作 =====
   private static opener: (() => void) | null = null;
@@ -154,6 +180,8 @@ export class DialogManager {
         return '创建分组';
       case '重命名':
         return '重命名';
+      case '跳转排序':
+        return '跳转排序';
     }
     return '';
   }
@@ -226,6 +254,24 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '跳转排序': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '确定',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
     }
     return buttons;
   }
@@ -243,6 +289,17 @@ export class DialogManager {
           DialogManager.renameConfirm(DialogManager.renameValue);
         }
         break;
+      case '跳转排序': {
+        const n = parseInt(DialogManager.sortJumpValue, 10);
+        if (isNaN(n) || n < 1 || n > DialogManager.sortJumpMax) {
+          DialogManager.Toast('请输入 1-' + DialogManager.sortJumpMax.toString() + ' 之间的序号');
+          break;
+        }
+        if (DialogManager.sortJumpConfirm !== null) {
+          DialogManager.sortJumpConfirm(n - 1);
+        }
+        break;
+      }
     }
   }
 
@@ -274,6 +331,12 @@ export class DialogManager {
     if (key === '重命名') {
       DialogManager.renameValue = '';
       DialogManager.renameConfirm = null;
+    }
+    // 跳转排序同理
+    if (key === '跳转排序') {
+      DialogManager.sortJumpValue = '';
+      DialogManager.sortJumpMax = 0;
+      DialogManager.sortJumpConfirm = null;
     }
 
     switch (key) {

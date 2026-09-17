@@ -675,6 +675,29 @@ export struct PluginPage {
     this.sortNames = names;
   }
 
+  /** 打开「跳转排序」弹窗：将当前条目直接移动到输入的序号位置 */
+  private openSortJump(index: number): void {
+    DialogManager.sortJumpValue = (index + 1).toString();
+    DialogManager.sortJumpMax = this.sortNames.length;
+    DialogManager.sortJumpConfirm = (target: number): void => {
+      this.moveSortItemTo(index, target);
+    };
+    DialogManager.OpenDialog('跳转排序');
+  }
+
+  /** 将排序条目从 from 移动到 to（0 基索引） */
+  private moveSortItemTo(from: number, to: number): void {
+    if (from === to || from < 0 || from >= this.sortNames.length ||
+      to < 0 || to >= this.sortNames.length) {
+      return;
+    }
+    const names = this.sortNames.slice();
+    const item = names.splice(from, 1)[0];
+    names.splice(to, 0, item);
+    this.sortNames = names;
+    this.showToast('已移动到第 ' + (to + 1).toString() + ' 位');
+  }
+
   private saveSortOrder(): void {
     const plugins: Array<Plugin> = [];
     for (const name of this.sortNames) {
@@ -955,6 +978,12 @@ export struct PluginPage {
                 .fontColor([$r('sys.color.icon_secondary')])
                 .onClick(() => {
                   this.moveSortItem(index, 1);
+                })
+              SymbolGlyph($r('sys.symbol.arrow_up_right'))
+                .fontSize(18)
+                .fontColor([$r('sys.color.icon_secondary')])
+                .onClick(() => {
+                  this.openSortJump(index);
                 })
             }
             .width('100%')
