@@ -714,33 +714,26 @@ export struct SheetDetailPage {
   @Builder
   HeaderBuilder() {
     Column() {
-      if (this.coverUrl.length > 0) {
-        // 封面：全宽、从屏幕顶端开始（不避让标题栏），向下渐变融入页面背景
-        Stack({ alignContent: Alignment.Bottom }) {
-          Image(this.coverUrl)
-            .width('100%')
-            .height(240)
-            .objectFit(ImageFit.Cover)
-            .alt($r('app.media.altImage'))
-          Column()
-            .width('100%')
-            .height(240)
-            .linearGradient({
-              angle: 180,
-              colors: [
-                ['transparent', 0.0],
-                ['transparent', 0.45],
-                [$r('sys.color.background_secondary'), 1.0]
-              ]
-            })
-        }
-        .width('100%')
-      } else {
-        // 无封面：避让状态栏与标题栏
+      // 封面：全宽、从屏幕顶端开始（不避让标题栏），向下渐变融入页面背景
+      Stack({ alignContent: Alignment.Bottom }) {
+        Image(this.coverUrl)
+          .width('100%')
+          .height(240)
+          .objectFit(ImageFit.Cover)
+          .alt($r('app.media.altImage'))
         Column()
           .width('100%')
-          .height(appState.topRect + 55)
+          .height(240)
+          .linearGradient({
+            angle: 180,
+            colors: [
+              ['transparent', 0.0],
+              ['transparent', 0.45],
+              [$r('sys.color.background_secondary'), 1.0]
+            ]
+          })
       }
+      .width('100%')
 
       // 歌单/榜单名
       Text(this.sheetTitle)
