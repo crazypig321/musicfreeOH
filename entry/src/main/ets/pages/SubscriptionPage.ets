@@ -32,9 +32,33 @@ export struct SubscriptionPage {
   @Local detailUrl: string = '';
   @Local updating: boolean = false;
   @Local statusText: string = '';
+  /** 状态行自动隐藏定时器 */
+  private statusTimer: number = -1;
 
   aboutToAppear(): void {
     this.sources = Subscriptions.getSources();
+  }
+
+  aboutToDisappear(): void {
+    if (this.statusTimer !== -1) {
+      clearTimeout(this.statusTimer);
+      this.statusTimer = -1;
+    }
+  }
+
+  /** 设置状态行文本；autoClear 为 true 时 30 秒后自动清除 */
+  private setStatusText(text: string, autoClear: boolean): void {
+    this.statusText = text;
+    if (this.statusTimer !== -1) {
+      clearTimeout(this.statusTimer);
+      this.statusTimer = -1;
+    }
+    if (autoClear) {
+      this.statusTimer = setTimeout(() => {
+        this.statusText = '';
+        this.statusTimer = -1;
+      }, 30000);
+    }
   }
 
   private showToast(message: string): void {
@@ -208,9 +232,9 @@ export struct SubscriptionPage {
       return;
     }
     this.updating = true;
-    this.statusText = '正在更新订阅源...';
+    this.setStatusText('正在更新订阅源...', false);
     const message = await Subscriptions.syncSource(url);
-    this.statusText = message;
+    this.setStatusText(message, true);
     this.updating = false;
   }
 
@@ -222,9 +246,9 @@ export struct SubscriptionPage {
     }
     this.updating = true;
     const message = await Subscriptions.syncAll((done: number, total: number): void => {
-      this.statusText = '正在更新 ' + done.toString() + '/' + total.toString() + ' ...';
+      this.setStatusText('正在更新 ' + done.toString() + '/' + total.toString() + ' ...', false);
     });
-    this.statusText = message;
+    this.setStatusText(message, true);
     this.updating = false;
   }
 
@@ -302,7 +326,7 @@ export struct SubscriptionPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf($r('app.string.tab_subscription'), undefined, this.titleMenus()),
+      titleBarOp: titleBarOf($r('app.string.tab_subscription'), '共 ' + this.sources.length.toString() + ' 个订阅源', this.titleMenus()),
       isHideBackButton: true,
     }) {
       Stack({ alignContent: Alignment.Top }) {

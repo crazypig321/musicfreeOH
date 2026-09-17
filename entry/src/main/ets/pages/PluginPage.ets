@@ -713,7 +713,7 @@ export struct PluginPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf($r('app.string.tab_plugin'), undefined, this.titleMenus()),
+      titleBarOp: titleBarOf($r('app.string.tab_plugin'), '共 ' + this.pluginRows.length.toString() + ' 个插件', this.titleMenus()),
       isHideBackButton: true,
       scroller: this.scroller,
       doubleTapToTop: true,
@@ -967,24 +967,21 @@ export struct PluginPage {
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .layoutWeight(1)
-              SymbolGlyph($r('sys.symbol.chevron_up'))
-                .fontSize(18)
-                .fontColor([$r('sys.color.icon_secondary')])
-                .onClick(() => {
-                  this.moveSortItem(index, -1);
-                })
-              SymbolGlyph($r('sys.symbol.chevron_down'))
-                .fontSize(18)
-                .fontColor([$r('sys.color.icon_secondary')])
-                .onClick(() => {
-                  this.moveSortItem(index, 1);
-                })
-              SymbolGlyph($r('sys.symbol.arrow_up_right'))
-                .fontSize(18)
-                .fontColor([$r('sys.color.icon_secondary')])
-                .onClick(() => {
-                  this.openSortJump(index);
-                })
+
+              ForEach([$r('sys.symbol.chevron_up'), $r('sys.symbol.chevron_down'), $r('sys.symbol.arrow_left_arrow_right')],(v: Resource, i: number)=>{
+                SymbolGlyph(v)
+                  .fontSize(18)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                  .onClick(() => {
+                    if (i === 0) {// 上移
+                      this.moveSortItem(index, -1);
+                    }else if (i === 1) {// 下移
+                      this.moveSortItem(index, 1);
+                    }else{// 跳转
+                      this.openSortJump(index);
+                    }
+                  })
+              })
             }
             .width('100%')
             .height(52)
