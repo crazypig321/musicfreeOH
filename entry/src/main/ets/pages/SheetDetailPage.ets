@@ -499,7 +499,7 @@ export struct SheetDetailPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf(this.sheetTitle),
+      titleBarOp: titleBarOf('歌单详情'),
       scroller: this.scroller,
       doubleTapToTop: true,
       backPressed: (): boolean => {
