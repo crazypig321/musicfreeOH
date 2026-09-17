@@ -982,31 +982,33 @@ export struct PlayerPage {
             }
           })
       }
-      .width('100%')
-      .height('100%')
-      .backgroundColor($r('sys.color.background_secondary'))
-      // 展开态下拉收起：跟手 → 松手半屏判定回弹/收起（distance 20 防误触）
-      .gesture(
-        PanGesture({ fingers: 1, direction: PanDirection.Vertical, distance: 20 })
-          .onActionUpdate((event: GestureEvent): void => {
-            PlayerExpandAnimController.updateDrag(event.offsetY);
-          })
-          .onActionEnd((): void => {
-            PlayerExpandAnimController.endDrag();
-          })
-      )
-      .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
-        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
-        backgroundColor: $r('sys.color.background_secondary'),
-        onWillDisappear: () => {
-          this.showQueue = false;
-          appState.isForegroundBlur = false;
-        },
-        onWillAppear: () => {
-          appState.isForegroundBlur = true;
-        }
-      })
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_secondary'))
+    .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
+      { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
+    // 展开态下拉收起：跟手 → 松手半屏判定回弹/收起（distance 20 防误触）
+    .gesture(
+      PanGesture({ fingers: 1, direction: PanDirection.Vertical, distance: 20 })
+        .onActionUpdate((event: GestureEvent): void => {
+          PlayerExpandAnimController.updateDrag(event.offsetY);
+        })
+        .onActionEnd((): void => {
+          PlayerExpandAnimController.endDrag();
+        })
+    )
+    .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      dragBar: true,
+      backgroundColor: $r('sys.color.background_secondary'),
+      onWillDisappear: () => {
+        this.showQueue = false;
+        appState.isForegroundBlur = false;
+      },
+      onWillAppear: () => {
+        appState.isForegroundBlur = true;
+      }
+    })
   }
 
   @Builder
