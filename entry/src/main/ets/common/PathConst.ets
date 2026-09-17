@@ -1,12 +1,13 @@
 import { ContextHolder } from './ContextHolder';
-import { picker, fileUri, fileIo as fs } from '@kit.CoreFileKit';
+import { bundleManager } from '@kit.AbilityKit';
+import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { Log } from '../utils/Log';
 
 /**
  * 路径常量（移植自 MusicFree src/constants/pathConst.ts）
  * 应用数据目录基于 context.filesDir
- * 下载目录按用户要求映射到公共 Download/MusicFreeOH（RN 原版为应用沙箱，此处为有意偏差）
- * 公共目录通过 DOWNLOAD 模式选择器解析（免弹窗免权限），失败回落沙箱
+ * 下载目录映射到公共 Download/<bundleName>/（RN 原版为应用沙箱，此处为有意偏差）
+ * DOWNLOAD 模式授权目录可直接构造 URI 访问（免弹窗免权限、卸载重装后仍可访问），失败回落沙箱
  */
 export class PathConst {
   static basePath: string = '';
@@ -38,9 +39,9 @@ export class PathConst {
   }
 
   /**
-   * 通过 DOWNLOAD 模式选择器解析公共下载目录（免弹窗免权限），
-   * 成功后将下载目录刷新为 <公共Download>/MusicFreeOH；失败保持沙箱回落。
-   * 每个进程生命周期内只尝试一次，可安全重复调用。
+   * 解析公共下载目录 Download/<bundleName>/（DOWNLOAD 模式授权目录，
+   * 系统预置持久化权限，可直接构造 URI 访问，卸载重装后仍有效）；
+   * 失败保持沙箱回落。每个进程生命周期内只尝试一次，可安全重复调用。
    */
   static async bootstrapPublicDownloadDir(): Promise<void> {
     if (PathConst.publicDownloadDirResolved) {
@@ -48,17 +49,10 @@ export class PathConst {
     }
     PathConst.publicDownloadDirResolved = true;
     try {
-      const ctx = ContextHolder.get();
-      const documentPicker = new picker.DocumentViewPicker(ctx);
-      const options = new picker.DocumentSaveOptions();
-      options.pickerMode = picker.DocumentPickerMode.DOWNLOAD;
-      const result = await documentPicker.save(options);
-      if (result.length === 0) {
-        Log.error('DOWNLOAD模式未返回公共下载目录，保持沙箱目录');
-        return;
-      }
-      const dirPath = new fileUri.FileUri(result[0]).path;
-      if (PathConst.probeWritable(dirPath)) {
+      const bundleInfo = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
+      const uri = 'file://docs/storage/Users/currentUser/Download/' + bundleInfo.name;
+      const dirPath = new fileUri.FileUri(uri).path;
+      if (dirPath.length > 0 && PathConst.probeWritable(dirPath)) {
         PathConst.downloadPath = dirPath;
         PathConst.downloadMusicPath = PathConst.downloadPath;
         Log.info('公共下载目录已解析: ' + PathConst.downloadPath);

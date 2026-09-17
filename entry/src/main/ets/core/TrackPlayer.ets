@@ -12,7 +12,7 @@ import { BackgroundTask } from '../utils/BackgroundTask';
 import { PersistStatus } from './PersistStatus';
 import { appConfig } from './AppConfig';
 import { musicHistory } from './MusicHistory';
-import { localMusicSheet } from './LocalMusicSheet';
+import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
 import { pluginManager } from '../plugin/PluginManager';
 import { SupportMediaType, SearchResult } from '../common/model/SheetTypes';
 import { Network } from '../infra/Network';
@@ -398,6 +398,7 @@ export class TrackPlayer {
       if (Network.getInstance().isCellular &&
         !appConfig.getUseCellularNetworkPlay() &&
         localMusicSheet.isLocalMusic(musicItem) === null &&
+        downloadedSheet.isLocalMusic(musicItem) === null &&
         localPath === null) {
         await playerEngine.stop();
         throw new Error(PlayFailReason.FORBID_CELLUAR_NETWORK_PLAY);

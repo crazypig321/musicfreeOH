@@ -452,6 +452,8 @@ export struct HomePage{
         Blank()
         Row({ space: 10 }){
           Text('更多')
+            .fontSize(14)
+            .fontColor($r('sys.color.icon_tertiary'))
           SymbolGlyph($r('sys.symbol.chevron_right'))
             .fontSize(16)
             .fontColor([$r('sys.color.icon_tertiary')])
@@ -497,7 +499,12 @@ export struct HomePage{
               // 第一组：卡片堆叠轮播（后面卡片露出上边缘，滑动/点击切换）
               CardStack({
                 items: l.data,
+                cardWidth: 160,
                 coverAspect: 0.8,
+                sideCount: 2,
+                spacing: 70,
+                dimOpacity: 0.7,
+                scaleStep: 0.12,
                 itemClick: (_sheet: SheetItem): void => {
                   this.onSheetClick();
                 }

@@ -89,6 +89,15 @@ export class MediaSession {
           this.lastState = state;
           this.updatePlaybackState(true);
         });
+
+        // 启动时恢复的当前歌曲不会触发 onCurrentMusicChanged，主动补同步元数据，
+        // 否则播控中心拿不到元数据、不显示媒体卡片，仅有长时任务的普通通知
+        const restored = trackPlayer.currentMusic;
+        if (restored !== null) {
+          this.lastState = trackPlayer.playState;
+          this.updateMetadata(restored);
+          this.updatePlaybackState(true);
+        }
       }
     } catch (e) {
       Log.error('AVSession 初始化失败', e);

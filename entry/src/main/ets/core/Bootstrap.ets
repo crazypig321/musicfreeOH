@@ -1,11 +1,14 @@
 import { FileUtils } from '../utils/FileUtils';
 import { PathConst } from '../common/PathConst';
 import { Log } from '../utils/Log';
+import { KVStore } from '../infra/KVStore';
 import { PersistStatus } from './PersistStatus';
 import { appConfig } from './AppConfig';
 import { musicSheet } from './MusicSheet';
 import { musicHistory } from './MusicHistory';
-import { localMusicSheet } from './LocalMusicSheet';
+import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
+import { LocalMusicExclusion } from './LocalMusicExclusion';
+import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { trackPlayer } from './TrackPlayer';
 import { mediaSession } from './MediaSession';
 import { lyricManager } from './LyricManager';
@@ -53,13 +56,23 @@ export class Bootstrap {
     lyricManager.setup();
     ScheduleClose.setup();
 
-    // 5. 本地音乐
+    // 5. 本地音乐 + 已下载（两份独立数据，互不关联）
     await localMusicSheet.setup();
+    await downloadedSheet.setup();
+    // 历史数据拆分：旧版共享歌单中插件平台的条目属于已下载域
+    Bootstrap.splitLegacyLocalSheet();
 
-    // 5.1 下载目录自动扫描（非阻塞）：解析公共下载目录后导入其中全部音频，
-    // 文件名符合 platform@id@title@artist 的还原元信息，其余归入「本地」平台
+    // 5.1 下载目录自动扫描（非阻塞）：导入本地音乐（含下载产生的文件）；
+    // 已下载列表不扫描目录，仅在下载完成时写入；
+    // 被「移出本地音乐」的文件在排除名单中，跳过不导入
     PathConst.bootstrapPublicDownloadDir().then(() => {
-      return localMusicSheet.importLocal([PathConst.downloadPath]);
+      const dirs: Array<string> = [PathConst.downloadPath];
+      const legacyDir = PathConst.basePath + '/download/';
+      if (dirs.indexOf(legacyDir) === -1) {
+        dirs.push(legacyDir);
+      }
+      const excluded = LocalMusicExclusion.getExcludedFiles();
+      return localMusicSheet.importLocal(dirs, (filename: string): boolean => !excluded.has(filename));
     }).catch(() => {
       // 静默失败，不影响启动
     });
@@ -69,9 +82,24 @@ export class Bootstrap {
     });
   }
 
+  /** 旧版共享歌单拆分（仅执行一次）：插件平台条目移入已下载，其余（本地导入）保留 */
+  private static splitLegacyLocalSheet(): void {
+    const store = KVStore.getOrCreate('storage');
+    if (store.get('LocalDownloadSplitDone').length > 0) {
+      return;
+    }
+    store.set('LocalDownloadSplitDone', '1');
+    const legacy = localMusicSheet.getMusicList().slice();
+    for (const it of legacy) {
+      if (it.platform !== LOCAL_PLUGIN_PLATFORM) {
+        downloadedSheet.addMusic(it);
+        localMusicSheet.removeMusic(it, false);
+      }
+    }
+  }
+
   /** 初始化数据目录 */
-  private static setupFolder(): void {
-    FileUtils.checkAndCreateDir(PathConst.dataPath);
+  private static setupFolder(): void {    FileUtils.checkAndCreateDir(PathConst.dataPath);
     FileUtils.checkAndCreateDir(PathConst.logPath);
     FileUtils.checkAndCreateDir(PathConst.cachePath);
     FileUtils.checkAndCreateDir(PathConst.pluginPath);

@@ -11,7 +11,7 @@ import { Network } from '../infra/Network';
 import { HttpClient } from '../infra/HttpClient';
 import { Log } from '../utils/Log';
 import { appConfig } from './AppConfig';
-import { localMusicSheet } from './LocalMusicSheet';
+import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
 import { MediaExtra, MediaExtraProperties } from './MediaExtra';
 import { pluginManager } from '../plugin/PluginManager';
 
@@ -331,7 +331,7 @@ export class Downloader {
         const internalRec: JsonRecord = { 'localPath': targetDownloadPath };
         extras[INTERNAL_SERIALIZE_KEY] = internalRec;
         localItem.extras = extras;
-        localMusicSheet.addMusic(localItem);
+        downloadedSheet.addMusic(localItem);
 
         const patch = new MediaExtraProperties();
         patch.downloaded = true;
@@ -385,7 +385,7 @@ export class Downloader {
       if (this.downloadTasks.has(key)) {
         continue;
       }
-      if (localMusicSheet.isLocalMusic(m) !== null) {
+      if (localMusicSheet.isLocalMusic(m) !== null || downloadedSheet.isLocalMusic(m) !== null) {
         continue;
       }
       const task = new DownloadTaskInfo();

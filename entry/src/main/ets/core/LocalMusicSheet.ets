@@ -23,11 +23,20 @@ class ParsedFilename {
 /**
  * 本地音乐歌单（移植自 localMusicSheet.ts）
  * 存储格式与 RN 一致：$localPath 带 file:// 前缀
+ * 同一实现派生两个独立实例：localMusicSheet（本地音乐）与 downloadedSheet（已下载），
+ * 两者数据与操作互不关联
  */
 export class LocalMusicSheet {
+  private readonly storeKey: string;
+  private readonly eventName: string;
   private localSheetItems: Array<MusicItem> = [];
   private ee: EventEmitter = new EventEmitter();
   private importToken: string | null = null;
+
+  constructor(storeKey: string, eventName: string) {
+    this.storeKey = storeKey;
+    this.eventName = eventName;
+  }
 
   private getStore(): KVStore {
     return KVStore.getOrCreate('storage');
@@ -39,7 +48,7 @@ export class LocalMusicSheet {
 
   setup(): Promise<void> {
     const task = (): Promise<void> => {
-      const raw = this.getStore().get('LocalMusicSheet');
+      const raw = this.getStore().get(this.storeKey);
       if (raw.length > 0) {
         const arr = JsonUtil.parseRecordArray(raw);
         const sheet: Array<MusicItem> = [];
@@ -62,7 +71,7 @@ export class LocalMusicSheet {
       } else {
         this.saveItems([]);
       }
-      this.ee.emit('UpdateLocalSheet', new LocalSheetUpdatedEvent());
+      this.ee.emit(this.eventName, new LocalSheetUpdatedEvent());
       return Promise.resolve();
     };
     return task();
@@ -73,11 +82,11 @@ export class LocalMusicSheet {
     for (const it of items) {
       arr.push(it.toPersistRecord());
     }
-    this.getStore().set('LocalMusicSheet', JSON.stringify(arr));
+    this.getStore().set(this.storeKey, JSON.stringify(arr));
   }
 
   private notify(): void {
-    this.ee.emit('UpdateLocalSheet', new LocalSheetUpdatedEvent());
+    this.ee.emit(this.eventName, new LocalSheetUpdatedEvent());
   }
 
   /** 添加本地音乐（去重） */
@@ -191,9 +200,10 @@ export class LocalMusicSheet {
   }
 
   /**
-   * 遍历目录收集本地音频（保留 file:// 前缀）
+   * 遍历目录收集本地音频（保留 file:// 前缀）；filenameFilter 返回 false 的文件跳过
    */
-  private collectMusicStats(folderPaths: Array<string>, token: string): Array<string> {
+  private collectMusicStats(folderPaths: Array<string>, token: string,
+    filenameFilter?: (filename: string) => boolean): Array<string> {
     const musicList: Array<string> = [];
     const queued: Set<string> = new Set();
     for (const p of folderPaths) {
@@ -215,7 +225,8 @@ export class LocalMusicSheet {
             queued.add(child);
             folderPaths.push(child);
           }
-        } else if (LocalMusicSheet.localMediaFilter(child)) {
+        } else if (LocalMusicSheet.localMediaFilter(child) &&
+          (filenameFilter === undefined || filenameFilter(name))) {
           musicList.push(child);
         }
       }
@@ -255,16 +266,16 @@ export class LocalMusicSheet {
   }
 
   /**
-   * 导入本地音乐
+   * 导入本地音乐；filenameFilter 返回 false 的文件跳过（用于下载/本地两个域按文件名分流）
    */
-  importLocal(_folderPaths: Array<string>): Promise<void> {
+  importLocal(_folderPaths: Array<string>, filenameFilter?: (filename: string) => boolean): Promise<void> {
     const folderPaths: Array<string> = [];
     for (const it of _folderPaths) {
       folderPaths.push(FileUtils.addFileScheme(it));
     }
     const token = CryptoUtil.nanoid();
     this.importToken = token;
-    const musicList = this.collectMusicStats(folderPaths, token);
+    const musicList = this.collectMusicStats(folderPaths, token, filenameFilter);
     if (this.importToken !== token) {
       return Promise.reject(new Error('Import Broken'));
     }
@@ -351,8 +362,12 @@ export class LocalMusicSheet {
     const wrapper: EventListenerFn = (_payload?: Object) => {
       cb();
     };
-    this.ee.on('UpdateLocalSheet', wrapper);
+    this.ee.on(this.eventName, wrapper);
   }
 }
 
-export const localMusicSheet = new LocalMusicSheet();
+/** 本地音乐（用户导入的音频） */
+export const localMusicSheet = new LocalMusicSheet('LocalMusicSheet', 'UpdateLocalSheet');
+
+/** 已下载（下载器产生 + 下载目录扫描），与本地音乐互不关联 */
+export const downloadedSheet = new LocalMusicSheet('DownloadedSheet', 'UpdateDownloadedSheet');
