@@ -112,22 +112,54 @@ export struct SortJumpDialogContent {
 }
 
 
-/** 「设置缓存」弹窗内容：缓存上限输入框（单位 M） */
+/** 「设置缓存」弹窗内容：缓存上限输入框 + 单位选择（MB / GB） */
 @ComponentV2
 export struct CacheInputDialogContent {
+  @Local unit: string = DialogManager.cacheInputUnit;
+
   build() {
-    TextInput({ text: DialogManager.cacheInputValue, placeholder: '输入缓存占用上限，100M-8192M，单位M' })
-      .type(InputType.Number)
+    Column({ space: 12 }) {
+      TextInput({ text: DialogManager.cacheInputValue, placeholder: '输入缓存占用上限，100M-8G' })
+        .type(InputType.Number)
+        .width('100%')
+        .height(44)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(10)
+        .onChange((v: string): void => {
+          DialogManager.cacheInputValue = v;
+        })
+
+      Row({ space: 8 }) {
+        Text('MB')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.unit === 'M' ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
+          .backgroundColor(this.unit === 'M' ? $r('sys.color.comp_background_tertiary') : Color.Transparent)
+          .padding({ left: 20, right: 20, top: 8, bottom: 8 })
+          .borderRadius(10)
+          .onClick(() => {
+            this.unit = 'M';
+            DialogManager.cacheInputUnit = 'M';
+          })
+        Text('GB')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.unit === 'G' ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
+          .backgroundColor(this.unit === 'G' ? $r('sys.color.comp_background_tertiary') : Color.Transparent)
+          .padding({ left: 20, right: 20, top: 8, bottom: 8 })
+          .borderRadius(10)
+          .onClick(() => {
+            this.unit = 'G';
+            DialogManager.cacheInputUnit = 'G';
+          })
+        Blank()
+      }
       .width('100%')
-      .height(44)
-      .fontSize(14)
-      .fontColor($r('sys.color.font_primary'))
-      .placeholderColor($r('sys.color.font_tertiary'))
-      .backgroundColor($r('sys.color.comp_background_tertiary'))
-      .borderRadius(10)
-      .onChange((v: string): void => {
-        DialogManager.cacheInputValue = v;
-      })
+    }
+    .width('100%')
   }
 }
 
@@ -194,8 +226,10 @@ export class DialogManager {
   public static pickerIndex: number = 0;
   /** 「选择器」确认回调（index 为选中下标，弹窗关闭后自动清空；取消/关闭弹窗不触发） */
   public static pickerConfirm: ((index: number) => void) | null = null;
-  /** 「设置缓存」当前值（MB，打开前赋初值，弹窗内编辑） */
+  /** 「设置缓存」当前值（打开前赋初值，弹窗内编辑） */
   public static cacheInputValue: string = '';
+  /** 「设置缓存」单位（'M' | 'G'，打开前赋初值，弹窗内切换） */
+  public static cacheInputUnit: string = 'M';
   /** 「设置缓存」确认回调（text 为输入文本，弹窗关闭后自动清空） */
   public static cacheInputConfirm: ((text: string) => void) | null = null;
   /** 「清除缓存」正文（打开前由调用方赋值） */
@@ -496,6 +530,7 @@ export class DialogManager {
     // 设置缓存同理
     if (key === '设置缓存') {
       DialogManager.cacheInputValue = '';
+      DialogManager.cacheInputUnit = 'M';
       DialogManager.cacheInputConfirm = null;
     }
     // 清除缓存同理（取消或关闭弹窗不触发确认回调）

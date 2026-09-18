@@ -53,19 +53,29 @@ export struct CachePage {
     FileUtils.checkAndCreateDir(dir);
   }
 
-  /** 音乐缓存上限：输入 100-8192（单位 M），对齐 RN basic.maxCacheSize */
+  /** 音乐缓存上限：输入数值并选择单位（MB/GB），范围 100M-8G，存 basic.maxCacheSize */
   private showCacheLimitDialog(): void {
+    const MB = 1024 * 1024;
+    const GB = MB * 1024;
     const cur = appConfig.getMaxCacheSize();
-    DialogManager.cacheInputValue = Math.round(cur / (1024 * 1024)).toString();
+    // 按当前值预选单位与数值
+    if (cur >= GB && cur % GB === 0) {
+      DialogManager.cacheInputUnit = 'G';
+      DialogManager.cacheInputValue = (cur / GB).toString();
+    } else {
+      DialogManager.cacheInputUnit = 'M';
+      DialogManager.cacheInputValue = Math.round(cur / MB).toString();
+    }
     DialogManager.cacheInputConfirm = (text: string): void => {
       const val = parseInt(text, 10);
       if (isNaN(val)) {
-        DialogManager.Toast('请输入 100-8192 之间的数字');
+        DialogManager.Toast('请输入 100M-8G 范围内的数字');
         return;
       }
-      // 越界自动收敛到边界（与 RN 行为一致）
-      const clamped = Math.min(Math.max(val, 100), 8192);
-      appConfig.setConfig(ConfigKeys.MAX_CACHE_SIZE, clamped * 1024 * 1024);
+      const unitBytes = DialogManager.cacheInputUnit === 'G' ? GB : MB;
+      // 越界自动收敛到边界（100M-8G，与 RN 行为一致）
+      const clamped = Math.min(Math.max(val * unitBytes, 100 * MB), 8 * GB);
+      appConfig.setConfig(ConfigKeys.MAX_CACHE_SIZE, clamped);
       this.showToast('设置成功');
     };
     DialogManager.OpenDialog('设置缓存');

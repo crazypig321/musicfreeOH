@@ -9,6 +9,7 @@ import { WebUtils } from '../../utils/WebUtils';
 const REPO_OH: string = 'https://github.com/crazypig321/musicfreeOH.git';
 const REPO_ORIGIN: string = 'https://github.com/maotoumao/MusicFree.git';
 const DEV_HOME: string = 'https://github.com/crazypig321';
+const DEP_DATE_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate';
 
 /**
  * 关于页面：应用图标/名称/版本 + 开发者 + 项目地址 + 开源与条款
@@ -206,6 +207,38 @@ export struct AboutPage {
               })
             }
             .width('100%')
+          }
+          .ListItemStyle()
+
+          // 三方库
+          ListItem() {
+            Text('三方库')
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }
+          ListItem() {
+            Row({ space: 12 }) {
+              SymbolGlyph($r('sys.symbol.externaldrive'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+              Text('@xiaoye/date')
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+                .layoutWeight(1)
+              Text('^1.0.1')
+                .fontSize(11)
+                .fontColor($r('sys.color.font_tertiary'))
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(14)
+                .fontColor([$r('sys.color.icon_tertiary')])
+            }
+            .width('100%')
+            .height(52)
+            .onClick(() => {
+              this.openWeb(DEP_DATE_URL);
+            })
           }
           .ListItemStyle()
         }
