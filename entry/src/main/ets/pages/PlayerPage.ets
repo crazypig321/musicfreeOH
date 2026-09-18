@@ -456,16 +456,16 @@ export struct PlayerPage {
     Stack() {
       // 背景：封面高斯模糊 + 主题色蒙层
       if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
-                      Image(ArtworkCache.resolve(this.currentMusic.artwork))
-            .width('100%')
-            .height('100%')
-            .objectFit(ImageFit.Cover)
-            .blur(80)
-          Column()
-            .width('100%')
-            .height('100%')
-            .backgroundColor($r('sys.color.background_secondary'))
-            .opacity(0.82)
+        Image(ArtworkCache.resolve(this.currentMusic.artwork))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(80)
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor($r('sys.color.background_secondary'))
+          .opacity(0.82)
         }
 
         if (this.currentMusic === null) {
@@ -550,6 +550,7 @@ export struct PlayerPage {
             .width('100%')
             .height(32)
             .opacity(playerAnim.topBarOpacity)
+            .padding({bottom: 16})
 
 
 
@@ -559,7 +560,7 @@ export struct PlayerPage {
                   // 封面（点击/左滑进入歌词模式）
                   Column() {
                     if (this.currentMusic.artwork.length > 0) {
-          Image(ArtworkCache.resolve(this.currentMusic.artwork))
+                      Image(ArtworkCache.resolve(this.currentMusic.artwork))
                         .width(280)
                         .height(280)
                         .borderRadius(24)

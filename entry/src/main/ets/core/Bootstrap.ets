@@ -119,6 +119,8 @@ export class Bootstrap {
     appState.accentColor = themeColorOf(appConfig.getAppearanceThemeColor());
     // Tab 切换动画
     appState.tabSwitchAnim = appConfig.getTabSwitchAnim();
+    // Tab 文本选中色使用主题色
+    appState.tabTextColorAccent = appConfig.getTabTextColorAccent();
   }
 
   /** 旧版共享歌单拆分（仅执行一次）：插件平台条目移入已下载，其余（本地导入）保留 */

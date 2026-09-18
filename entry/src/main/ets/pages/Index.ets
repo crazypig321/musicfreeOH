@@ -82,6 +82,15 @@ struct Index {
     }
   }
 
+  /** 底部 tab：文本选中色按设置使用主题色 */
+  private tabBarOf(item: MenuItem): BottomTabBarStyle {
+    const style = new BottomTabBarStyle(tabBarSymbolOf(item), item.label);
+    if (appState.tabTextColorAccent) {
+      style.labelStyle({ selectedColor: appState.accentColor });
+    }
+    return style;
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       HdsNavigation(appState.pageInfos) {
@@ -100,7 +109,7 @@ struct Index {
                 SettingsPage()
               }
             }
-            .tabBar(new BottomTabBarStyle(tabBarSymbolOf(item), item.label))
+            .tabBar(this.tabBarOf(item))
           }, (item: MenuItem, i: number) => 'tab_' + i.toString())
         }
         .barOverlap(true)

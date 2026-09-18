@@ -47,6 +47,8 @@ class AppState{
   @Trace accentColor: ResourceColor = $r('sys.color.icon_emphasize');
   // Tab 切换过渡动画开关
   @Trace tabSwitchAnim: boolean = true;
+  // Tab 文本选中色使用主题色
+  @Trace tabTextColorAccent: boolean = false;
 
   // 是否开启模糊
   @Trace isForegroundBlur: boolean = false;
