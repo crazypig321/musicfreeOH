@@ -957,11 +957,27 @@ export struct SheetDetailPage {
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
-            .fontSize(12)
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Row({ space: 5 }) {
+            // 来源标签（样式同首页来源标签）
+            if (item.platform.length > 0) {
+              Text(item.platform)
+                .fontSize(10)
+                .fontColor($r('sys.color.font_tertiary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .constraintSize({ maxWidth: 64 })
+                .padding({ top: 3, bottom: 3, left: 5, right: 5 })
+                .borderRadius(3)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+            }
+            Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
+              .fontSize(12)
+              .fontColor($r('sys.color.font_tertiary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
+          }
+          .width('100%')
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
