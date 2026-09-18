@@ -315,6 +315,7 @@ export struct AppearanceSettingPage {
               }
               .width('100%')
               .height(52)
+              .justifyContent(FlexAlign.SpaceBetween)
 
               Divider()
                 .DividerStyle()
