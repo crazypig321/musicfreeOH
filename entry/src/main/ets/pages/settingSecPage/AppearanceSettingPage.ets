@@ -2,9 +2,11 @@ import { CommonNav, titleBarOf } from '../../view/CommonNav';
 import { appState, themeColorOf } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
+import { SmartReach } from '../../utils/SmartReach';
 import { ContextHolder } from '../../common/ContextHolder';
 import { ConfigurationConstant } from '@kit.AbilityKit';
-import { hdsMaterial, HdsColorPicker } from '@kit.UIDesignKit';
+import { hdsMaterial, HdsColorPicker, HdsColorPickerTabType } from '@kit.UIDesignKit';
+import { window } from '@kit.ArkUI';
 
 /** 菜单项数据（bindMenu 用） */
 class MenuOptionEntry {
@@ -21,29 +23,30 @@ class MenuOptionEntry {
 
 /**
  * 外观设置页面
- * 主题色（HdsColorPicker 取色器 + Tab 文本色开关）/ 深色模式 / 沉浸光感材质 / 适人握持 / 动画
+ * 主题色（HdsColorPicker 取色器内嵌条目右侧 + Tab 文本色开关）/ 深色模式 / 沉浸光感材质 /
+ * 智感握姿 / 屏幕方向 / 动画
  * 选择类条目点击弹出 Menu 菜单（当前项带勾选标记）
  */
 @ComponentV2
 export struct AppearanceSettingPage {
   scroller: Scroller = new Scroller();
-  /** 主题色取色器当前色（空串 = 跟随系统） */
-  @Local themeColorEnabled: boolean = false;
+  /** 主题色取色器当前色 */
   @Local pickerColor: string = '';
   @Local tabTextColorAccent: boolean = false;
+  @Local smartReachEnabled: boolean = false;
   @Local colorModeText: string = '';
   @Local materialText: string = '';
-  @Local barLayoutMode: boolean = true;
+  @Local orientationText: string = '';
   @Local animText: string = '';
 
   aboutToAppear(): void {
     const stored = appConfig.getAppearanceThemeColor();
-    this.themeColorEnabled = stored.length > 0;
     this.pickerColor = stored.length > 0 ? stored : '#007DFF';
     this.tabTextColorAccent = appConfig.getTabTextColorAccent();
+    this.smartReachEnabled = appConfig.getSmartReachEnabled();
     this.refreshColorModeText();
     this.refreshMaterialText();
-    this.barLayoutMode = appConfig.getAppearanceBarLayoutMode() === 1;
+    this.refreshOrientationText();
     this.refreshAnimText();
   }
 
@@ -67,6 +70,16 @@ export struct AppearanceSettingPage {
     return '沉浸光感';
   }
 
+  private static orientationLabel(orientation: string): string {
+    if (orientation === 'portrait') {
+      return '竖屏';
+    }
+    if (orientation === 'landscape') {
+      return '横屏';
+    }
+    return '跟随系统';
+  }
+
   private static animLabel(expand: boolean, tab: boolean): string {
     if (expand && tab) {
       return '全部开启';
@@ -86,6 +99,10 @@ export struct AppearanceSettingPage {
 
   private refreshMaterialText(): void {
     this.materialText = AppearanceSettingPage.materialLabel(appConfig.getAppearanceMaterialType());
+  }
+
+  private refreshOrientationText(): void {
+    this.orientationText = AppearanceSettingPage.orientationLabel(appConfig.getAppearanceOrientation());
   }
 
   private refreshAnimText(): void {
@@ -112,6 +129,8 @@ export struct AppearanceSettingPage {
       this.applyColorMode(value);
     } else if (kind === 'material') {
       this.applyMaterial(value);
+    } else if (kind === 'orientation') {
+      this.applyOrientation(value);
     } else if (kind === 'anim') {
       this.applyAnim(value);
     }
@@ -179,6 +198,39 @@ export struct AppearanceSettingPage {
     return entries;
   }
 
+  /** 屏幕方向菜单 */
+  @Builder
+  private orientationMenu(): void {
+    this.menuOf(this.orientationEntries(), 'orientation')
+  }
+
+  private applyOrientation(value: string): void {
+    appConfig.setConfig(ConfigKeys.APPEARANCE_ORIENTATION, value);
+    window.getLastWindow(ContextHolder.get()).then((win: window.Window): Promise<void> => {
+      let orientation = window.Orientation.UNSPECIFIED;
+      if (value === 'portrait') {
+        orientation = window.Orientation.PORTRAIT;
+      } else if (value === 'landscape') {
+        orientation = window.Orientation.LANDSCAPE;
+      }
+      return win.setPreferredOrientation(orientation);
+    }).catch((): void => {
+      // 静默失败
+    });
+    this.refreshOrientationText();
+  }
+
+  private orientationEntries(): Array<MenuOptionEntry> {
+    const values: Array<string> = ['system', 'portrait', 'landscape'];
+    const labels: Array<string> = ['跟随系统', '竖屏', '横屏'];
+    const cur = appConfig.getAppearanceOrientation();
+    const entries: Array<MenuOptionEntry> = [];
+    for (let i = 0; i < values.length; ++i) {
+      entries.push(new MenuOptionEntry(values[i], labels[i], values[i] === cur));
+    }
+    return entries;
+  }
+
   /** 动画菜单：播放页展开 + Tab 切换组合 */
   @Builder
   private animMenu(): void {
@@ -214,7 +266,7 @@ export struct AppearanceSettingPage {
     return entries;
   }
 
-  /** 应用主题色（hex；空串 = 跟随系统） */
+  /** 应用主题色（hex） */
   private applyThemeColor(hex: string): void {
     appConfig.setConfig(ConfigKeys.APPEARANCE_THEME_COLOR, hex);
     appState.accentColor = themeColorOf(hex);
@@ -237,44 +289,32 @@ export struct AppearanceSettingPage {
               .width('100%')
           }
 
-          // 主题色：开关 + 取色器 + Tab 文本色开关
+          // 主题色：取色器内嵌条目右侧 + Tab 文本色开关
           ListItem() {
             Column() {
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.paintpalette'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('主题色')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                Toggle({ type: ToggleType.Switch, isOn: this.themeColorEnabled })
-                  .onChange((isOn: boolean) => {
-                    this.themeColorEnabled = isOn;
-                    if (isOn) {
-                      this.applyThemeColor(this.pickerColor);
-                    } else {
-                      this.applyThemeColor('');
-                    }
-                  })
-              }
-              .width('100%')
-              .height(52)
+                Row({ space: 12 }){
+                  SymbolGlyph($r('sys.symbol.paintpalette'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                  Text('主题色')
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                }
 
-              if (this.themeColorEnabled) {
-                Divider()
-                  .DividerStyle()
-
-                // 取色器：网格 / 光谱 / 滑块三种方式
+                // 取色器（仅网格取色，紧凑内嵌）
                 HdsColorPicker({
                   initialColor: this.pickerColor,
                   onColorSelected: (selectedColor: string): void => {
                     this.pickerColor = selectedColor;
                     this.applyThemeColor(selectedColor);
-                  }
+                  },
+                  options: { tabs: [HdsColorPickerTabType.GRID] }
                 })
-                .width('100%')
+                .layoutWeight(1)
               }
+              .width('100%')
+              .height(52)
 
               Divider()
                 .DividerStyle()
@@ -307,7 +347,7 @@ export struct AppearanceSettingPage {
             .width('100%')
           }.ListItemStyle()
 
-          // 深色模式 / 材质 / 适人握持 / 动画
+          // 深色模式 / 材质 / 智感握姿 / 屏幕方向 / 动画
           ListItem() {
             Column() {
               // 深色模式
@@ -356,30 +396,53 @@ export struct AppearanceSettingPage {
               Divider()
                 .DividerStyle()
 
-              // 适人握持
+              // 智感握姿（适人握持）
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.rectangle_stack'))
+                SymbolGlyph($r('sys.symbol.hand_thumbsup'))
                   .fontSize(20)
                   .fontColor([$r('sys.color.icon_secondary')])
                 Column({ space: 2 }) {
-                  Text('适人握持')
+                  Text('智感握姿')
                     .fontSize(15)
                     .fontColor($r('sys.color.font_primary'))
-                  Text('底部导航与迷你播控上下两排布局')
+                  Text('识别握持手，列表封面与更多按钮随拇指可达区域切换')
                     .fontSize(12)
                     .fontColor($r('sys.color.font_tertiary'))
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.barLayoutMode })
+                Toggle({ type: ToggleType.Switch, isOn: this.smartReachEnabled })
                   .onChange((isOn: boolean) => {
-                    this.barLayoutMode = isOn;
-                    appConfig.setConfig(ConfigKeys.APPEARANCE_BAR_LAYOUT_MODE, isOn ? 1 : 0);
-                    appState.hdsBarLayoutMode = isOn ? 1 : 0;
+                    this.smartReachEnabled = isOn;
+                    appConfig.setConfig(ConfigKeys.APPEARANCE_SMART_REACH, isOn);
+                    SmartReach.setEnabled(isOn);
                   })
               }
               .width('100%')
               .height(60)
+
+              Divider()
+                .DividerStyle()
+
+              // 屏幕方向
+              Row({ space: 12 }) {
+                SymbolGlyph($r('sys.symbol.rotate_left'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                Text('屏幕方向')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                Text(this.orientationText)
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(14)
+                  .fontColor([$r('sys.color.icon_tertiary')])
+              }
+              .width('100%')
+              .height(52)
+              .bindMenu(this.orientationMenu)
 
               Divider()
                 .DividerStyle()

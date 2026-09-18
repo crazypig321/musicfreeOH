@@ -1014,7 +1014,8 @@ export struct SheetDetailPage {
     .alignItems(HorizontalAlign.Start)
   }
 
-  /** 歌曲行（风格同本地音乐页条目）：点击播放，更多操作进半模态；批量模式下点击勾选、长按进入批量模式 */
+  /** 歌曲行（风格同本地音乐页条目）：点击播放，更多操作进半模态；批量模式下点击勾选、长按进入批量模式。
+   * 智感握姿：左手握持时镜像布局（更多按钮与时长移到左侧、封面移到右侧、文本右对齐） */
   @Builder
   MusicRowBuilder(item: MusicItem, index: number) {
     Column() {
@@ -1025,6 +1026,19 @@ export struct SheetDetailPage {
             .fontSize(24)
             .fontColor([this.isSelected(item) ? appState.accentColor : $r('sys.color.icon_tertiary')])
             .transition(TransitionEffect.OPACITY)
+        }
+        // 智感握姿左手：更多按钮 + 时长移到左侧（拇指可达区）
+        if (appState.holdingHand === 'left' && !appState.isBatchMode) {
+          Text(SheetDetailPage.formatDuration(item.duration))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+          SymbolGlyph($r('sys.symbol.ellipsis_circle'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+            .transition(TransitionEffect.OPACITY)
+            .onClick(() => {
+              this.openOptions(item);
+            })
         }
         // 封面：有图用 Image，无图用音符占位
         if (item.artwork.length > 0) {
@@ -1074,14 +1088,17 @@ export struct SheetDetailPage {
               .layoutWeight(1)
           }
           .width('100%')
+          .justifyContent(appState.holdingHand === 'left' ? FlexAlign.End : FlexAlign.Start)
         }
         .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
 
-        Text(SheetDetailPage.formatDuration(item.duration))
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-        if (!appState.isBatchMode) {
+        if (appState.holdingHand !== 'left') {
+          Text(SheetDetailPage.formatDuration(item.duration))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        if (!appState.isBatchMode && appState.holdingHand !== 'left') {
           SymbolGlyph($r('sys.symbol.ellipsis_circle'))
             .fontSize(20)
             .fontColor([$r('sys.color.icon_secondary')])

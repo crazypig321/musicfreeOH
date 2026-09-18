@@ -40,6 +40,8 @@ export class ConfigKeys {
   static readonly APPEARANCE_PLAYER_EXPAND_ANIM = 'appearance.playerExpandAnim';
   static readonly APPEARANCE_TAB_SWITCH_ANIM = 'appearance.tabSwitchAnim';
   static readonly APPEARANCE_TAB_TEXT_COLOR = 'appearance.tabTextColor';
+  static readonly APPEARANCE_SMART_REACH = 'appearance.smartReach';
+  static readonly APPEARANCE_ORIENTATION = 'appearance.orientation';
   static readonly PLUGIN_SUBSCRIBE_URL = 'plugin.subscribeUrl';
   static readonly WEBDAV_URL = 'webdav.url';
   static readonly WEBDAV_PATH = 'webdav.path';
@@ -275,6 +277,17 @@ export class AppConfig {
   /** Tab 文本选中色使用主题色 */
   getTabTextColorAccent(): boolean {
     return this.getBoolean(ConfigKeys.APPEARANCE_TAB_TEXT_COLOR, false);
+  }
+
+  /** 智感握姿（适人握持） */
+  getSmartReachEnabled(): boolean {
+    return this.getBoolean(ConfigKeys.APPEARANCE_SMART_REACH, false);
+  }
+
+  /** 屏幕方向：portrait / landscape / system */
+  getAppearanceOrientation(): string {
+    const v = this.getString(ConfigKeys.APPEARANCE_ORIENTATION, 'system');
+    return v === 'portrait' || v === 'landscape' ? v : 'system';
   }
 }
 

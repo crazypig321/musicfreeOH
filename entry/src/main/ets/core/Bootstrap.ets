@@ -14,8 +14,10 @@ import { mediaSession } from './MediaSession';
 import { lyricManager } from './LyricManager';
 import { ScheduleClose } from '../utils/ScheduleClose';
 import { pluginManager } from '../plugin/PluginManager';
+import { SmartReach } from '../utils/SmartReach';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import { hdsMaterial } from '@kit.UIDesignKit';
+import { window } from '@kit.ArkUI';
 import { ContextHolder } from '../common/ContextHolder';
 import { appState, themeColorOf } from '../entryability/AppState';
 
@@ -121,6 +123,26 @@ export class Bootstrap {
     appState.tabSwitchAnim = appConfig.getTabSwitchAnim();
     // Tab 文本选中色使用主题色
     appState.tabTextColorAccent = appConfig.getTabTextColorAccent();
+    // 智感握姿订阅
+    SmartReach.setup();
+    // 屏幕方向
+    Bootstrap.applyOrientation();
+  }
+
+  /** 屏幕方向（竖屏/横屏/跟随系统） */
+  private static applyOrientation(): void {
+    const o = appConfig.getAppearanceOrientation();
+    window.getLastWindow(ContextHolder.get()).then((win: window.Window): Promise<void> => {
+      let orientation = window.Orientation.UNSPECIFIED;
+      if (o === 'portrait') {
+        orientation = window.Orientation.PORTRAIT;
+      } else if (o === 'landscape') {
+        orientation = window.Orientation.LANDSCAPE;
+      }
+      return win.setPreferredOrientation(orientation);
+    }).catch((): void => {
+      // 静默失败
+    });
   }
 
   /** 旧版共享歌单拆分（仅执行一次）：插件平台条目移入已下载，其余（本地导入）保留 */

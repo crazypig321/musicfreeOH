@@ -24,7 +24,7 @@ export struct SettingsPage {
     return [
       { icon: $r('sys.symbol.paintpalette'), title: '外观', subtitle: '主题与显示' },
       { icon: $r('sys.symbol.play_fill'), title: '播放', subtitle: '播放行为与控制' },
-      { icon: $r('sys.symbol.download'), title: '下载', subtitle: '下载目录与音质' },
+      { icon: $r('sys.symbol.download'), title: '下载', subtitle: '下载相关设置' },
       { icon: $r('sys.symbol.waveform'), title: '歌词', subtitle: '歌词显示与缓存' },
       { icon: $r('sys.symbol.AI_panels'), title: '插件', subtitle: '插件与订阅源' },
       { icon: $r('sys.symbol.archivebox'), title: '缓存', subtitle: '清理缓存数据' },
