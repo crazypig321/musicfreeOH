@@ -697,10 +697,11 @@ export struct SheetDetailPage {
             }
           })
 
-        // 单项操作半模态（与搜索页/主页本地音乐共用）
+        // 单项操作半模态（与搜索页/主页本地音乐共用）；本地歌单（我的歌单进入）额外提供「从当前歌单删除」
         MusicOptionsSheet({
           optionsItem: this.optionsItem,
           show: this.showOptions,
+          removeSheetId: this.isLocalSheet && this.sheet !== null ? this.sheet.id : '',
           onClose: (): void => {
             this.showOptions = false;
           }
