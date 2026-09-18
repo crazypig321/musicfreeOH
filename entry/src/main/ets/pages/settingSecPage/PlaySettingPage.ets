@@ -2,14 +2,14 @@ import { CommonNav, titleBarOf } from '../../view/CommonNav';
 import { appState } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
-import { DialogManager } from '../../utils/DialogUtils';
 import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
+import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 
 /**
  * 播放设置页面
  * 使用移动网络播放 / 启动自动续播 / 播放失败时停止播放 / 播放失败时尝试更换音源 /
  * 播放音质 / 首选音质不可用时
- * 开关类条目右侧 Toggle；选择类条目右侧当前值 + chevron，点击弹「选择器」滚轮
+ * 开关类条目右侧 Toggle；选择类条目右侧当前值 + chevron，点击弹出 Menu 菜单（当前项带勾选标记，UI 同外观设置页）
  * 智感握姿：左手握持时原本行尾的开关/值镜像到行首，文本右对齐，行首图标镜像到行尾
  */
 @ComponentV2
@@ -23,6 +23,9 @@ export struct PlaySettingPage {
   @Local playQualityText: string = '';
   /** 首选音质不可用时展示文本 */
   @Local playQualityOrderText: string = '';
+  /** 各菜单手动弹出开关（bindMenu isShow 形式，便于控制 placement） */
+  @Local showQualityMenu: boolean = false;
+  @Local showOrderMenu: boolean = false;
 
   aboutToAppear(): void {
     this.refreshQualityText();
@@ -50,41 +53,59 @@ export struct PlaySettingPage {
     this.playQualityOrderText = PlaySettingPage.orderLabel(appConfig.getPlayQualityOrder());
   }
 
-  /** 播放音质：TextPicker 滚轮选择，确定生效 */
-  private showQualityPicker(): void {
-    const options: Array<string> = [];
-    for (const q of QUALITY_KEYS) {
-      options.push(PlaySettingPage.qualityLabel(q));
-    }
-    DialogManager.pickerTitle = '播放音质';
-    DialogManager.pickerOptions = options;
-    DialogManager.pickerIndex = QUALITY_KEYS.indexOf(appConfig.getDefaultPlayQuality());
-    DialogManager.pickerConfirm = (index: number): void => {
-      if (index < 0 || index >= QUALITY_KEYS.length) {
-        return;
-      }
-      appConfig.setConfig(ConfigKeys.DEFAULT_PLAY_QUALITY, QUALITY_KEYS[index]);
-      this.playQualityText = PlaySettingPage.qualityLabel(QUALITY_KEYS[index]);
-    };
-    DialogManager.OpenDialog('选择器');
+  /** 菜单弹出位置：智感握姿开启且左手握持 → 左下（拇指可达），否则条目右下 */
+  private menuPlacement(): Placement {
+    return appConfig.getSmartReachEnabled() && appState.holdingHand === 'left'
+      ? Placement.BottomLeft : Placement.BottomRight;
   }
 
-  /** 首选音质不可用时：TextPicker 滚轮选择，确定生效 */
-  private showQualityOrderPicker(): void {
-    const orders: Array<string> = ['asc', 'desc'];
-    const options: Array<string> = ['播放更高音质', '播放更低音质'];
-    const cur = appConfig.getPlayQualityOrder();
-    DialogManager.pickerTitle = '首选音质不可用时';
-    DialogManager.pickerOptions = options;
-    DialogManager.pickerIndex = orders.indexOf(cur) >= 0 ? orders.indexOf(cur) : 0;
-    DialogManager.pickerConfirm = (index: number): void => {
-      if (index < 0 || index >= orders.length) {
+  /** 播放音质菜单（UI 同外观设置页：勾选标记 + 分割线 + 圆角） */
+  @Builder
+  private qualityMenu(): void {
+    OptionsMenuBuilder(this.qualityEntries(), (value: string): void => {
+      this.applyQuality(value);
+    })
+  }
+
+  private qualityEntries(): Array<MenuOptionEntry> {
+    const cur = appConfig.getDefaultPlayQuality();
+    const entries: Array<MenuOptionEntry> = [];
+    for (const q of QUALITY_KEYS) {
+      entries.push(new MenuOptionEntry(q, PlaySettingPage.qualityLabel(q), q === cur));
+    }
+    return entries;
+  }
+
+  private applyQuality(value: string): void {
+    for (const q of QUALITY_KEYS) {
+      if (q === value) {
+        appConfig.setConfig(ConfigKeys.DEFAULT_PLAY_QUALITY, q);
+        this.playQualityText = PlaySettingPage.qualityLabel(q);
         return;
       }
-      appConfig.setConfig(ConfigKeys.PLAY_QUALITY_ORDER, orders[index]);
-      this.playQualityOrderText = PlaySettingPage.orderLabel(orders[index]);
-    };
-    DialogManager.OpenDialog('选择器');
+    }
+  }
+
+  /** 首选音质不可用时菜单 */
+  @Builder
+  private orderMenu(): void {
+    OptionsMenuBuilder(this.orderEntries(), (value: string): void => {
+      this.applyOrder(value);
+    })
+  }
+
+  private orderEntries(): Array<MenuOptionEntry> {
+    const cur = appConfig.getPlayQualityOrder();
+    const entries: Array<MenuOptionEntry> = [
+      new MenuOptionEntry('asc', '播放更高音质', cur === 'asc'),
+      new MenuOptionEntry('desc', '播放更低音质', cur === 'desc')
+    ];
+    return entries;
+  }
+
+  private applyOrder(value: string): void {
+    appConfig.setConfig(ConfigKeys.PLAY_QUALITY_ORDER, value);
+    this.playQualityOrderText = PlaySettingPage.orderLabel(value);
   }
 
   build() {
@@ -303,7 +324,13 @@ export struct PlaySettingPage {
               .width('100%')
               .height(52)
               .onClick(() => {
-                this.showQualityPicker();
+                this.showQualityMenu = true;
+              })
+              .bindMenu(this.showQualityMenu, this.qualityMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showQualityMenu = false;
+                }
               })
 
               Divider()
@@ -346,7 +373,13 @@ export struct PlaySettingPage {
               .width('100%')
               .height(52)
               .onClick(() => {
-                this.showQualityOrderPicker();
+                this.showOrderMenu = true;
+              })
+              .bindMenu(this.showOrderMenu, this.orderMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showOrderMenu = false;
+                }
               })
             }
             .width('100%')

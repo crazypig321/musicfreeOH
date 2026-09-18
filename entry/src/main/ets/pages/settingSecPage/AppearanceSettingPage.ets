@@ -6,20 +6,8 @@ import { SmartReach } from '../../utils/SmartReach';
 import { ContextHolder } from '../../common/ContextHolder';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import { hdsMaterial, HdsColorPicker, HdsColorPickerTabType } from '@kit.UIDesignKit';
-import { window, SymbolGlyphModifier, LengthMetrics } from '@kit.ArkUI';
-
-/** 菜单项数据（bindMenu 用） */
-class MenuOptionEntry {
-  value: string = '';
-  label: string = '';
-  selected: boolean = false;
-
-  constructor(value: string, label: string, selected: boolean) {
-    this.value = value;
-    this.label = label;
-    this.selected = selected;
-  }
-}
+import { window } from '@kit.ArkUI';
+import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 
 /**
  * 外观设置页面
@@ -120,30 +108,12 @@ export struct AppearanceSettingPage {
     this.animText = AppearanceSettingPage.animLabel(appConfig.getPlayerExpandAnim(), appConfig.getTabSwitchAnim());
   }
 
-  /** 通用菜单 Builder（UI 参考 ting_reader）：选中项右侧勾选图标 + 分割线 + 圆角；kind 分发应用逻辑 */
+  /** 通用菜单 Builder：复用共享 OptionsMenuBuilder，kind 分发应用逻辑 */
   @Builder
   private menuOf(entries: Array<MenuOptionEntry>, kind: string): void {
-    Menu() {
-      ForEach(entries, (entry: MenuOptionEntry) => {
-        MenuItem({
-          content: entry.label,
-          symbolEndIcon: entry.selected
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark')).fontColor([appState.accentColor]) : undefined
-        })
-          .contentFont({ size: 15 })
-          .contentFontColor($r('sys.color.font_primary'))
-          .onClick(() => {
-            this.onMenuPick(kind, entry.value);
-          })
-      }, (entry: MenuOptionEntry) => entry.value)
-    }
-    .menuItemDivider({
-      color: $r('sys.color.comp_divider'),
-      strokeWidth: LengthMetrics.vp(1),
-      startMargin: LengthMetrics.vp(12),
-      endMargin: LengthMetrics.vp(12)
+    OptionsMenuBuilder(entries, (value: string): void => {
+      this.onMenuPick(kind, value);
     })
-    .borderRadius(20)
   }
 
   /** 菜单选中分发 */

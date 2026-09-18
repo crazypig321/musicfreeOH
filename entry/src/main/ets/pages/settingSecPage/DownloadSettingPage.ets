@@ -2,13 +2,13 @@ import { CommonNav, titleBarOf } from '../../view/CommonNav';
 import { appState } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
-import { DialogManager } from '../../utils/DialogUtils';
 import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
+import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 
 /**
  * 下载设置页面
  * 使用移动网络下载 / 下载音质 / 首选音质不可用时 / 最大同时下载数 / 任务间隔
- * 开关类条目右侧 Toggle；选择类条目右侧当前值 + chevron，点击弹「选择器」滚轮
+ * 开关类条目右侧 Toggle；选择类条目右侧当前值 + chevron，点击弹出 Menu 菜单（当前项带勾选标记，UI 同外观设置页）
  * 智感握姿：左手握持时原本行尾的开关/值镜像到行首，文本右对齐，行首图标镜像到行尾
  */
 @ComponentV2
@@ -25,6 +25,11 @@ export struct DownloadSettingPage {
   @Local taskIntervalText: string = '';
   /** 任务间隔候选（秒） */
   private static readonly INTERVAL_VALUES: Array<number> = [0, 1, 2, 3, 5, 10];
+  /** 各菜单手动弹出开关（bindMenu isShow 形式，便于控制 placement） */
+  @Local showQualityMenu: boolean = false;
+  @Local showOrderMenu: boolean = false;
+  @Local showMaxMenu: boolean = false;
+  @Local showIntervalMenu: boolean = false;
 
   aboutToAppear(): void {
     this.refreshTexts();
@@ -58,88 +63,111 @@ export struct DownloadSettingPage {
     this.taskIntervalText = DownloadSettingPage.intervalLabel(appConfig.getDownloadTaskInterval());
   }
 
-  /** 下载音质：TextPicker 滚轮选择，确定生效 */
-  private showQualityPicker(): void {
-    const options: Array<string> = [];
+  /** 菜单弹出位置：智感握姿开启且左手握持 → 左下（拇指可达），否则条目右下 */
+  private menuPlacement(): Placement {
+    return appConfig.getSmartReachEnabled() && appState.holdingHand === 'left'
+      ? Placement.BottomLeft : Placement.BottomRight;
+  }
+
+  /** 下载音质菜单（UI 同外观设置页：勾选标记 + 分割线 + 圆角） */
+  @Builder
+  private qualityMenu(): void {
+    OptionsMenuBuilder(this.qualityEntries(), (value: string): void => {
+      this.applyQuality(value);
+    })
+  }
+
+  private qualityEntries(): Array<MenuOptionEntry> {
+    const cur = appConfig.getDefaultDownloadQuality();
+    const entries: Array<MenuOptionEntry> = [];
     for (const q of QUALITY_KEYS) {
-      options.push(DownloadSettingPage.qualityLabel(q));
+      entries.push(new MenuOptionEntry(q, DownloadSettingPage.qualityLabel(q), q === cur));
     }
-    DialogManager.pickerTitle = '下载音质';
-    DialogManager.pickerOptions = options;
-    DialogManager.pickerIndex = QUALITY_KEYS.indexOf(appConfig.getDefaultDownloadQuality());
-    DialogManager.pickerConfirm = (index: number): void => {
-      if (index < 0 || index >= QUALITY_KEYS.length) {
-        return;
-      }
-      appConfig.setConfig(ConfigKeys.DEFAULT_DOWNLOAD_QUALITY, QUALITY_KEYS[index]);
-      this.downloadQualityText = DownloadSettingPage.qualityLabel(QUALITY_KEYS[index]);
-    };
-    DialogManager.OpenDialog('选择器');
+    return entries;
   }
 
-  /** 首选音质不可用时：TextPicker 滚轮选择，确定生效 */
-  private showQualityOrderPicker(): void {
-    const orders: Array<string> = ['asc', 'desc'];
-    const options: Array<string> = ['下载更高音质', '下载更低音质'];
+  private applyQuality(value: string): void {
+    for (const q of QUALITY_KEYS) {
+      if (q === value) {
+        appConfig.setConfig(ConfigKeys.DEFAULT_DOWNLOAD_QUALITY, q);
+        this.downloadQualityText = DownloadSettingPage.qualityLabel(q);
+        return;
+      }
+    }
+  }
+
+  /** 首选音质不可用时菜单 */
+  @Builder
+  private orderMenu(): void {
+    OptionsMenuBuilder(this.orderEntries(), (value: string): void => {
+      this.applyOrder(value);
+    })
+  }
+
+  private orderEntries(): Array<MenuOptionEntry> {
     const cur = appConfig.getDownloadQualityOrder();
-    DialogManager.pickerTitle = '首选音质不可用时';
-    DialogManager.pickerOptions = options;
-    DialogManager.pickerIndex = orders.indexOf(cur) >= 0 ? orders.indexOf(cur) : 0;
-    DialogManager.pickerConfirm = (index: number): void => {
-      if (index < 0 || index >= orders.length) {
-        return;
-      }
-      appConfig.setConfig(ConfigKeys.DOWNLOAD_QUALITY_ORDER, orders[index]);
-      this.downloadQualityOrderText = DownloadSettingPage.orderLabel(orders[index]);
-    };
-    DialogManager.OpenDialog('选择器');
+    const entries: Array<MenuOptionEntry> = [
+      new MenuOptionEntry('asc', '下载更高音质', cur === 'asc'),
+      new MenuOptionEntry('desc', '下载更低音质', cur === 'desc')
+    ];
+    return entries;
   }
 
-  /** 最大同时下载数：TextPicker 滚轮选择（1-10），确定生效 */
-  private showMaxDownloadPicker(): void {
-    const values: Array<number> = [];
-    const options: Array<string> = [];
-    for (let n = 1; n <= 10; ++n) {
-      values.push(n);
-      options.push(n.toString() + ' 个');
-    }
+  private applyOrder(value: string): void {
+    appConfig.setConfig(ConfigKeys.DOWNLOAD_QUALITY_ORDER, value);
+    this.downloadQualityOrderText = DownloadSettingPage.orderLabel(value);
+  }
+
+  /** 最大同时下载数菜单（1-10） */
+  @Builder
+  private maxDownloadMenu(): void {
+    OptionsMenuBuilder(this.maxDownloadEntries(), (value: string): void => {
+      this.applyMaxDownload(value);
+    })
+  }
+
+  private maxDownloadEntries(): Array<MenuOptionEntry> {
     const cur = Math.max(1, Math.min(appConfig.getMaxDownload(), 10));
-    DialogManager.pickerTitle = '最大同时下载数';
-    DialogManager.pickerOptions = options;
-    DialogManager.pickerIndex = cur - 1;
-    DialogManager.pickerConfirm = (index: number): void => {
-      if (index < 0 || index >= values.length) {
-        return;
-      }
-      appConfig.setConfig(ConfigKeys.MAX_DOWNLOAD, values[index]);
-      this.maxDownloadText = values[index].toString() + ' 个';
-    };
-    DialogManager.OpenDialog('选择器');
+    const entries: Array<MenuOptionEntry> = [];
+    for (let n = 1; n <= 10; ++n) {
+      entries.push(new MenuOptionEntry(n.toString(), n.toString() + ' 个', n === cur));
+    }
+    return entries;
   }
 
-  /** 任务间隔：TextPicker 滚轮选择，确定生效（新任务启动时刻错开，减轻音源接口压力） */
-  private showTaskIntervalPicker(): void {
-    const values = DownloadSettingPage.INTERVAL_VALUES;
-    const options: Array<string> = [];
-    for (const v of values) {
-      options.push(DownloadSettingPage.intervalLabel(v));
+  private applyMaxDownload(value: string): void {
+    const n = Number.parseInt(value, 10);
+    if (Number.isNaN(n) || n < 1 || n > 10) {
+      return;
     }
+    appConfig.setConfig(ConfigKeys.MAX_DOWNLOAD, n);
+    this.maxDownloadText = n.toString() + ' 个';
+  }
+
+  /** 任务间隔菜单（新任务启动时刻错开，减轻音源接口压力） */
+  @Builder
+  private intervalMenu(): void {
+    OptionsMenuBuilder(this.intervalEntries(), (value: string): void => {
+      this.applyTaskInterval(value);
+    })
+  }
+
+  private intervalEntries(): Array<MenuOptionEntry> {
     const cur = appConfig.getDownloadTaskInterval();
-    let curIndex = values.indexOf(cur);
-    if (curIndex < 0) {
-      curIndex = 0;
+    const entries: Array<MenuOptionEntry> = [];
+    for (const v of DownloadSettingPage.INTERVAL_VALUES) {
+      entries.push(new MenuOptionEntry(v.toString(), DownloadSettingPage.intervalLabel(v), v === cur));
     }
-    DialogManager.pickerTitle = '任务间隔';
-    DialogManager.pickerOptions = options;
-    DialogManager.pickerIndex = curIndex;
-    DialogManager.pickerConfirm = (index: number): void => {
-      if (index < 0 || index >= values.length) {
-        return;
-      }
-      appConfig.setConfig(ConfigKeys.DOWNLOAD_TASK_INTERVAL, values[index]);
-      this.taskIntervalText = DownloadSettingPage.intervalLabel(values[index]);
-    };
-    DialogManager.OpenDialog('选择器');
+    return entries;
+  }
+
+  private applyTaskInterval(value: string): void {
+    const n = Number.parseInt(value, 10);
+    if (Number.isNaN(n) || !DownloadSettingPage.INTERVAL_VALUES.includes(n)) {
+      return;
+    }
+    appConfig.setConfig(ConfigKeys.DOWNLOAD_TASK_INTERVAL, n);
+    this.taskIntervalText = DownloadSettingPage.intervalLabel(n);
   }
 
   build() {
@@ -238,7 +266,13 @@ export struct DownloadSettingPage {
               .width('100%')
               .height(52)
               .onClick(() => {
-                this.showQualityPicker();
+                this.showQualityMenu = true;
+              })
+              .bindMenu(this.showQualityMenu, this.qualityMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showQualityMenu = false;
+                }
               })
 
               Divider()
@@ -281,7 +315,13 @@ export struct DownloadSettingPage {
               .width('100%')
               .height(52)
               .onClick(() => {
-                this.showQualityOrderPicker();
+                this.showOrderMenu = true;
+              })
+              .bindMenu(this.showOrderMenu, this.orderMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showOrderMenu = false;
+                }
               })
 
               Divider()
@@ -324,7 +364,13 @@ export struct DownloadSettingPage {
               .width('100%')
               .height(52)
               .onClick(() => {
-                this.showMaxDownloadPicker();
+                this.showMaxMenu = true;
+              })
+              .bindMenu(this.showMaxMenu, this.maxDownloadMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showMaxMenu = false;
+                }
               })
 
               Divider()
@@ -367,7 +413,13 @@ export struct DownloadSettingPage {
               .width('100%')
               .height(52)
               .onClick(() => {
-                this.showTaskIntervalPicker();
+                this.showIntervalMenu = true;
+              })
+              .bindMenu(this.showIntervalMenu, this.intervalMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showIntervalMenu = false;
+                }
               })
             }
             .width('100%')
