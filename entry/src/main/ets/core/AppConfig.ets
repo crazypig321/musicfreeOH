@@ -32,6 +32,7 @@ export class ConfigKeys {
   static readonly LAZY_LOAD_PLUGIN = 'basic.lazyLoadPlugin';
   static readonly TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL = 'basic.tryChangeSourceWhenPlayFail';
   static readonly LYRIC_AUTO_SEARCH_LYRIC = 'lyric.autoSearchLyric';
+  static readonly LOCAL_MUSIC_AUTO_MATCH_COVER = 'localMusic.autoMatchCover';
   static readonly BACKUP_RESUME_MODE = 'backup.resumeMode';
   static readonly APPEARANCE_THEME_COLOR = 'appearance.themeColor';
   static readonly APPEARANCE_COLOR_MODE = 'appearance.colorMode';
@@ -282,6 +283,11 @@ export class AppConfig {
   getAppearanceOrientation(): string {
     const v = this.getString(ConfigKeys.APPEARANCE_ORIENTATION, 'system');
     return v === 'portrait' || v === 'landscape' ? v : 'system';
+  }
+
+  /** 本地音乐自动匹配音乐封面（导入时提取内嵌封面并回填网络封面） */
+  getLocalMusicAutoMatchCover(): boolean {
+    return this.getBoolean(ConfigKeys.LOCAL_MUSIC_AUTO_MATCH_COVER, true);
   }
 }
 

@@ -20,8 +20,8 @@ export class MediaBasicMeta {
 }
 
 export class MediaMetadata {
-  /** 读取本地音频的基础元信息（失败返回空 meta） */
-  static async getBasicMeta(path: string): Promise<MediaBasicMeta> {
+  /** 读取本地音频的基础元信息（失败返回空 meta）；withArtwork=false 时跳过内嵌封面提取 */
+  static async getBasicMeta(path: string, withArtwork: boolean = true): Promise<MediaBasicMeta> {
     const meta = new MediaBasicMeta();
     let file: fs.File | null = null;
     let extractor: media.AVMetadataExtractor | null = null;
@@ -52,11 +52,13 @@ export class MediaMetadata {
           meta.durationMs = d;
         }
       }
-      // 内嵌专辑封面（失败不影响基础元信息）
-      try {
-        meta.artwork = await MediaMetadata.extractArtwork(path, extractor);
-      } catch (e) {
-        // 无封面或提取失败，保持为空
+      // 内嵌专辑封面（失败不影响基础元信息）；自动匹配封面关闭时跳过提取
+      if (withArtwork) {
+        try {
+          meta.artwork = await MediaMetadata.extractArtwork(path, extractor);
+        } catch (e) {
+          // 无封面或提取失败，保持为空
+        }
       }
     } catch (e) {
       Log.warn('读取媒体元信息失败: ' + path);

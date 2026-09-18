@@ -13,7 +13,8 @@ import { ResumeMode } from '../../common/Consts';
 
 /**
  * 备份与恢复设置页面
- * 备份（导出到本地文件）/ 恢复（从本地备份文件）/ WebDAV 备份与恢复（云端）
+ * 本地备份与恢复：备份（导出到本地文件）/ 恢复（从本地备份文件）
+ * WebDAV 备份与恢复：WebDAV 服务器（云端备份与恢复入口）
  * 条目行 UI 同其他设置二级页面（图标 + 标题/小字说明 + chevron）
  */
 @ComponentV2
@@ -131,9 +132,9 @@ export struct BackupSettingPage {
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {
-          // 小标题
+          // 小标题：本地备份与恢复
           ListItem() {
-            Text('备份与恢复')
+            Text('本地备份与恢复')
               .fontSize(14)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_secondary'))
@@ -198,10 +199,22 @@ export struct BackupSettingPage {
               .onClick(() => {
                 this.doRestore();
               })
+            }
+            .width('100%')
+          }
+          .ListItemStyle()
 
-              Divider()
-                .DividerStyle()
+          // 小标题：WebDAV 备份与恢复
+          ListItem() {
+            Text('WebDAV 备份与恢复')
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }
 
+          ListItem() {
+            Column() {
               // WebDAV 备份与恢复
               Row({ space: 12 }) {
                 SymbolGlyph($r('sys.symbol.externaldrive'))

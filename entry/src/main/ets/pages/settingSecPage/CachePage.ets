@@ -7,7 +7,8 @@ import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { DialogManager } from '../../utils/DialogUtils';
 
 /**
- * 缓存页面：音乐缓存上限 / 清除音乐缓存 / 清除图片缓存 / 清除歌词缓存 / 清除全部缓存
+ * 缓存页面：音乐缓存上限 / 清除音乐缓存 / 清除图片缓存 / 清除歌词缓存 / 清除全部缓存 /
+ * 本地音乐：本地音乐自动匹配音乐封面开关
  * 从设置页「缓存」条目进入；条目行 UI 同关于页
  */
 @ComponentV2
@@ -18,10 +19,13 @@ export struct CachePage {
   @Local lyricSize: number = 0;
   /** 音乐缓存上限展示文本（值 + 单位，设置成功后刷新） */
   @Local maxCacheLimitText: string = '';
+  /** 本地音乐自动匹配音乐封面开关 */
+  @Local autoMatchCover: boolean = true;
 
   aboutToAppear(): void {
     this.refreshSizes();
     this.maxCacheLimitText = CachePage.formatLimit(appConfig.getMaxCacheSize());
+    this.autoMatchCover = appConfig.getLocalMusicAutoMatchCover();
   }
 
   private showToast(message: string): void {
@@ -250,6 +254,48 @@ export struct CachePage {
                   this.refreshSizes();
                 });
               })
+            }
+            .width('100%')
+          }
+          .ListItemStyle()
+
+          // 小标题：本地音乐
+          ListItem() {
+            Text('本地音乐')
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }
+
+          ListItem() {
+            Column() {
+              // 本地音乐自动匹配音乐封面
+              Row({ space: 12 }) {
+                SymbolGlyph($r('sys.symbol.wand_and_stars'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                Column({ space: 2 }) {
+                  Text('本地音乐自动匹配音乐封面')
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                  Text('导入本地音乐后自动匹配内嵌封面，无内嵌封面时回填网络封面')
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+                Toggle({ type: ToggleType.Switch, isOn: this.autoMatchCover })
+                  .selectedColor(appState.accentColor)
+                  .onChange((isOn: boolean) => {
+                    this.autoMatchCover = isOn;
+                    appConfig.setConfig(ConfigKeys.LOCAL_MUSIC_AUTO_MATCH_COVER, isOn);
+                  })
+              }
+              .width('100%')
+              .height(60)
             }
             .width('100%')
           }

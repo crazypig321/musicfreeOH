@@ -7,6 +7,7 @@ import { MediaUtils } from '../utils/MediaUtils';
 import { FileUtils } from '../utils/FileUtils';
 import { CryptoUtil } from '../utils/CryptoUtil';
 import { MediaMetadata, MediaBasicMeta } from '../utils/MediaMetadata';
+import { appConfig } from './AppConfig';
 import { musicSheet } from './MusicSheet';
 
 /** 本地歌单更新事件 */
@@ -301,6 +302,8 @@ export class LocalMusicSheet {
     }
     const token = CryptoUtil.nanoid();
     this.importToken = token;
+    // 自动匹配封面开关：关闭时跳过内嵌封面提取与网络封面回填（导入更快）
+    const autoMatchCover = appConfig.getLocalMusicAutoMatchCover();
     const musicList = this.collectMusicStats(folderPaths, token, filenameFilter);
     if (this.importToken !== token) {
       return Promise.reject(new Error('Import Broken'));
@@ -319,7 +322,7 @@ export class LocalMusicSheet {
       const chunk: Array<string> = musicList.slice(groupIndex * groupNum, (groupIndex + 1) * groupNum);
       const tasks: Array<Promise<MediaBasicMeta>> = [];
       for (const p of chunk) {
-        tasks.push(MediaMetadata.getBasicMeta(FileUtils.normalizePath(p)));
+        tasks.push(MediaMetadata.getBasicMeta(FileUtils.normalizePath(p), autoMatchCover));
       }
       return Promise.all(tasks).then((chunkMetas: Array<MediaBasicMeta>) => {
         for (const m of chunkMetas) {
@@ -334,7 +337,7 @@ export class LocalMusicSheet {
       }
       const buildTasks: Array<Promise<MusicItem>> = [];
       for (let index = 0; index < musicList.length; ++index) {
-        buildTasks.push(LocalMusicSheet.buildMusicItem(musicList[index], metas[index]));
+        buildTasks.push(LocalMusicSheet.buildMusicItem(musicList[index], metas[index], autoMatchCover));
       }
       return Promise.all(buildTasks);
     }).then((musicItems: Array<MusicItem>) => {
@@ -345,7 +348,8 @@ export class LocalMusicSheet {
     });
   }
 
-  private static buildMusicItem(musicPath: string, meta: MediaBasicMeta): Promise<MusicItem> {
+  private static buildMusicItem(musicPath: string, meta: MediaBasicMeta,
+    autoMatchCover: boolean): Promise<MusicItem> {
     const parsed = LocalMusicSheet.parseFilename(FileUtils.getFileName(musicPath));
     let platform: string;
     let id: string;
@@ -361,14 +365,15 @@ export class LocalMusicSheet {
       artist = '';
       title = '';
       return CryptoUtil.md5(musicPath).then((hash: string): MusicItem => {
-        return LocalMusicSheet.assembleMusicItem(musicPath, platform, hash, title, artist, meta);
+        return LocalMusicSheet.assembleMusicItem(musicPath, platform, hash, title, artist, meta, autoMatchCover);
       });
     }
-    return Promise.resolve(LocalMusicSheet.assembleMusicItem(musicPath, platform, id, title, artist, meta));
+    return Promise.resolve(
+      LocalMusicSheet.assembleMusicItem(musicPath, platform, id, title, artist, meta, autoMatchCover));
   }
 
   private static assembleMusicItem(musicPath: string, platform: string, id: string,
-    parsedTitle: string, parsedArtist: string, meta: MediaBasicMeta): MusicItem {
+    parsedTitle: string, parsedArtist: string, meta: MediaBasicMeta, autoMatchCover: boolean): MusicItem {
     const item = new MusicItem();
     item.id = id;
     item.platform = platform;
@@ -376,17 +381,17 @@ export class LocalMusicSheet {
     item.artist = parsedArtist.length > 0 ? parsedArtist : (meta.artist.length > 0 ? meta.artist : '未知歌手');
     item.album = meta.album.length > 0 ? meta.album : '未知专辑';
     item.duration = meta.durationMs / 1000;
-    // 封面：优先文件内嵌封面；无内嵌封面时回退已下载记录/我的歌单中的平台封面
+    // 封面：自动匹配开启时，优先文件内嵌封面；无内嵌封面时回退已下载记录/我的歌单中的平台封面
     // （下载文件名含 platform@id，可与 downloadedSheet 条目精确匹配；
     // 重装后已下载记录为空，再从恢复的歌单中找同曲目网络封面）
-    let artwork = meta.artwork;
-    if (artwork.length === 0) {
+    let artwork = autoMatchCover ? meta.artwork : '';
+    if (artwork.length === 0 && autoMatchCover) {
       const downloaded = downloadedSheet.isLocalMusic(item);
       if (downloaded !== null && downloaded.artwork.length > 0) {
         artwork = downloaded.artwork;
       }
     }
-    if (artwork.length === 0) {
+    if (artwork.length === 0 && autoMatchCover) {
       artwork = musicSheet.findArtworkEverywhere(item);
     }
     item.artwork = artwork;
