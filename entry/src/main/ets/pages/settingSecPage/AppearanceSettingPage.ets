@@ -320,16 +320,19 @@ export struct AppearanceSettingPage {
               Text('主题色')
                 .fontSize(15)
                 .fontColor($r('sys.color.font_primary'))
-              // 取色器（仅网格取色，紧凑内嵌）
-              HdsColorPicker({
-                initialColor: this.pickerColor,
-                onColorSelected: (selectedColor: string): void => {
-                  this.pickerColor = selectedColor;
-                  this.applyThemeColor(selectedColor);
-                },
-                options: { tabs: [HdsColorPickerTabType.GRID] }
-              })
+              // 取色器（仅网格取色，紧凑内嵌，靠行尾右对齐）
+              Row() {
+                HdsColorPicker({
+                  initialColor: this.pickerColor,
+                  onColorSelected: (selectedColor: string): void => {
+                    this.pickerColor = selectedColor;
+                    this.applyThemeColor(selectedColor);
+                  },
+                  options: { tabs: [HdsColorPickerTabType.GRID] }
+                })
+              }
               .layoutWeight(1)
+              .justifyContent(FlexAlign.End)
             }
             .width('100%')
             .height(52)
