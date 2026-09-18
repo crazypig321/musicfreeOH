@@ -9,7 +9,7 @@ import {
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT, ROUTE_CACHE } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { MySheetsPage } from './MySheetsPage';
@@ -21,6 +21,8 @@ import { RecommendSheetsPage } from './RecommendSheetsPage';
 import { SheetDetailPage } from './SheetDetailPage';
 import { AboutPage } from './settingSecPage/AboutPage';
 import { CachePage } from './settingSecPage/CachePage';
+import { PlaySettingPage } from './settingSecPage/PlaySettingPage';
+import { DownloadSettingPage } from './settingSecPage/DownloadSettingPage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
@@ -218,6 +220,10 @@ struct Index {
       AboutPage()
     } else if (name === ROUTE_CACHE) {
       CachePage()
+    } else if (name === ROUTE_PLAY_SETTING) {
+      PlaySettingPage()
+    } else if (name === ROUTE_DOWNLOAD_SETTING) {
+      DownloadSettingPage()
     }
   }
 

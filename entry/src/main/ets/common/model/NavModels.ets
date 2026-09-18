@@ -12,6 +12,8 @@ export const ROUTE_SHEET_DETAIL: string = 'sheetDetail';
 export const ROUTE_PLAYER: string = 'player';
 export const ROUTE_ABOUT: string = 'about';
 export const ROUTE_CACHE: string = 'cache';
+export const ROUTE_PLAY_SETTING: string = 'playSetting';
+export const ROUTE_DOWNLOAD_SETTING: string = 'downloadSetting';
 
 /**
  * 推荐歌单页跳转参数（push 前由首页赋值，页面 aboutToAppear 读取）

@@ -18,7 +18,6 @@ import { pluginManager } from '../plugin/PluginManager';
 import { downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
-import { PlayingVisual } from '../view/PlayingVisual';
 import { DialogManager } from '../utils/DialogUtils';
 
 /**
@@ -602,8 +601,6 @@ export struct PlayerPage {
                         this.enterLyricMode();
                       })
                   )
-                  // 播放中跳动柱形 + 粒子（歌词页隐藏）
-                 // PlayingVisual().offset({ y: '20%' }).width(280).hitTestBehavior(HitTestMode.Transparent)
                 }.layoutWeight(1)
                 .transition(TransitionEffect.OPACITY)
               } else {
