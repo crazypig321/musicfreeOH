@@ -3,6 +3,7 @@ import { JsonUtil, JsonRecord } from '../common/JsonUtil';
 import {
   FAVORITE_SHEET_ID,
   FAVORITE_SHEET_TITLE,
+  FAVORITE_SHEET_DESC,
   LOCAL_PLUGIN_PLATFORM,
   ResumeMode,
   SortType,
@@ -87,7 +88,7 @@ export function backupEntriesFromRecord(raw: Object | null): Array<SheetBackupEn
  * 歌单管理（移植自 musicSheet/index.ts）
  */
 export class MusicSheet {
-  /** 默认歌单（我喜欢） */
+  /** 默认歌单（我的收藏） */
   readonly defaultSheet: SheetItem = MusicSheet.createDefaultSheet();
 
   /** 所有歌单 */
@@ -104,6 +105,7 @@ export class MusicSheet {
     s.id = FAVORITE_SHEET_ID;
     s.platform = LOCAL_PLUGIN_PLATFORM;
     s.title = FAVORITE_SHEET_TITLE;
+    s.description = FAVORITE_SHEET_DESC;
     s.worksNum = 0;
     return s;
   }
@@ -141,7 +143,15 @@ export class MusicSheet {
 
       const needMigrate = appMeta.musicSheetVersion < 2;
       let worksNumChanged = false;
+      let defaultBaseChanged = false;
       for (const sheet of allSheets) {
+        // 默认歌单名称/简介以常量为准（历史数据迁移）
+        if (sheet.id === FAVORITE_SHEET_ID &&
+          (sheet.title !== FAVORITE_SHEET_TITLE || sheet.description !== FAVORITE_SHEET_DESC)) {
+          sheet.title = FAVORITE_SHEET_TITLE;
+          sheet.description = FAVORITE_SHEET_DESC;
+          defaultBaseChanged = true;
+        }
         const musicItems = MusicSheetStorage.getMusicList(sheet.id);
         const sortType = MusicSheetStorage.getSheetSortType(sheet.id);
         if (needMigrate && this.migrateItems(musicItems)) {
@@ -156,7 +166,7 @@ export class MusicSheet {
       if (needMigrate) {
         appMeta.setMusicSheetVersion(2);
       }
-      if (worksNumChanged) {
+      if (worksNumChanged || defaultBaseChanged) {
         MusicSheetStorage.setSheets(allSheets);
       }
       this.sheets = allSheets;

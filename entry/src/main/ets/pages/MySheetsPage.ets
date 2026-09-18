@@ -4,6 +4,7 @@ import { MenuUtils } from '../utils/MenuUtils';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
+import { PluginState } from '../plugin/PluginTypes';
 import { MusicItem } from '../common/model/MediaTypes';
 import { SheetItem, SheetInfoResult } from '../common/model/SheetTypes';
 import { appState } from '../entryability/AppState';
@@ -30,7 +31,7 @@ interface SheetRow {
 }
 
 /**
- * 我的歌单页：展示全部本地歌单（含默认歌单「我喜欢」）
+ * 我的歌单页：展示全部本地歌单（含默认歌单「我的收藏」）
  * 顶部右侧：添加菜单（新建歌单 / 导入歌单 / 导入单曲）+ 批量操作（全选/分享/删除，UI 同歌单详情页批量底栏）
  * 条目 UI 同插件页；左滑呼出 编辑/删除（HdsListItem，默认歌单与批量模式下不提供横滑）
  * 点击进入歌单详情页（本地歌单模式），长按进入批量模式
@@ -62,6 +63,8 @@ export struct MySheetsPage {
   @Local importTargetSheetTitles: Array<string> = [];
   @Local importTargetIndex: number = 0;
   @Local importing: boolean = false;
+  /** 说明文本刷新标记：懒加载插件挂载完成后 +1 触发重绘 */
+  @Local importHintRev: number = 0;
 
   aboutToAppear(): void {
     this.refreshSheets();
@@ -243,6 +246,18 @@ export struct MySheetsPage {
     this.importUrl = '';
     this.importing = false;
     this.showImportSheet = true;
+    this.refreshImportHintFor(this.selectedImportPluginName());
+  }
+
+  /** 懒加载插件挂载完成后刷新说明文本 */
+  private refreshImportHintFor(name: string): void {
+    const plugin = pluginManager.getByName(name);
+    if (plugin !== null && plugin.state === PluginState.Initializing) {
+      plugin.ensureMounted().then((): void => {
+        this.importHintRev++;
+      }).catch((_e: Object): void => {
+      });
+    }
   }
 
   /** Select 选项（无可用插件时给出占位项） */
@@ -285,24 +300,18 @@ export struct MySheetsPage {
     return '暂无可加入的歌单';
   }
 
-  /** 底部说明文字：优先用插件自带 hints 文案，回退通用说明 */
+  /** 底部说明文字：与 RN 原版一致，取插件自带 hints 文案；插件未提供则不显示 */
   private importHintText(): string {
     const pluginName = this.selectedImportPluginName();
     const plugin = pluginManager.getByName(pluginName);
     if (plugin !== null && plugin.instanceInfo !== null && plugin.instanceInfo.hints !== null) {
-      const hint = JsonUtil.recStr(plugin.instanceInfo.hints,
+      return JsonUtil.recStr(plugin.instanceInfo.hints,
         this.importSingleMode ? 'importMusicItem' : 'importMusicSheet');
-      if (hint.trim().length > 0) {
-        return hint;
-      }
     }
-    if (this.importSingleMode) {
-      return '输入目标歌曲的分享链接或歌曲 ID。导入成功后将加入所选歌单；具体支持的链接格式以所选插件为准。';
-    }
-    return '输入目标歌单的分享链接或歌单 ID。导入完成后将创建一个新的本地歌单，并尝试导入歌单内的全部歌曲；具体支持的链接格式以所选插件为准。';
+    return '';
   }
 
-  /** 确认导入：歌单 → 建新歌单并写入全部歌曲；单曲 → 导入后直接播放 */
+  /** 确认导入：歌单 → 建新歌单并写入全部歌曲；单曲 → 导入后加入所选歌单 */
   private confirmImport(): void {
     if (this.importing) {
       return;
@@ -319,7 +328,7 @@ export struct MySheetsPage {
     }
     const url = this.importUrl.trim();
     if (url.length === 0) {
-      this.showToast(this.importSingleMode ? '请输入歌曲链接或 ID' : '请输入歌单链接或 ID');
+      this.showToast(this.importSingleMode ? '请输入目标歌曲' : '请输入目标歌单');
       return;
     }
     const plugin = pluginManager.getByName(this.importPluginNames[this.importPluginIndex]);
@@ -334,7 +343,7 @@ export struct MySheetsPage {
       plugin.methods.importMusicItem(url).then((item: MusicItem | null): void => {
         this.importing = false;
         if (item === null) {
-          this.showToast('导入失败，请检查链接或 ID');
+          this.showToast('导入歌曲失败');
           return;
         }
         musicSheet.addMusic(targetId, item).then((): void => {
@@ -345,13 +354,13 @@ export struct MySheetsPage {
         });
       }).catch((_e: Object): void => {
         this.importing = false;
-        this.showToast('导入失败');
+        this.showToast('导入歌曲失败');
       });
     } else {
       plugin.methods.importMusicSheet(url).then((items: Array<MusicItem>): void => {
         if (items.length === 0) {
           this.importing = false;
-          this.showToast('导入失败或歌单为空');
+          this.showToast('链接有误或目标歌单为空');
           return;
         }
         this.resolveImportTitle(plugin).then((title: string): Promise<void> => {
@@ -368,7 +377,7 @@ export struct MySheetsPage {
         });
       }).catch((_e: Object): void => {
         this.importing = false;
-        this.showToast('导入失败');
+        this.showToast('导入歌单失败');
       });
     }
   }
@@ -925,6 +934,7 @@ export struct MySheetsPage {
         .onSelect((index: number, _text: string) => {
           if (this.importPluginNames.length > 0) {
             this.importPluginIndex = index;
+            this.refreshImportHintFor(this.selectedImportPluginName());
           }
         })
       if (this.importSingleMode) {
@@ -952,7 +962,7 @@ export struct MySheetsPage {
       }
       TextInput({
         text: this.importUrl,
-        placeholder: this.importSingleMode ? '歌曲分享链接或 ID' : '歌单分享链接或歌单 ID'
+        placeholder: this.importSingleMode ? '输入目标歌曲' : '输入目标歌单'
       })
         .width('100%')
         .height(44)
@@ -978,12 +988,14 @@ export struct MySheetsPage {
         .onClick(() => {
           this.confirmImport();
         })
-      Text(this.importHintText())
-        .fontSize(12)
-        .fontColor($r('sys.color.font_tertiary'))
-        .width('100%')
-        .margin({ top: 16 })
-        .lineHeight(18)
+      if (this.importHintText().length > 0) {
+        Text(this.importHintText())
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+          .margin({ top: 16 })
+          .lineHeight(18)
+      }
     }
     .width('100%')
     .padding({ left: 20, right: 20, top: 12, bottom: 32 })

@@ -1,6 +1,7 @@
 import { appState } from "../entryability/AppState";
 import { pluginManager } from "../plugin/PluginManager";
 import { ButtonOptions } from "@kit.ArkUI";
+import { MarkdownView } from "../view/MarkdownView";
 
 
 /** 插件用户变量字段（弹窗内编辑） */
@@ -11,18 +12,15 @@ export class PluginVarField {
 }
 
 
-/** 「使用说明」弹窗内容 */
+/** 「使用说明」弹窗内容（markdown 渲染，隐藏滚动条） */
 @ComponentV2
 export struct UsageDialogContent {
   build() {
     Scroll() {
-      Text(DialogManager.usageMessage)
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .lineHeight(22)
-        .width('100%')
+      MarkdownView({ markdown: DialogManager.usageMessage })
     }
     .constraintSize({ maxHeight: 420 })
+    .scrollBar(BarState.Off)
     .nestedScroll({
       scrollForward: NestedScrollMode.PARALLEL,
       scrollBackward: NestedScrollMode.PARALLEL

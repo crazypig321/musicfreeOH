@@ -61,6 +61,8 @@ export struct PluginPage {
   @Local pluginImportTargetSheetIds: Array<string> = [];
   @Local pluginImportTargetSheetTitles: Array<string> = [];
   @Local pluginImportTargetIndex: number = 0;
+  /** 说明文本刷新标记：懒加载插件挂载完成后 +1 触发重绘 */
+  @Local pluginImportHintRev: number = 0;
   @Local batchSelected: Array<string> = [];
   private detailHash: string = '';
   /** 是否正在同步订阅源 */
@@ -187,7 +189,7 @@ export struct PluginPage {
     if (plugin !== null && plugin.instanceInfo !== null) {
       const info = plugin.instanceInfo;
       this.detailSrcUrl = info.srcUrl;
-      this.detailUsage = info.description.trim().length > 0 ? info.description.trim() : '该插件未提供使用说明。';
+      this.detailUsage = info.description.trim().length > 0 ? info.description : '该插件未提供使用说明。';
       this.detailAbilities = PluginPage.usageText(info);
       const values = pluginManager.getUserVariables(plugin);
       for (const rec of info.userVariables) {
@@ -210,6 +212,15 @@ export struct PluginPage {
     }
     this.detailVars = fields;
     this.showDetailSheet = true;
+    // 懒加载插件：挂载完成后用新实例信息刷新详情
+    if (plugin !== null && plugin.state === PluginState.Initializing) {
+      plugin.ensureMounted().then((): void => {
+        if (this.detailName === row.name) {
+          this.openDetailSheet(row);
+        }
+      }).catch((_e: Object): void => {
+      });
+    }
   }
 
   /** 使用说明弹窗 */
@@ -259,6 +270,13 @@ export struct PluginPage {
     this.pluginImportUrl = '';
     this.pluginImporting = false;
     this.showPluginImportSheet = true;
+    // 懒加载插件：挂载完成后 hints 才可用，刷新说明文本
+    if (plugin.state === PluginState.Initializing) {
+      plugin.ensureMounted().then((): void => {
+        this.pluginImportHintRev++;
+      }).catch((_e: Object): void => {
+      });
+    }
   }
 
   /** 导入单曲目标歌单 Select 选项 */
@@ -281,20 +299,14 @@ export struct PluginPage {
     return '暂无可加入的歌单';
   }
 
-  /** 导入说明：优先用插件自带 hints 文案，回退通用说明 */
+  /** 导入说明：与 RN 原版一致，取插件自带 hints 文案；插件未提供则不显示 */
   private pluginImportHint(): string {
     const plugin = pluginManager.getByName(this.detailName);
     if (plugin !== null && plugin.instanceInfo !== null && plugin.instanceInfo.hints !== null) {
-      const hint = JsonUtil.recStr(plugin.instanceInfo.hints,
+      return JsonUtil.recStr(plugin.instanceInfo.hints,
         this.pluginImportSingleMode ? 'importMusicItem' : 'importMusicSheet');
-      if (hint.trim().length > 0) {
-        return hint;
-      }
     }
-    if (this.pluginImportSingleMode) {
-      return '输入目标歌曲的分享链接或歌曲 ID。导入成功后将加入所选歌单；具体支持的链接格式以该插件为准。';
-    }
-    return '输入目标歌单的分享链接或歌单 ID。导入完成后将创建一个新的本地歌单，并尝试导入歌单内的全部歌曲；具体支持的链接格式以该插件为准。';
+    return '';
   }
 
   /** 确认插件内导入：歌单 → 建新歌单（原歌单名）并写入全部歌曲；单曲 → 导入后加入所选歌单 */
@@ -315,7 +327,7 @@ export struct PluginPage {
     }
     const url = this.pluginImportUrl.trim();
     if (url.length === 0) {
-      this.showToast(this.pluginImportSingleMode ? '请输入歌曲链接或 ID' : '请输入歌单链接或 ID');
+      this.showToast(this.pluginImportSingleMode ? '请输入目标歌曲' : '请输入目标歌单');
       return;
     }
     this.pluginImporting = true;
@@ -325,7 +337,7 @@ export struct PluginPage {
       plugin.methods.importMusicItem(url).then((item: MusicItem | null): void => {
         this.pluginImporting = false;
         if (item === null) {
-          this.showToast('导入失败，请检查链接或 ID');
+          this.showToast('导入歌曲失败');
           return;
         }
         musicSheet.addMusic(targetId, item).then((): void => {
@@ -336,13 +348,13 @@ export struct PluginPage {
         });
       }).catch((_e: Object): void => {
         this.pluginImporting = false;
-        this.showToast('导入失败');
+        this.showToast('导入歌曲失败');
       });
     } else {
       plugin.methods.importMusicSheet(url).then((items: Array<MusicItem>): void => {
         if (items.length === 0) {
           this.pluginImporting = false;
-          this.showToast('导入失败或歌单为空');
+          this.showToast('链接有误或目标歌单为空');
           return;
         }
         this.resolvePluginImportTitle(plugin).then((title: string): Promise<string> => {
@@ -359,7 +371,7 @@ export struct PluginPage {
         });
       }).catch((_e: Object): void => {
         this.pluginImporting = false;
-        this.showToast('导入失败');
+        this.showToast('导入歌单失败');
       });
     }
   }
@@ -1267,7 +1279,10 @@ export struct PluginPage {
           .width('100%')
           .margin({ top: 20, bottom: 6 })
         Column() {
-          Row({ space: 8 }) {
+          Row({ space: 12 }) {
+            SymbolGlyph($r('sys.symbol.highlighter_line'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
             Text('变量')
               .fontSize(15)
               .fontColor($r('sys.color.font_primary'))
@@ -1486,7 +1501,7 @@ export struct PluginPage {
       }
       TextInput({
         text: this.pluginImportUrl,
-        placeholder: this.pluginImportSingleMode ? '歌曲分享链接或 ID' : '歌单分享链接或歌单 ID'
+        placeholder: this.pluginImportSingleMode ? '输入目标歌曲' : '输入目标歌单'
       })
         .width('100%')
         .height(44)
@@ -1511,12 +1526,14 @@ export struct PluginPage {
         .onClick(() => {
           this.confirmPluginImport();
         })
-      Text(this.pluginImportHint())
-        .fontSize(12)
-        .fontColor($r('sys.color.font_tertiary'))
-        .width('100%')
-        .margin({ top: 16 })
-        .lineHeight(18)
+      if (this.pluginImportHint().length > 0) {
+        Text(this.pluginImportHint())
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+          .margin({ top: 16 })
+          .lineHeight(18)
+      }
     }
     .width('100%')
     .padding({ left: 20, right: 20, top: 12, bottom: 32 })

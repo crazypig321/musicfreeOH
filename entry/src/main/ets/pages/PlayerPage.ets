@@ -217,7 +217,7 @@ export struct PlayerPage {
     } else {
       musicSheet.addMusic(musicSheet.defaultSheet.id, current).then((): void => {
         this.isFavorited = true;
-        this.showToast('已收藏到我喜欢的音乐');
+        this.showToast('已收藏到「我的收藏」');
       });
     }
   }

@@ -445,7 +445,7 @@ export struct DownloadPage {
     return result;
   }
 
-  /** 批量收藏：加入「我喜欢的音乐」 */
+  /** 批量收藏：加入「我的收藏」 */
   private batchFavorite(): void {
     const items = this.selectedItems();
     if (items.length === 0) {
@@ -458,7 +458,7 @@ export struct DownloadPage {
       return;
     }
     musicSheet.addMusic(musicSheet.defaultSheet.id, fresh).then((): void => {
-      this.showToast('已收藏 ' + fresh.length.toString() + ' 首到我喜欢的音乐');
+      this.showToast('已收藏 ' + fresh.length.toString() + ' 首到「我的收藏」');
     }).catch((_e: Object): void => {
       this.showToast('收藏失败');
     });

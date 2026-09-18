@@ -14,7 +14,8 @@ export const LOCAL_PLUGIN_HASH = 'local-plugin-hash';
 
 /** 歌单内默认歌单 */
 export const FAVORITE_SHEET_ID = 'favorite';
-export const FAVORITE_SHEET_TITLE = '我喜欢';
+export const FAVORITE_SHEET_TITLE = '我的收藏';
+export const FAVORITE_SHEET_DESC = '收藏歌曲将会存入我的收藏歌单里，此歌单为默认歌单，不可编辑，不可删除。';
 
 export enum SortType {
   None = 'None',

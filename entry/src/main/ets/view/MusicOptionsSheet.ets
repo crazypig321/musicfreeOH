@@ -165,7 +165,7 @@ export struct MusicOptionsSheet {
     } else {
       musicSheet.addMusic(musicSheet.defaultSheet.id, target).then((): void => {
         this.isFavorited = true;
-        this.showToast('已收藏到我喜欢的音乐');
+        this.showToast('已收藏到「我的收藏」');
       });
     }
   }
