@@ -300,13 +300,22 @@ export struct MySheetsPage {
     return '暂无可加入的歌单';
   }
 
-  /** 底部说明文字：与 RN 原版一致，取插件自带 hints 文案；插件未提供则不显示 */
+  /** 底部说明文字：与 RN 原版一致，取插件 hints（string[]），逐条 ￮ 前缀显示；未提供则不显示 */
   private importHintText(): string {
     const pluginName = this.selectedImportPluginName();
     const plugin = pluginManager.getByName(pluginName);
     if (plugin !== null && plugin.instanceInfo !== null && plugin.instanceInfo.hints !== null) {
-      return JsonUtil.recStr(plugin.instanceInfo.hints,
+      const arr = JsonUtil.recArray(plugin.instanceInfo.hints,
         this.importSingleMode ? 'importMusicItem' : 'importMusicSheet');
+      if (arr !== null) {
+        const parts: Array<string> = [];
+        for (const it of arr) {
+          if (typeof it === 'string' && it.length > 0) {
+            parts.push('￮ ' + it);
+          }
+        }
+        return parts.join('\n');
+      }
     }
     return '';
   }

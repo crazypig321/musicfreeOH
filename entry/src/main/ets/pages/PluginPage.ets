@@ -299,12 +299,21 @@ export struct PluginPage {
     return '暂无可加入的歌单';
   }
 
-  /** 导入说明：与 RN 原版一致，取插件自带 hints 文案；插件未提供则不显示 */
+  /** 导入说明：与 RN 原版一致，取插件 hints（string[]），逐条 ￮ 前缀显示；未提供则不显示 */
   private pluginImportHint(): string {
     const plugin = pluginManager.getByName(this.detailName);
     if (plugin !== null && plugin.instanceInfo !== null && plugin.instanceInfo.hints !== null) {
-      return JsonUtil.recStr(plugin.instanceInfo.hints,
+      const arr = JsonUtil.recArray(plugin.instanceInfo.hints,
         this.pluginImportSingleMode ? 'importMusicItem' : 'importMusicSheet');
+      if (arr !== null) {
+        const parts: Array<string> = [];
+        for (const it of arr) {
+          if (typeof it === 'string' && it.length > 0) {
+            parts.push('￮ ' + it);
+          }
+        }
+        return parts.join('\n');
+      }
     }
     return '';
   }
