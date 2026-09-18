@@ -9,7 +9,7 @@ import { Plugin } from '../plugin/Plugin';
 import { pluginManager } from '../plugin/PluginManager';
 import { trackPlayer } from '../core/TrackPlayer';
 import { downloader } from '../core/Downloader';
-import { downloadedSheet } from '../core/LocalMusicSheet';
+import { downloadedSheet, localMusicSheet } from '../core/LocalMusicSheet';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
 import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
@@ -45,6 +45,10 @@ export struct SheetDetailPage {
   @Local batchSelected: Array<string> = [];
   /** 批量「添加到歌单」选择器 */
   @Local showBatchSheetPicker: boolean = false;
+  /** 批量换源进行中 */
+  @Local batchChanging: boolean = false;
+  /** 批量换源进度文案 */
+  @Local batchChangeProgress: string = '';
 
   dataSource: MusicDataSource = new MusicDataSource();
   private scroller: Scroller = new Scroller();
@@ -460,14 +464,84 @@ export struct SheetDetailPage {
     this.batchSelected = this.batchSelected.length === all.length ? [] : all;
   }
 
-  /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」；本地歌单末位为删除） */
-  private batchLabels(): Array<string> {
+  /** 批量操作按钮文案（第一行：全部勾选后「全选」切换为「取消全选」） */
+  private batchTopLabels(): Array<string> {
     const allSelected = this.musicCount > 0 && this.batchSelected.length === this.musicCount;
     const selectLabel = allSelected ? '取消全选' : '全选';
+    return [selectLabel, '下一首播放', '换源'];
+  }
+
+  /** 批量操作按钮文案（第二行：本地歌单为 下载/删除，插件歌单为 添加到歌单/下载） */
+  private batchBottomLabels(): Array<string> {
     if (this.isLocalSheet) {
-      return [selectLabel, '下一首播放', '下载', '删除'];
+      return ['下载', '删除'];
     }
-    return [selectLabel, '下一首播放', '添加到歌单', '下载'];
+    return ['添加到歌单', '下载'];
+  }
+
+  /** 批量换源：逐首搜索其它插件的同一首歌，自动选第一个命中的候选，替换队列并保存到歌单 */
+  private async batchChangeSource(): Promise<void> {
+    if (this.batchChanging) {
+      this.showToast('正在换源中，请稍候');
+      return;
+    }
+    const items = this.selectedItems();
+    if (items.length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    // 本地/已下载音乐与正在播放的歌曲不支持批量换源（正在播放的歌曲请单独换源）
+    const targets: Array<MusicItem> = [];
+    let playingSkipped = 0;
+    for (const it of items) {
+      if (localMusicSheet.isLocalMusic(it) !== null || downloadedSheet.isLocalMusic(it) !== null ||
+        it.platform === LOCAL_PLUGIN_PLATFORM) {
+        continue;
+      }
+      if (trackPlayer.isCurrentMusic(it)) {
+        playingSkipped++;
+        continue;
+      }
+      targets.push(it);
+    }
+    if (targets.length === 0) {
+      this.showToast(playingSkipped > 0 ? '正在播放的歌曲请单独换源' : '所选歌曲不支持换源（本地音乐）');
+      return;
+    }
+    this.batchChanging = true;
+    let success = 0;
+    let failed = 0;
+    for (let i = 0; i < targets.length; ++i) {
+      const item = targets[i];
+      this.batchChangeProgress = '换源中 ' + (i + 1).toString() + '/' + targets.length.toString();
+      try {
+        const candidates = await trackPlayer.searchAlternateSources(item);
+        const best = candidates.length > 0 ? candidates[0] : null;
+        if (best !== null) {
+          const inQueue = trackPlayer.replaceInQueue(item, best);
+          const saved = musicSheet.replaceMusicEverywhere(item, best);
+          if (inQueue || saved > 0) {
+            success++;
+          } else {
+            failed++;
+          }
+        } else {
+          failed++;
+        }
+      } catch (_e) {
+        failed++;
+      }
+    }
+    this.batchChanging = false;
+    this.batchChangeProgress = '';
+    let message = '换源完成：成功 ' + success.toString() + ' 首';
+    if (failed > 0) {
+      message += '，失败 ' + failed.toString() + ' 首';
+    }
+    if (playingSkipped > 0) {
+      message += '（正在播放的 ' + playingSkipped.toString() + ' 首请单独换源）';
+    }
+    this.showToast(message);
   }
 
   /** 勾选的歌曲实体列表（按列表顺序） */
@@ -730,21 +804,22 @@ export struct SheetDetailPage {
         .height('100%')
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
-        .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 110 : 60))
+        .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 154 : 60))
         .onReachEnd(() => {
           this.loadPage(false);
         })
 
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
-        // 已选行 + 全选 / 下一首播放 / 添加到歌单(本地歌单：下载/删除) / 下载
+        // 已选行 + 全选 / 下一首播放 / 换源 + 添加到歌单(本地歌单：删除) / 下载
         if (appState.isBatchMode) {
-          // 渐变模糊高度与底栏内容高度一致：14(顶距) + 22(已选行) + 10 + 36(按钮行) + 12(底距) + 导航栏避让
-          CommonBlur({ heightValue: appState.bottomRect + 94 }).position({ bottom: 0 })
+          // 渐变模糊高度与底栏内容高度一致：14(顶距) + 22(已选行) + 10 + 36(按钮行) + 8 + 36(按钮行) + 12(底距) + 导航栏避让
+          CommonBlur({ heightValue: appState.bottomRect + 138 }).position({ bottom: 0 })
             .transition(TransitionEffect.OPACITY)
 
           Column({ space: 10 }) {
             Row() {
-              Text('已选 ' + this.batchSelected.length.toString() + ' 首歌曲')
+              Text(this.batchChanging ? this.batchChangeProgress :
+                '已选 ' + this.batchSelected.length.toString() + ' 首歌曲')
                 .fontSize(13)
                 .fontColor($r('sys.color.font_secondary'))
               Blank()
@@ -758,7 +833,7 @@ export struct SheetDetailPage {
             .width('100%')
 
             Row({ space: 8 }) {
-              ForEach(this.batchLabels(), (v: string, i: number) => {
+              ForEach(this.batchTopLabels(), (v: string, i: number) => {
                 Button(v)
                   .layoutWeight(1)
                   .height(36)
@@ -773,16 +848,36 @@ export struct SheetDetailPage {
                       this.toggleSelectAll();
                     } else if (i === 1) {
                       this.batchPlayNext();
-                    } else if (this.isLocalSheet) {
+                    } else {
+                      this.batchChangeSource();
+                    }
+                  })
+              }, (v: string, i: number) => v + '_' + i.toString())
+            }
+            .width('100%')
+
+            Row({ space: 8 }) {
+              ForEach(this.batchBottomLabels(), (v: string, i: number) => {
+                Button(v)
+                  .layoutWeight(1)
+                  .height(36)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .borderRadius(10)
+                  .padding({ left: 2, right: 2 })
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    if (this.isLocalSheet) {
                       // 本地歌单：下载 / 删除
-                      if (i === 2) {
+                      if (i === 0) {
                         this.batchDownload();
                       } else {
                         this.batchRemoveFromSheet();
                       }
                     } else {
                       // 插件歌单/榜单：添加到歌单 / 下载
-                      if (i === 2) {
+                      if (i === 0) {
                         this.openBatchSheetPicker();
                       } else {
                         this.batchDownload();
