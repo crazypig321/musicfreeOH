@@ -107,6 +107,32 @@ export class AppConfig {
     return this.getString(ConfigKeys.WEBDAV_PASSWORD, '');
   }
 
+  /** 导出全部设置（备份用；排除 WebDAV 账密等敏感项） */
+  exportSettings(): Record<string, string> {
+    const out: Record<string, string> = {};
+    const data = this.store().exportData();
+    for (const key of Object.keys(data)) {
+      if (key === ConfigKeys.WEBDAV_USERNAME || key === ConfigKeys.WEBDAV_PASSWORD ||
+        key === ConfigKeys.SCHEMA) {
+        continue;
+      }
+      out[key] = data[key];
+    }
+    return out;
+  }
+
+  /** 从备份导入设置（仅写入备份中存在的键，不覆盖 WebDAV 账密，不删除本地其余键） */
+  importSettings(data: Record<string, string>): void {
+    const store = this.store();
+    for (const key of Object.keys(data)) {
+      if (key === ConfigKeys.WEBDAV_USERNAME || key === ConfigKeys.WEBDAV_PASSWORD ||
+        key === ConfigKeys.SCHEMA) {
+        continue;
+      }
+      store.set(key, data[key]);
+    }
+  }
+
   getAutoPlayWhenAppStart(): boolean {
     return this.getBoolean(ConfigKeys.AUTO_PLAY_WHEN_APP_START, false);
   }

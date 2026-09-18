@@ -2,11 +2,12 @@ import { JsonUtil, JsonRecord } from '../common/JsonUtil';
 import { ResumeMode } from '../common/Consts';
 import { musicSheet, SheetBackupEntry, backupEntriesFromRecord } from './MusicSheet';
 import { pluginManager } from '../plugin/PluginManager';
+import { appConfig } from './AppConfig';
 import { VersionCompare } from '../utils/VersionCompare';
 
 /**
  * 备份与恢复（移植自 core/backup.ts）
- * 结果：一份大的 json 文件 { musicSheets: [], plugins: [] }
+ * 结果：一份大的 json 文件 { musicSheets: [], plugins: [], appConfig: {} }
  */
 export class Backup {
   /** 生成备份 JSON 字符串 */
@@ -31,6 +32,7 @@ export class Backup {
     const out: JsonRecord = {
       'musicSheets': sheetRecs,
       'plugins': pluginRecs,
+      'appConfig': appConfig.exportSettings(),
     };
     return JsonUtil.safeStringify(out);
   }
@@ -85,6 +87,16 @@ export class Backup {
 
     const entries: Array<SheetBackupEntry> = backupEntriesFromRecord(obj['musicSheets']);
     const resumeMusicSheets: Promise<void> = musicSheet.resumeSheets(entries, resumeMode);
+
+    // 设置参数（旧备份无此字段时跳过；不覆盖 WebDAV 账密）
+    const settingsRec = JsonUtil.objToRecord(obj['appConfig']);
+    if (settingsRec !== null) {
+      const settings: Record<string, string> = {};
+      for (const key of Object.keys(settingsRec)) {
+        settings[key] = JsonUtil.recStr(settingsRec, key);
+      }
+      appConfig.importSettings(settings);
+    }
 
     await Promise.all(resumePluginTasks.concat([resumeMusicSheets]));
   }
