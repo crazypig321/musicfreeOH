@@ -3,6 +3,9 @@ import { Plugin } from '../plugin/Plugin';
 import { PluginState } from '../plugin/PluginTypes';
 import { PluginInstanceInfo } from '../plugin/PluginTypes';
 import { InstallPluginResult } from '../plugin/PluginTypes';
+import { musicSheet } from '../core/MusicSheet';
+import { MusicItem } from '../common/model/MediaTypes';
+import { SheetItem, SheetInfoResult } from '../common/model/SheetTypes';
 import { appConfig } from '../core/AppConfig';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
@@ -48,7 +51,16 @@ export struct PluginPage {
   @Local detailAuthor: string = '';
   @Local detailSrcUrl: string = '';
   @Local detailUsage: string = '';
+  @Local detailAbilities: string = '';
   @Local detailVars: Array<PluginVarField> = [];
+  /** 插件内导入半模态（详情 sheet 内嵌套，固定来源为当前详情插件） */
+  @Local showPluginImportSheet: boolean = false;
+  @Local pluginImportSingleMode: boolean = false;
+  @Local pluginImportUrl: string = '';
+  @Local pluginImporting: boolean = false;
+  @Local pluginImportTargetSheetIds: Array<string> = [];
+  @Local pluginImportTargetSheetTitles: Array<string> = [];
+  @Local pluginImportTargetIndex: number = 0;
   @Local batchSelected: Array<string> = [];
   private detailHash: string = '';
   /** 是否正在同步订阅源 */
@@ -175,7 +187,8 @@ export struct PluginPage {
     if (plugin !== null && plugin.instanceInfo !== null) {
       const info = plugin.instanceInfo;
       this.detailSrcUrl = info.srcUrl;
-      this.detailUsage = PluginPage.usageText(info);
+      this.detailUsage = info.description.trim().length > 0 ? info.description.trim() : '该插件未提供使用说明。';
+      this.detailAbilities = PluginPage.usageText(info);
       const values = pluginManager.getUserVariables(plugin);
       for (const rec of info.userVariables) {
         const key = JsonUtil.recStr(rec, 'key');
@@ -192,7 +205,8 @@ export struct PluginPage {
         fields.push(f);
       }
     } else {
-      this.detailUsage = '插件尚未挂载，暂时无法获取详细信息。';
+      this.detailUsage = '插件尚未挂载，暂时无法获取使用说明。';
+      this.detailAbilities = '插件尚未挂载，暂时无法获取能力信息。';
     }
     this.detailVars = fields;
     this.showDetailSheet = true;
@@ -207,6 +221,167 @@ export struct PluginPage {
     DialogManager.usageTitle = this.detailName + ' 使用说明';
     DialogManager.usageMessage = message;
     DialogManager.OpenDialog('使用说明');
+  }
+
+  /** 支持能力弹窗 */
+  private showAbilitiesDialog(): void {
+    DialogManager.usageTitle = this.detailName + ' 支持能力';
+    DialogManager.usageMessage = this.detailAbilities;
+    DialogManager.OpenDialog('使用说明');
+  }
+
+  /** 当前详情插件是否支持指定方法 */
+  private detailHasMethod(method: string): boolean {
+    const plugin = pluginManager.getByName(this.detailName);
+    return plugin !== null && plugin.hasMethod(method);
+  }
+
+  /** 打开插件内导入半模态（单曲/歌单，来源固定为当前详情插件） */
+  private openPluginImportSheet(singleMode: boolean): void {
+    const method: string = singleMode ? 'importMusicItem' : 'importMusicSheet';
+    const plugin = pluginManager.getByName(this.detailName);
+    if (plugin === null || !plugin.hasMethod(method)) {
+      this.showToast('该插件不支持此功能');
+      return;
+    }
+    this.pluginImportSingleMode = singleMode;
+    if (singleMode) {
+      const ids: Array<string> = [];
+      const titles: Array<string> = [];
+      for (const sheet of musicSheet.sheets) {
+        ids.push(sheet.id);
+        titles.push(sheet.title);
+      }
+      this.pluginImportTargetSheetIds = ids;
+      this.pluginImportTargetSheetTitles = titles;
+      this.pluginImportTargetIndex = ids.length > 0 ? 0 : -1;
+    }
+    this.pluginImportUrl = '';
+    this.pluginImporting = false;
+    this.showPluginImportSheet = true;
+  }
+
+  /** 导入单曲目标歌单 Select 选项 */
+  private pluginImportTargetOptions(): Array<SelectOption> {
+    const opts: Array<SelectOption> = [];
+    for (const title of this.pluginImportTargetSheetTitles) {
+      opts.push({ value: title });
+    }
+    if (opts.length === 0) {
+      opts.push({ value: '暂无可加入的歌单' });
+    }
+    return opts;
+  }
+
+  /** 导入单曲目标歌单 Select 当前展示值 */
+  private selectedPluginImportTargetName(): string {
+    if (this.pluginImportTargetIndex >= 0 && this.pluginImportTargetIndex < this.pluginImportTargetSheetTitles.length) {
+      return this.pluginImportTargetSheetTitles[this.pluginImportTargetIndex];
+    }
+    return '暂无可加入的歌单';
+  }
+
+  /** 导入说明：优先用插件自带 hints 文案，回退通用说明 */
+  private pluginImportHint(): string {
+    const plugin = pluginManager.getByName(this.detailName);
+    if (plugin !== null && plugin.instanceInfo !== null && plugin.instanceInfo.hints !== null) {
+      const hint = JsonUtil.recStr(plugin.instanceInfo.hints,
+        this.pluginImportSingleMode ? 'importMusicItem' : 'importMusicSheet');
+      if (hint.trim().length > 0) {
+        return hint;
+      }
+    }
+    if (this.pluginImportSingleMode) {
+      return '输入目标歌曲的分享链接或歌曲 ID。导入成功后将加入所选歌单；具体支持的链接格式以该插件为准。';
+    }
+    return '输入目标歌单的分享链接或歌单 ID。导入完成后将创建一个新的本地歌单，并尝试导入歌单内的全部歌曲；具体支持的链接格式以该插件为准。';
+  }
+
+  /** 确认插件内导入：歌单 → 建新歌单（原歌单名）并写入全部歌曲；单曲 → 导入后加入所选歌单 */
+  private confirmPluginImport(): void {
+    if (this.pluginImporting) {
+      return;
+    }
+    const plugin = pluginManager.getByName(this.detailName);
+    if (plugin === null) {
+      this.showToast('插件不存在');
+      return;
+    }
+    if (this.pluginImportSingleMode &&
+      (this.pluginImportTargetSheetIds.length === 0 || this.pluginImportTargetIndex < 0 ||
+        this.pluginImportTargetIndex >= this.pluginImportTargetSheetIds.length)) {
+      this.showToast('暂无可加入的歌单');
+      return;
+    }
+    const url = this.pluginImportUrl.trim();
+    if (url.length === 0) {
+      this.showToast(this.pluginImportSingleMode ? '请输入歌曲链接或 ID' : '请输入歌单链接或 ID');
+      return;
+    }
+    this.pluginImporting = true;
+    if (this.pluginImportSingleMode) {
+      const targetId = this.pluginImportTargetSheetIds[this.pluginImportTargetIndex];
+      const targetTitle = this.pluginImportTargetSheetTitles[this.pluginImportTargetIndex];
+      plugin.methods.importMusicItem(url).then((item: MusicItem | null): void => {
+        this.pluginImporting = false;
+        if (item === null) {
+          this.showToast('导入失败，请检查链接或 ID');
+          return;
+        }
+        musicSheet.addMusic(targetId, item).then((): void => {
+          this.showPluginImportSheet = false;
+          this.showToast('已将「' + item.title + '」加入「' + targetTitle + '」');
+        }).catch((_e: Object): void => {
+          this.showToast('加入歌单失败');
+        });
+      }).catch((_e: Object): void => {
+        this.pluginImporting = false;
+        this.showToast('导入失败');
+      });
+    } else {
+      plugin.methods.importMusicSheet(url).then((items: Array<MusicItem>): void => {
+        if (items.length === 0) {
+          this.pluginImporting = false;
+          this.showToast('导入失败或歌单为空');
+          return;
+        }
+        this.resolvePluginImportTitle(plugin).then((title: string): Promise<string> => {
+          return musicSheet.addSheet(title);
+        }).then((sheetId: string): Promise<void> => {
+          return musicSheet.addMusic(sheetId, items);
+        }).then((): void => {
+          this.pluginImporting = false;
+          this.showPluginImportSheet = false;
+          this.showToast('已导入 ' + items.length.toString() + ' 首歌曲');
+        }).catch((_e: Object): void => {
+          this.pluginImporting = false;
+          this.showToast('创建歌单失败');
+        });
+      }).catch((_e: Object): void => {
+        this.pluginImporting = false;
+        this.showToast('导入失败');
+      });
+    }
+  }
+
+  /** 解析导入歌单标题：优先 getMusicSheetInfo 取原歌单名，失败回退「导入歌单(插件名)」 */
+  private resolvePluginImportTitle(plugin: Plugin): Promise<string> {
+    const fallback = '导入歌单(' + plugin.name + ')';
+    if (!plugin.hasMethod('getMusicSheetInfo')) {
+      return Promise.resolve(fallback);
+    }
+    const query = new SheetItem();
+    query.id = this.pluginImportUrl.trim();
+    query.platform = plugin.name;
+    query.title = this.pluginImportUrl.trim();
+    return plugin.methods.getMusicSheetInfo(query, 1).then((info: SheetInfoResult | null): string => {
+      if (info !== null && info.sheetItem !== null && info.sheetItem.title.trim().length > 0) {
+        return info.sheetItem.title.trim();
+      }
+      return fallback;
+    }).catch((_e: Object): string => {
+      return fallback;
+    });
   }
 
   /** 打开变量编辑弹窗（所有变量在同一个弹窗填写） */
@@ -1038,8 +1213,28 @@ export struct PluginPage {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-      // 使用说明（点击弹窗显示）
+      // 支持能力 / 使用说明（点击弹窗显示）
       Column() {
+        Row({ space: 12 }) {
+          SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+          Text('支持能力')
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .onClick(() => {
+          this.showAbilitiesDialog();
+        })
+
+        Divider().DividerStyle()
         Row({ space: 12 }) {
           SymbolGlyph($r('sys.symbol.info_circle'))
             .fontSize(20)
@@ -1087,6 +1282,64 @@ export struct PluginPage {
           .onClick(() => {
             this.openVarDialog();
           })
+        }
+        .width('100%')
+        .borderRadius(16)
+        .backgroundColor($r('sys.color.comp_background_list_card'))
+      }
+
+      // 功能：插件支持的导入入口（单曲 → 加入所选歌单；歌单 → 建新歌单）
+      if (this.detailHasMethod('importMusicItem') || this.detailHasMethod('importMusicSheet')) {
+        Text('功能')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+          .width('100%')
+          .margin({ top: 20, bottom: 6 })
+        Column() {
+          if (this.detailHasMethod('importMusicItem')) {
+            Row({ space: 12 }) {
+              SymbolGlyph($r('sys.symbol.music'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+              Text('导入单曲')
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+                .layoutWeight(1)
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(16)
+                .fontColor([$r('sys.color.icon_tertiary')])
+            }
+            .width('100%')
+            .height(48)
+            .padding({ left: 16, right: 16 })
+            .onClick(() => {
+              this.openPluginImportSheet(true);
+            })
+          }
+          if (this.detailHasMethod('importMusicItem') && this.detailHasMethod('importMusicSheet')) {
+            Divider().DividerStyle()
+          }
+          if (this.detailHasMethod('importMusicSheet')) {
+            Row({ space: 12 }) {
+              SymbolGlyph($r('sys.symbol.square_and_arrow_down'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+              Text('导入歌单')
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+                .layoutWeight(1)
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(16)
+                .fontColor([$r('sys.color.icon_tertiary')])
+            }
+            .width('100%')
+            .height(48)
+            .padding({ left: 16, right: 16 })
+            .onClick(() => {
+              this.openPluginImportSheet(false);
+            })
+          }
         }
         .width('100%')
         .borderRadius(16)
@@ -1180,6 +1433,90 @@ export struct PluginPage {
       .width('100%')
       .borderRadius(16)
       .backgroundColor($r('sys.color.comp_background_list_card'))
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
+    .bindSheet(!!this.showPluginImportSheet, this.PluginImportSheetBuilder(), {
+      scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      dragBar: true,
+      onWillDisappear: () => {
+        this.showPluginImportSheet = false;
+      }
+    })
+  }
+
+  /** 插件内导入半模态：来源固定为当前详情插件（不选插件），单曲需选目标歌单 */
+  @Builder
+  PluginImportSheetBuilder() {
+    Column() {
+      Text(this.pluginImportSingleMode ? '导入单曲' : '导入歌单')
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ top: 4, bottom: 4 })
+      Text('来源插件：' + this.detailName)
+        .fontSize(13)
+        .fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
+        .margin({ bottom: 12 })
+      if (this.pluginImportSingleMode) {
+        Text('加入歌单')
+          .fontSize(13)
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+          .margin({ bottom: 8 })
+        Select(this.pluginImportTargetOptions())
+          .selected(this.pluginImportTargetIndex)
+          .value(this.selectedPluginImportTargetName())
+          .font({ size: 14 })
+          .fontColor($r('sys.color.font_primary'))
+          .selectedOptionFont({ size: 14 })
+          .optionFont({ size: 14 })
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .borderRadius(12)
+          .height(44)
+          .width('100%')
+          .onSelect((index: number, _text: string) => {
+            if (this.pluginImportTargetSheetIds.length > 0) {
+              this.pluginImportTargetIndex = index;
+            }
+          })
+      }
+      TextInput({
+        text: this.pluginImportUrl,
+        placeholder: this.pluginImportSingleMode ? '歌曲分享链接或 ID' : '歌单分享链接或歌单 ID'
+      })
+        .width('100%')
+        .height(44)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(12)
+        .margin({ top: 12 })
+        .onChange((v: string) => {
+          this.pluginImportUrl = v;
+        })
+        .onSubmit((_enterKey: EnterKeyType) => {
+          this.confirmPluginImport();
+        })
+      Button(this.pluginImporting ? '导入中...' : '导入')
+        .width('100%')
+        .height(42)
+        .fontSize(15)
+        .margin({ top: 20 })
+        .backgroundColor($r('sys.color.background_emphasize'))
+        .onClick(() => {
+          this.confirmPluginImport();
+        })
+      Text(this.pluginImportHint())
+        .fontSize(12)
+        .fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
+        .margin({ top: 16 })
+        .lineHeight(18)
     }
     .width('100%')
     .padding({ left: 20, right: 20, top: 12, bottom: 32 })

@@ -13,6 +13,7 @@ import { pasteboard } from '@kit.BasicServicesKit';
 import { SheetDetailNavParams, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
+import { JsonUtil } from '../common/JsonUtil';
 
 /** 添加菜单锚点 id（openMenu 在锚点处弹出） */
 const ADD_ANCHOR_ID = 'mysheets_add_anchor';
@@ -284,8 +285,17 @@ export struct MySheetsPage {
     return '暂无可加入的歌单';
   }
 
-  /** 底部说明文字 */
+  /** 底部说明文字：优先用插件自带 hints 文案，回退通用说明 */
   private importHintText(): string {
+    const pluginName = this.selectedImportPluginName();
+    const plugin = pluginManager.getByName(pluginName);
+    if (plugin !== null && plugin.instanceInfo !== null && plugin.instanceInfo.hints !== null) {
+      const hint = JsonUtil.recStr(plugin.instanceInfo.hints,
+        this.importSingleMode ? 'importMusicItem' : 'importMusicSheet');
+      if (hint.trim().length > 0) {
+        return hint;
+      }
+    }
     if (this.importSingleMode) {
       return '输入目标歌曲的分享链接或歌曲 ID。导入成功后将加入所选歌单；具体支持的链接格式以所选插件为准。';
     }

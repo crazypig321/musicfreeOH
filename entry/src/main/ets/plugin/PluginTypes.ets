@@ -36,6 +36,10 @@ export class PluginInstanceInfo {
   userVariables: JsonArray = [];
   /** 支持的方法名 */
   supportedMethods: Array<string> = [];
+  /** 使用说明（插件自述文本） */
+  description: string = '';
+  /** 导入功能提示文案（key: importMusicItem / importMusicSheet） */
+  hints: JsonRecord | null = null;
 
   static fromRecord(rec: JsonRecord): PluginInstanceInfo {
     const info = new PluginInstanceInfo();
@@ -65,6 +69,11 @@ export class PluginInstanceInfo {
         }
       }
     }
+    info.description = JsonUtil.recStr(rec, 'description');
+    const hints = JsonUtil.recRecord(rec, 'hints');
+    if (hints !== null) {
+      info.hints = hints;
+    }
     return info;
   }
 
@@ -93,6 +102,12 @@ export class PluginInstanceInfo {
     }
     if (this.userVariables.length > 0) {
       rec['userVariables'] = this.userVariables;
+    }
+    if (this.description.length > 0) {
+      rec['description'] = this.description;
+    }
+    if (this.hints !== null) {
+      rec['hints'] = this.hints;
     }
     return rec;
   }

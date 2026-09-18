@@ -522,7 +522,9 @@
           appVersion: instance.appVersion,
           supportedSearchType: instance.supportedSearchType,
           userVariables: instance.userVariables,
-          supportedMethods: supportedMethods
+          supportedMethods: supportedMethods,
+          description: typeof instance.description === 'string' ? instance.description : '',
+          hints: (instance.hints && typeof instance.hints === 'object') ? instance.hints : {}
         }
       }));
     } catch (e) {
