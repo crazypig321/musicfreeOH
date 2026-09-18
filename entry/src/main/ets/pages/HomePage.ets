@@ -647,7 +647,7 @@ export struct HomePage{
             }
           })
         }
-      }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + index.toString())
+      }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + item.artwork + '_' + index.toString())
     }
   }
 }

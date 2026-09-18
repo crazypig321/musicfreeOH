@@ -7,6 +7,7 @@ import { MediaUtils } from '../utils/MediaUtils';
 import { FileUtils } from '../utils/FileUtils';
 import { CryptoUtil } from '../utils/CryptoUtil';
 import { MediaMetadata, MediaBasicMeta } from '../utils/MediaMetadata';
+import { musicSheet } from './MusicSheet';
 
 /** 本地歌单更新事件 */
 export class LocalSheetUpdatedEvent {
@@ -101,8 +102,9 @@ export class LocalMusicSheet {
       for (const it of this.localSheetItems) {
         if (MediaUtils.isSameMediaItem(it, mi)) {
           exists = true;
-          // 旧条目无封面、重新扫描提取到封面时补上（如缓存被清理后重建）
-          if (it.artwork.length === 0 && mi.artwork.length > 0) {
+          // 旧条目无封面或封面文件已失效（如重装后缓存被清）、重新扫描提取到封面时补上
+          if (mi.artwork.length > 0 &&
+            (it.artwork.length === 0 || LocalMusicSheet.isDeadFileArtwork(it.artwork))) {
             it.artwork = mi.artwork;
             changed = true;
           }
@@ -121,6 +123,14 @@ export class LocalMusicSheet {
     this.localSheetItems = newSheet;
     this.notify();
     return Promise.resolve();
+  }
+
+  /** file:// 封面路径是否已失效（文件不存在） */
+  private static isDeadFileArtwork(artwork: string): boolean {
+    if (!artwork.startsWith('file://')) {
+      return false;
+    }
+    return !FileUtils.exists(artwork);
   }
 
   /** 添加本地音乐（仅内存，不落盘） */
@@ -366,14 +376,18 @@ export class LocalMusicSheet {
     item.artist = parsedArtist.length > 0 ? parsedArtist : (meta.artist.length > 0 ? meta.artist : '未知歌手');
     item.album = meta.album.length > 0 ? meta.album : '未知专辑';
     item.duration = meta.durationMs / 1000;
-    // 封面：优先文件内嵌封面；无内嵌封面时复用已下载记录的平台封面 URL
-    // （下载文件名含 platform@id，可与 downloadedSheet 条目精确匹配）
+    // 封面：优先文件内嵌封面；无内嵌封面时回退已下载记录/我的歌单中的平台封面
+    // （下载文件名含 platform@id，可与 downloadedSheet 条目精确匹配；
+    // 重装后已下载记录为空，再从恢复的歌单中找同曲目网络封面）
     let artwork = meta.artwork;
     if (artwork.length === 0) {
       const downloaded = downloadedSheet.isLocalMusic(item);
       if (downloaded !== null && downloaded.artwork.length > 0) {
         artwork = downloaded.artwork;
       }
+    }
+    if (artwork.length === 0) {
+      artwork = musicSheet.findArtworkEverywhere(item);
     }
     item.artwork = artwork;
     const extraRec: JsonRecord = {

@@ -5,6 +5,7 @@ import { appConfig } from '../core/AppConfig';
 import { pluginManager } from './PluginManager';
 import { InstallPluginResult } from './PluginTypes';
 import { FileUtils } from '../utils/FileUtils';
+import { PathConst } from '../common/PathConst';
 
 /** 订阅源存储（storage KV，随备份清单自动备份） */
 const SOURCE_STORE = 'storage';
@@ -88,18 +89,35 @@ export class Subscriptions {
     }
   }
 
-  /** 备份导出：订阅源列表 + 自定义名称 */
+  /** 备份导出：订阅源列表 + 自定义名称 + 本地导入源的沙箱文件内容 */
   static exportData(): JsonRecord {
     const rec: JsonRecord = {};
-    rec['sources'] = Subscriptions.getSources();
+    const sources = Subscriptions.getSources();
+    rec['sources'] = sources;
     const names = JsonUtil.parseRecord(KVStore.getOrCreate(SOURCE_STORE).get(SOURCE_NAME_KEY));
     if (names !== null) {
       rec['names'] = names;
     }
+    // 本地导入的订阅源（file:// 沙箱路径）：嵌入文件内容，换设备恢复时重建
+    const localFiles: Record<string, string> = {};
+    for (const url of sources) {
+      if (!url.startsWith('file://')) {
+        continue;
+      }
+      const path = url.substring('file://'.length);
+      const text = FileUtils.readFileText(path);
+      if (text !== null && text.length > 0) {
+        localFiles[FileUtils.getFileName(path)] = text;
+      }
+    }
+    if (Object.keys(localFiles).length > 0) {
+      rec['localFiles'] = localFiles;
+    }
     return rec;
   }
 
-  /** 从备份恢复：订阅源合并去重（保留本地顺序，新源追加），自定义名称覆盖写入 */
+  /** 从备份恢复：订阅源合并去重（保留本地顺序，新源追加），自定义名称覆盖写入，
+   * 本地导入源的沙箱文件缺失时按备份内容重建 */
   static importData(rec: JsonRecord): void {
     const sources = JsonUtil.parseStringArray(JsonUtil.safeStringify(rec['sources']));
     if (sources !== null && sources.length > 0) {
@@ -122,6 +140,16 @@ export class Subscriptions {
         const n = JsonUtil.recStr(names, k);
         if (n.length > 0) {
           Subscriptions.setSourceName(k, n);
+        }
+      }
+    }
+    const localFiles = JsonUtil.objToRecord(rec['localFiles']);
+    if (localFiles !== null) {
+      FileUtils.checkAndCreateDir(PathConst.dataPath + 'subscriptions');
+      for (const name of Object.keys(localFiles)) {
+        const destPath = PathConst.dataPath + 'subscriptions/' + name;
+        if (!FileUtils.exists(destPath)) {
+          FileUtils.writeFileText(destPath, JsonUtil.recStr(localFiles, name));
         }
       }
     }

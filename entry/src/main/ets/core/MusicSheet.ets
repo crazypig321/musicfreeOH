@@ -454,6 +454,31 @@ export class MusicSheet {
     return task();
   }
 
+  /** 在全部歌单中查找同曲目的封面（本地音乐重建封面回填用）；优先网络封面，未找到返回空串 */
+  findArtworkEverywhere(target: MusicItem): string {
+    let fileFallback = '';
+    for (const sheet of this.sheets) {
+      const ml = this.musicListMap.get(sheet.id);
+      if (ml === undefined) {
+        continue;
+      }
+      const list = ml.musicList;
+      for (let i = 0; i < list.length; ++i) {
+        const it = list[i];
+        if (!MediaUtils.isSameMediaItem(it, target) || it.artwork.length === 0) {
+          continue;
+        }
+        if (!it.artwork.startsWith('file://')) {
+          return it.artwork;
+        }
+        if (fileFallback.length === 0) {
+          fileFallback = it.artwork;
+        }
+      }
+    }
+    return fileFallback;
+  }
+
   /** 收藏歌单 */
   starMusicSheet(musicSheet: SheetItem): void {
     this.starredSheets = [musicSheet].concat(this.starredSheets);
