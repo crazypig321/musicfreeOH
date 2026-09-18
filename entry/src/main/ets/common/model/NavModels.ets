@@ -14,6 +14,10 @@ export const ROUTE_ABOUT: string = 'about';
 export const ROUTE_CACHE: string = 'cache';
 export const ROUTE_PLAY_SETTING: string = 'playSetting';
 export const ROUTE_DOWNLOAD_SETTING: string = 'downloadSetting';
+export const ROUTE_LYRIC_SETTING: string = 'lyricSetting';
+export const ROUTE_PLUGIN_SETTING: string = 'pluginSetting';
+export const ROUTE_BACKUP_SETTING: string = 'backupSetting';
+export const ROUTE_WEBDAV_SETTING: string = 'webDavSetting';
 
 /**
  * 推荐歌单页跳转参数（push 前由首页赋值，页面 aboutToAppear 读取）

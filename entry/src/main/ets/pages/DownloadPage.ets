@@ -1,4 +1,5 @@
 import { downloader, DownloadTaskInfo, DownloadStatus, DownloadFailReason } from '../core/Downloader';
+import { ArtworkCache } from '../utils/ArtworkCache';
 import { downloadedSheet, localMusicSheet, LocalMusicSheet } from '../core/LocalMusicSheet';
 import { LocalMusicExclusion } from '../core/LocalMusicExclusion';
 import { musicSheet } from '../core/MusicSheet';
@@ -915,7 +916,7 @@ export struct DownloadPage {
         }
         // 封面：有图用 Image，无图用音符占位
         if (item.artwork.length > 0) {
-          Image(item.artwork)
+          Image(ArtworkCache.resolve(item.artwork))
             .width(40)
             .height(40)
             .borderRadius(10)
@@ -1007,7 +1008,7 @@ export struct DownloadPage {
       // 头部：封面 + 标题 + 歌手 + 专辑
       Row({ space: 12 }) {
         if (this.optionsItem.artwork.length > 0) {
-          Image(this.optionsItem.artwork)
+          Image(ArtworkCache.resolve(this.optionsItem.artwork))
             .width(64)
             .height(64)
             .borderRadius(10)

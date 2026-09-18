@@ -1,4 +1,5 @@
 import { MusicItem } from '../common/model/MediaTypes';
+import { ArtworkCache } from '../utils/ArtworkCache';
 
 /**
  * 音乐条目行（首页本地音乐 / 本地音乐页共用）
@@ -15,7 +16,7 @@ export struct MusicRow {
     Column() {
       Row({ space: 12 }) {
         if (this.item.artwork.length > 0) {
-          Image(this.item.artwork)
+          Image(ArtworkCache.resolve(this.item.artwork))
             .width(40)
             .height(40)
             .borderRadius(10)

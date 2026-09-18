@@ -1,4 +1,5 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { ArtworkCache } from '../utils/ArtworkCache';
 import { CommonBlur, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
@@ -758,7 +759,7 @@ export struct MySheetsPage {
         }
         // 封面：有图用 Image，无图用歌单占位图标
         if (row.coverUrl.length > 0) {
-          Image(row.coverUrl)
+          Image(ArtworkCache.resolve(row.coverUrl))
             .width(40)
             .height(40)
             .borderRadius(10)

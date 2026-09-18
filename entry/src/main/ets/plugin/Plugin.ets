@@ -10,6 +10,7 @@ import { MediaUtils } from '../utils/MediaUtils';
 import { MediaCache } from '../core/MediaCache';
 import { MediaExtra, MediaExtraProperties } from '../core/MediaExtra';
 import { AppMeta } from '../core/AppMeta';
+import { appConfig } from '../core/AppConfig';
 import { PathConst } from '../common/PathConst';
 import { CacheControl, LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { FileUtils } from '../utils/FileUtils';
@@ -867,8 +868,9 @@ export class Plugin {
         }
         return;
       }
-      // 版本号校验
-      if (info.appVersion.length > 0 && !VersionCompare.satisfies(AppMeta.appVersion, info.appVersion)) {
+      // 版本号校验（可在设置中忽略，实验性）
+      if (!appConfig.getIgnorePluginAppVersion() &&
+        info.appVersion.length > 0 && !VersionCompare.satisfies(AppMeta.appVersion, info.appVersion)) {
         this.state = PluginState.Error;
         this.errorReason = PluginErrorReason.VersionNotMatch;
         return;

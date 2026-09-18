@@ -2,7 +2,7 @@ import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { NavPathUtils } from '../utils/NavPathUtils';
-import { ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING } from '../common/model/NavModels';
+import { ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING } from '../common/model/NavModels';
 
 /** 设置条目 */
 interface SettingRow {
@@ -95,6 +95,12 @@ export struct SettingsPage {
                 NavPathUtils.push(ROUTE_PLAY_SETTING);
               } else if (row.title === '下载') {
                 NavPathUtils.push(ROUTE_DOWNLOAD_SETTING);
+              } else if (row.title === '歌词') {
+                NavPathUtils.push(ROUTE_LYRIC_SETTING);
+              } else if (row.title === '插件') {
+                NavPathUtils.push(ROUTE_PLUGIN_SETTING);
+              } else if (row.title === '备份与恢复') {
+                NavPathUtils.push(ROUTE_BACKUP_SETTING);
               } else {
                 this.showToast('「' + row.title + '」开发中');
               }

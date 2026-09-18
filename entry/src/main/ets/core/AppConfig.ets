@@ -28,12 +28,14 @@ export class ConfigKeys {
   static readonly MUSIC_ORDER_IN_LOCAL_SHEET = 'basic.musicOrderInLocalSheet';
   static readonly AUTO_UPDATE_PLUGIN = 'basic.autoUpdatePlugin';
   static readonly NOT_CHECK_PLUGIN_VERSION = 'basic.notCheckPluginVersion';
+  static readonly IGNORE_PLUGIN_APP_VERSION = 'basic.ignorePluginAppVersion';
   static readonly LAZY_LOAD_PLUGIN = 'basic.lazyLoadPlugin';
   static readonly TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL = 'basic.tryChangeSourceWhenPlayFail';
   static readonly LYRIC_AUTO_SEARCH_LYRIC = 'lyric.autoSearchLyric';
   static readonly BACKUP_RESUME_MODE = 'backup.resumeMode';
   static readonly PLUGIN_SUBSCRIBE_URL = 'plugin.subscribeUrl';
   static readonly WEBDAV_URL = 'webdav.url';
+  static readonly WEBDAV_PATH = 'webdav.path';
   static readonly WEBDAV_USERNAME = 'webdav.username';
   static readonly WEBDAV_PASSWORD = 'webdav.password';
   static readonly DEBUG_ERROR_LOG = 'debug.errorLog';
@@ -88,6 +90,22 @@ export class AppConfig {
   }
 
   // ---------- 业务化 getter（含默认值，与原版设置页默认值一致） ----------
+
+  getWebdavUrl(): string {
+    return this.getString(ConfigKeys.WEBDAV_URL, '');
+  }
+
+  getWebdavPath(): string {
+    return this.getString(ConfigKeys.WEBDAV_PATH, '');
+  }
+
+  getWebdavUsername(): string {
+    return this.getString(ConfigKeys.WEBDAV_USERNAME, '');
+  }
+
+  getWebdavPassword(): string {
+    return this.getString(ConfigKeys.WEBDAV_PASSWORD, '');
+  }
 
   getAutoPlayWhenAppStart(): boolean {
     return this.getBoolean(ConfigKeys.AUTO_PLAY_WHEN_APP_START, false);
@@ -161,6 +179,11 @@ export class AppConfig {
 
   getNotCheckPluginVersion(): boolean {
     return this.getBoolean(ConfigKeys.NOT_CHECK_PLUGIN_VERSION, false);
+  }
+
+  /** 忽略插件声明的应用版本要求（实验性） */
+  getIgnorePluginAppVersion(): boolean {
+    return this.getBoolean(ConfigKeys.IGNORE_PLUGIN_APP_VERSION, false);
   }
 
   getLazyLoadPlugin(): boolean {

@@ -2,7 +2,7 @@ import avSession from '@ohos.multimedia.avsession';
 import image from '@ohos.multimedia.image';
 import { ContextHolder } from '../common/ContextHolder';
 import { MusicItem } from '../common/model/MediaTypes';
-import { HttpClient } from '../infra/HttpClient';
+import { ArtworkCache } from '../utils/ArtworkCache';
 import { Log } from '../utils/Log';
 import { trackPlayer } from './TrackPlayer';
 import { PlayState } from './PlayerEngine';
@@ -161,7 +161,7 @@ export class MediaSession {
   /** 下载并解码封面；失败返回兜底图 */
   private async loadArtwork(url: string): Promise<image.PixelMap | null> {
     if (url.length > 0) {
-      const buf = await HttpClient.downloadBuffer(url);
+      const buf = await ArtworkCache.downloadBuffer(url);
       if (buf !== null) {
         try {
           const source = image.createImageSource(MediaSession.toArrayBuffer(buf));

@@ -78,6 +78,30 @@ export class HttpClient {
     }
   }
 
+  /** 任意 method + 请求体（WebDAV PUT 等） */
+  static async requestWithBody(url: string, method: string, headers: Record<string, string> | undefined,
+    body: string, timeoutMs: number = 15000): Promise<HttpResult | null> {
+    try {
+      const reqHeaders: rcp.RequestHeaders = {};
+      if (headers !== undefined) {
+        for (const k of Object.keys(headers)) {
+          reqHeaders[k] = headers[k];
+        }
+      }
+      const config: rcp.Configuration = {
+        transfer: { timeout: { connectMs: timeoutMs, transferMs: timeoutMs } }
+      };
+      const req = new rcp.Request(url, method, reqHeaders, body, undefined, undefined, config);
+      const resp = await HttpClient.getSession().fetch(req);
+      const result = new HttpResult();
+      result.statusCode = resp.statusCode;
+      result.body = HttpClient.decodeBody(resp.body);
+      return result;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /** 下载文本 */
   static async downloadText(url: string, headers?: Record<string, string>): Promise<string | null> {
     const buf = await HttpClient.downloadBuffer(url, headers);

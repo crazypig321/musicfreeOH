@@ -1,4 +1,5 @@
 import { MusicItem } from '../common/model/MediaTypes';
+import { ArtworkCache } from '../utils/ArtworkCache';
 import { trackPlayer } from '../core/TrackPlayer';
 import { PlayState } from '../core/PlayerEngine';
 import { appState } from '../entryability/AppState';
@@ -108,7 +109,7 @@ export struct PlayBar {
       // 封面 + 曲目信息：点击进入播放页
       Row({ space: 12 }) {
         if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
-          Image(this.currentMusic.artwork)
+          Image(ArtworkCache.resolve(this.currentMusic.artwork))
             .width(this.coverSize())
             .height(this.coverSize())
             .borderRadius(100)

@@ -1,4 +1,5 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { ArtworkCache } from '../utils/ArtworkCache';
 import { CommonBlur } from '../view/CommonCom';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -931,7 +932,7 @@ export struct SheetDetailPage {
     Column() {
       // 封面：全宽、从屏幕顶端开始（不避让标题栏），向下渐变融入页面背景
       Stack({ alignContent: Alignment.Bottom }) {
-        Image(this.coverUrl)
+        Image(ArtworkCache.resolve(this.coverUrl))
           .width('100%')
           .height(240)
           .objectFit(ImageFit.Cover)
@@ -1027,7 +1028,7 @@ export struct SheetDetailPage {
         }
         // 封面：有图用 Image，无图用音符占位
         if (item.artwork.length > 0) {
-          Image(item.artwork)
+          Image(ArtworkCache.resolve(item.artwork))
             .width(40)
             .height(40)
             .borderRadius(10)

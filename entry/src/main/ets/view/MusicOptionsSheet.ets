@@ -1,4 +1,5 @@
 import { pasteboard } from '@kit.BasicServicesKit';
+import { ArtworkCache } from '../utils/ArtworkCache';
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
 import { pluginManager } from '../plugin/PluginManager';
@@ -420,7 +421,7 @@ export struct MusicOptionsSheet {
     Column() {
       Row({ space: 12 }) {
         if (this.optionsItem.artwork.length > 0) {
-          Image(this.optionsItem.artwork)
+          Image(ArtworkCache.resolve(this.optionsItem.artwork))
             .width(64)
             .height(64)
             .borderRadius(10)

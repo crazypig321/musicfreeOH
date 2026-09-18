@@ -9,7 +9,8 @@ import {
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_WEBDAV_SETTING } from '../common/model/NavModels';
+import { ArtworkCache } from '../utils/ArtworkCache';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { MySheetsPage } from './MySheetsPage';
@@ -23,6 +24,10 @@ import { AboutPage } from './settingSecPage/AboutPage';
 import { CachePage } from './settingSecPage/CachePage';
 import { PlaySettingPage } from './settingSecPage/PlaySettingPage';
 import { DownloadSettingPage } from './settingSecPage/DownloadSettingPage';
+import { LyricSettingPage } from './settingSecPage/LyricSettingPage';
+import { PluginSettingPage } from './settingSecPage/PluginSettingPage';
+import { BackupSettingPage } from './settingSecPage/BackupSettingPage';
+import { WebDavSettingPage } from './settingSecPage/WebDavSettingPage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
@@ -176,7 +181,7 @@ struct Index {
 
       // 飞行封面：迷你条封面与播放页大封面之间逐帧插值，动画期间可见
       // 不加 PRIMARY 阴影：封面逐帧缩放会导致主色提取逐帧像素回读，严重掉帧
-      Image(trackPlayer.currentMusic === null ? '' : trackPlayer.currentMusic.artwork)
+      Image(ArtworkCache.resolve(trackPlayer.currentMusic === null ? '' : trackPlayer.currentMusic.artwork))
         .position({ x: playerAnim.coverX, y: playerAnim.coverY })
         .width(playerAnim.coverSize)
         .height(playerAnim.coverSize)
@@ -224,6 +229,14 @@ struct Index {
       PlaySettingPage()
     } else if (name === ROUTE_DOWNLOAD_SETTING) {
       DownloadSettingPage()
+    } else if (name === ROUTE_LYRIC_SETTING) {
+      LyricSettingPage()
+    } else if (name === ROUTE_PLUGIN_SETTING) {
+      PluginSettingPage()
+    } else if (name === ROUTE_BACKUP_SETTING) {
+      BackupSettingPage()
+    } else if (name === ROUTE_WEBDAV_SETTING) {
+      WebDavSettingPage()
     }
   }
 
