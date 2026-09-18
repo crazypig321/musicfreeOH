@@ -9,7 +9,7 @@ import {
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT, ROUTE_CACHE } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { MySheetsPage } from './MySheetsPage';
@@ -20,12 +20,13 @@ import { LocalMusicPage } from './LocalMusicPage';
 import { RecommendSheetsPage } from './RecommendSheetsPage';
 import { SheetDetailPage } from './SheetDetailPage';
 import { AboutPage } from './settingSecPage/AboutPage';
+import { CachePage } from './settingSecPage/CachePage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent, DisclaimerDialogContent } from '../utils/DialogUtils';
+import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -215,6 +216,8 @@ struct Index {
       SheetDetailPage()
     } else if (name === ROUTE_ABOUT) {
       AboutPage()
+    } else if (name === ROUTE_CACHE) {
+      CachePage()
     }
   }
 
@@ -277,6 +280,10 @@ struct Index {
       TextPickerDialogContent()
     } else if (key === '免责声明') {
       DisclaimerDialogContent()
+    } else if (key === '设置缓存') {
+      CacheInputDialogContent()
+    } else if (key === '清除缓存') {
+      ClearCacheDialogContent()
     }
   }
 }

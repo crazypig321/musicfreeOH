@@ -104,6 +104,11 @@ export class AppConfig {
     return this.getNumber(ConfigKeys.MAX_DOWNLOAD, 3);
   }
 
+  /** 在线音乐缓存上限（字节，默认 512M，对齐 RN basic.maxCacheSize） */
+  getMaxCacheSize(): number {
+    return this.getNumber(ConfigKeys.MAX_CACHE_SIZE, 512 * 1024 * 1024);
+  }
+
   getNotInterrupt(): boolean {
     return this.getBoolean(ConfigKeys.NOT_INTERRUPT, false);
   }

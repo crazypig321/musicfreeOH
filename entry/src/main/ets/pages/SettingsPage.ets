@@ -2,7 +2,7 @@ import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { NavPathUtils } from '../utils/NavPathUtils';
-import { ROUTE_ABOUT } from '../common/model/NavModels';
+import { ROUTE_ABOUT, ROUTE_CACHE } from '../common/model/NavModels';
 
 /** 设置条目 */
 interface SettingRow {
@@ -89,6 +89,8 @@ export struct SettingsPage {
             .onClick(() => {
               if (row.title === '关于') {
                 NavPathUtils.push(ROUTE_ABOUT);
+              } else if (row.title === '缓存') {
+                NavPathUtils.push(ROUTE_CACHE);
               } else {
                 this.showToast('「' + row.title + '」开发中');
               }

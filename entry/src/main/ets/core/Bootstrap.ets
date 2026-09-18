@@ -102,6 +102,7 @@ export class Bootstrap {
   private static setupFolder(): void {    FileUtils.checkAndCreateDir(PathConst.dataPath);
     FileUtils.checkAndCreateDir(PathConst.logPath);
     FileUtils.checkAndCreateDir(PathConst.cachePath);
+    FileUtils.checkAndCreateDir(PathConst.musicCachePath);
     FileUtils.checkAndCreateDir(PathConst.pluginPath);
     FileUtils.checkAndCreateDir(PathConst.lrcCachePath);
     FileUtils.checkAndCreateDir(PathConst.downloadCachePath);

@@ -15,6 +15,8 @@ export class PathConst {
   static logPath: string = '';
   static dataPath: string = '';
   static cachePath: string = '';
+  /** 在线音乐播放缓存目录（预留，对齐 RN 的 TrackPlayer 缓存） */
+  static musicCachePath: string = '';
   static localLrcPath: string = '';
   static lrcCachePath: string = '';
   static downloadCachePath: string = '';
@@ -32,6 +34,7 @@ export class PathConst {
     PathConst.logPath = PathConst.basePath + '/log/';
     PathConst.dataPath = PathConst.basePath + '/data/';
     PathConst.cachePath = ctx.cacheDir + '/';
+    PathConst.musicCachePath = PathConst.cachePath + 'music/';
     PathConst.localLrcPath = PathConst.basePath + '/local_lrc/';
     PathConst.lrcCachePath = PathConst.cachePath + 'lrc/';
     PathConst.downloadCachePath = PathConst.cachePath + 'download/';

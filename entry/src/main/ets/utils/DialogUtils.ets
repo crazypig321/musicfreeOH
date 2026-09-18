@@ -112,6 +112,38 @@ export struct SortJumpDialogContent {
 }
 
 
+/** 「设置缓存」弹窗内容：缓存上限输入框（单位 M） */
+@ComponentV2
+export struct CacheInputDialogContent {
+  build() {
+    TextInput({ text: DialogManager.cacheInputValue, placeholder: '输入缓存占用上限，100M-8192M，单位M' })
+      .type(InputType.Number)
+      .width('100%')
+      .height(44)
+      .fontSize(14)
+      .fontColor($r('sys.color.font_primary'))
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .borderRadius(10)
+      .onChange((v: string): void => {
+        DialogManager.cacheInputValue = v;
+      })
+  }
+}
+
+
+/** 「清除缓存」弹窗内容：确认文案 */
+@ComponentV2
+export struct ClearCacheDialogContent {
+  build() {
+    Text(DialogManager.clearCacheMessage)
+      .fontSize(14)
+      .fontColor($r('sys.color.font_primary'))
+      .width('100%')
+  }
+}
+
+
 /** 「选择器」弹窗内容：TextPicker 滚轮选择 */
 @ComponentV2
 export struct TextPickerDialogContent {
@@ -162,6 +194,14 @@ export class DialogManager {
   public static pickerIndex: number = 0;
   /** 「选择器」确认回调（index 为选中下标，弹窗关闭后自动清空；取消/关闭弹窗不触发） */
   public static pickerConfirm: ((index: number) => void) | null = null;
+  /** 「设置缓存」当前值（MB，打开前赋初值，弹窗内编辑） */
+  public static cacheInputValue: string = '';
+  /** 「设置缓存」确认回调（text 为输入文本，弹窗关闭后自动清空） */
+  public static cacheInputConfirm: ((text: string) => void) | null = null;
+  /** 「清除缓存」正文（打开前由调用方赋值） */
+  public static clearCacheMessage: string = '';
+  /** 「清除缓存」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
+  public static clearCacheConfirm: (() => void) | null = null;
 
   // ===== 由 Index 注册的宿主动作 =====
   private static opener: (() => void) | null = null;
@@ -205,6 +245,10 @@ export class DialogManager {
         return '跳转排序';
       case '选择器':
         return DialogManager.pickerTitle;
+      case '设置缓存':
+        return '设置缓存';
+      case '清除缓存':
+        return '清除缓存';
       case '免责声明':
         return '免责声明';
     }
@@ -315,6 +359,42 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '设置缓存': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '确定',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
+      case '清除缓存': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '确定',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
       case '免责声明': {
         const ok: ButtonOptions = {
           value: '我知道了',
@@ -356,6 +436,16 @@ export class DialogManager {
       case '选择器':
         if (DialogManager.pickerConfirm !== null) {
           DialogManager.pickerConfirm(DialogManager.pickerIndex);
+        }
+        break;
+      case '设置缓存':
+        if (DialogManager.cacheInputConfirm !== null) {
+          DialogManager.cacheInputConfirm(DialogManager.cacheInputValue);
+        }
+        break;
+      case '清除缓存':
+        if (DialogManager.clearCacheConfirm !== null) {
+          DialogManager.clearCacheConfirm();
         }
         break;
     }
@@ -402,6 +492,16 @@ export class DialogManager {
       DialogManager.pickerOptions = [];
       DialogManager.pickerIndex = 0;
       DialogManager.pickerConfirm = null;
+    }
+    // 设置缓存同理
+    if (key === '设置缓存') {
+      DialogManager.cacheInputValue = '';
+      DialogManager.cacheInputConfirm = null;
+    }
+    // 清除缓存同理（取消或关闭弹窗不触发确认回调）
+    if (key === '清除缓存') {
+      DialogManager.clearCacheMessage = '';
+      DialogManager.clearCacheConfirm = null;
     }
 
     switch (key) {
