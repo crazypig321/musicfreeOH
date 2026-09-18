@@ -30,6 +30,18 @@ export class CryptoUtil {
     }
   }
 
+  /** md5 hex（字节输入，供封面缓存等内容寻址使用） */
+  static async md5Bytes(data: Uint8Array): Promise<string> {
+    try {
+      const md: cryptoFramework.Md = cryptoFramework.createMd('MD5');
+      md.update({ data: data });
+      const digest = await md.digest();
+      return CryptoUtil.u8ToHex(digest.data);
+    } catch (e) {
+      return CryptoUtil.fallbackHashBytes(data);
+    }
+  }
+
   /** 失败时退化为简单hash，保证有唯一性 */
   private static fallbackHash(text: string): string {
     let h = 5381;
@@ -37,6 +49,15 @@ export class CryptoUtil {
       h = ((h << 5) + h + text.charCodeAt(i)) & 0x7fffffff;
     }
     return 'fallback' + h.toString(16) + text.length.toString(16);
+  }
+
+  /** 字节版退化hash */
+  private static fallbackHashBytes(data: Uint8Array): string {
+    let h = 5381;
+    for (let i = 0; i < data.length; ++i) {
+      h = ((h << 5) + h + data[i]) & 0x7fffffff;
+    }
+    return 'fallback' + h.toString(16) + data.length.toString(16);
   }
 
   private static strToU8(text: string): Uint8Array {

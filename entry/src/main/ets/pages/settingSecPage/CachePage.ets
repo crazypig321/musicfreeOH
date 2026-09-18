@@ -5,6 +5,7 @@ import { PathConst } from '../../common/PathConst';
 import { FileUtils } from '../../utils/FileUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { DialogManager } from '../../utils/DialogUtils';
+import { ArtworkCache } from '../../utils/ArtworkCache';
 
 /**
  * 缓存页面：音乐缓存上限 / 清除音乐缓存 / 清除图片缓存 / 清除歌词缓存 / 清除全部缓存 /
@@ -196,6 +197,7 @@ export struct CachePage {
               .onClick(() => {
                 this.confirmClear('确定清除图片缓存吗？', (): void => {
                   this.clearCacheDir(PathConst.artworkCachePath);
+                  ArtworkCache.reset();
                   this.showToast('已清除图片缓存');
                   this.refreshSizes();
                 });
@@ -249,6 +251,7 @@ export struct CachePage {
                 this.confirmClear('确定清除全部缓存吗？将删除音乐、图片、歌词缓存。', (): void => {
                   this.clearCacheDir(PathConst.musicCachePath);
                   this.clearCacheDir(PathConst.artworkCachePath);
+                  ArtworkCache.reset();
                   this.clearCacheDir(PathConst.lrcCachePath);
                   this.showToast('已清除全部缓存');
                   this.refreshSizes();

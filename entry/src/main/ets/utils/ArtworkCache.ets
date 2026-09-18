@@ -2,25 +2,45 @@ import fs from '@ohos.file.fs';
 import { HttpClient } from '../infra/HttpClient';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from './FileUtils';
+import { CryptoUtil } from './CryptoUtil';
+import { JsonUtil } from '../common/JsonUtil';
+
+/** URL → 缓存文件名 索引持久化文件名（位于封面缓存目录内，随目录清空一起删除） */
+const INDEX_FILE = 'index.json';
+/** 索引写盘防抖间隔 */
+const PERSIST_DELAY_MS = 500;
 
 /**
- * 网络封面磁盘缓存（写入 artwork 目录，供缓存页统计/清理）
+ * 网络封面磁盘缓存（内容寻址去重：按封面字节 MD5 命名，相同内容只保留一份）
  * resolve() 同步返回：命中缓存返回本地 file:// 路径，未命中返回原地址并后台下载（下次渲染命中）
+ * URL → 文件名映射持久化到 index.json；旧版按 URL 哈希命名的缓存文件命中后直接纳入索引
  */
 export class ArtworkCache {
   /** 下载中的地址集合（去重，避免同一封面并发下载） */
   private static inflight: Set<string> = new Set<string>();
+  /** URL → 缓存文件名（含扩展名）索引 */
+  private static urlIndex: Map<string, string> = new Map<string, string>();
+  private static indexLoaded: boolean = false;
+  /** 索引写盘防抖定时器 */
+  private static persistTimer: number = -1;
 
   /** 渲染入口：http 地址尝试走本地缓存，其余（file://、data:、空串）原样返回 */
   static resolve(url: string): string {
     if (!ArtworkCache.isHttpUrl(url)) {
       return url;
     }
-    const path = ArtworkCache.cachePathOf(url);
-    if (FileUtils.exists(path)) {
-      return FileUtils.addFileScheme(path);
+    ArtworkCache.ensureIndexLoaded();
+    const hit = ArtworkCache.lookup(url);
+    if (hit !== null) {
+      return hit;
     }
-    ArtworkCache.prefetch(url, path);
+    // 兼容旧版 URL 哈希命名缓存：命中则直接纳入索引，避免升级后重复下载
+    const legacyName = ArtworkCache.hashOf(url) + '.' + ArtworkCache.extOf(url);
+    if (FileUtils.exists(PathConst.artworkCachePath + legacyName)) {
+      ArtworkCache.putIndex(url, legacyName);
+      return FileUtils.addFileScheme(PathConst.artworkCachePath + legacyName);
+    }
+    ArtworkCache.prefetch(url);
     return url;
   }
 
@@ -29,40 +49,118 @@ export class ArtworkCache {
     if (!ArtworkCache.isHttpUrl(url)) {
       return null;
     }
-    const path = ArtworkCache.cachePathOf(url);
-    if (FileUtils.exists(path)) {
-      const cached = ArtworkCache.readFileBytes(path);
+    ArtworkCache.ensureIndexLoaded();
+    const fileName = ArtworkCache.lookupName(url);
+    if (fileName !== null) {
+      const cached = ArtworkCache.readFileBytes(PathConst.artworkCachePath + fileName);
       if (cached !== null) {
         return cached;
       }
     }
-    const buf = await HttpClient.downloadBuffer(url);
-    if (buf !== null) {
-      FileUtils.writeFileBytes(path, buf);
+    return ArtworkCache.fetchAndStore(url);
+  }
+
+  /** 缓存目录被清空后调用：重置内存索引 */
+  static reset(): void {
+    ArtworkCache.urlIndex.clear();
+    ArtworkCache.indexLoaded = false;
+    if (ArtworkCache.persistTimer >= 0) {
+      clearTimeout(ArtworkCache.persistTimer);
+      ArtworkCache.persistTimer = -1;
     }
-    return buf;
   }
 
   /** 后台预取（失败静默，下次渲染重试） */
-  private static prefetch(url: string, path: string): void {
+  private static prefetch(url: string): void {
     if (ArtworkCache.inflight.has(url)) {
       return;
     }
     ArtworkCache.inflight.add(url);
-    HttpClient.downloadToFile(url, path).finally((): void => {
+    ArtworkCache.fetchAndStore(url).finally((): void => {
       ArtworkCache.inflight.delete(url);
     });
+  }
+
+  /** 下载字节 → 按内容 MD5 命名落盘（重复内容不重复写）→ 更新 URL 索引 */
+  private static async fetchAndStore(url: string): Promise<Uint8Array | null> {
+    const buf = await HttpClient.downloadBuffer(url);
+    if (buf === null) {
+      return null;
+    }
+    const hash = await CryptoUtil.md5Bytes(buf);
+    const fileName = hash + '.' + ArtworkCache.sniffExt(buf);
+    const path = PathConst.artworkCachePath + fileName;
+    if (!FileUtils.exists(path)) {
+      FileUtils.writeFileBytes(path, buf);
+    }
+    ArtworkCache.putIndex(url, fileName);
+    return buf;
+  }
+
+  /** 索引命中且文件存在 → file:// 路径；否则 null */
+  private static lookup(url: string): string | null {
+    const fileName = ArtworkCache.lookupName(url);
+    if (fileName === null) {
+      return null;
+    }
+    const path = PathConst.artworkCachePath + fileName;
+    if (FileUtils.exists(path)) {
+      return FileUtils.addFileScheme(path);
+    }
+    return null;
+  }
+
+  private static lookupName(url: string): string | null {
+    const fileName = ArtworkCache.urlIndex.get(url);
+    return fileName !== undefined ? fileName : null;
+  }
+
+  /** 更新索引并防抖写盘 */
+  private static putIndex(url: string, fileName: string): void {
+    ArtworkCache.urlIndex.set(url, fileName);
+    if (ArtworkCache.persistTimer >= 0) {
+      clearTimeout(ArtworkCache.persistTimer);
+    }
+    ArtworkCache.persistTimer = setTimeout((): void => {
+      ArtworkCache.persistTimer = -1;
+      ArtworkCache.persistIndex();
+    }, PERSIST_DELAY_MS);
+  }
+
+  private static persistIndex(): void {
+    const map: Record<string, string> = {};
+    ArtworkCache.urlIndex.forEach((fileName: string, url: string): void => {
+      map[url] = fileName;
+    });
+    FileUtils.writeFileText(PathConst.artworkCachePath + INDEX_FILE,
+      JsonUtil.safeStringify(JsonUtil.fromStringMap(map)));
+  }
+
+  /** 首次访问时从 index.json 恢复 URL 索引 */
+  private static ensureIndexLoaded(): void {
+    if (ArtworkCache.indexLoaded) {
+      return;
+    }
+    ArtworkCache.indexLoaded = true;
+    const raw = FileUtils.readFileText(PathConst.artworkCachePath + INDEX_FILE);
+    if (raw === null) {
+      return;
+    }
+    const rec = JsonUtil.parseRecord(raw);
+    if (rec === null) {
+      return;
+    }
+    const map = JsonUtil.toStringMap(rec);
+    for (const k of Object.keys(map)) {
+      ArtworkCache.urlIndex.set(k, map[k]);
+    }
   }
 
   private static isHttpUrl(url: string): boolean {
     return url.startsWith('http://') || url.startsWith('https://');
   }
 
-  /** 缓存文件路径：双 32 位 FNV 哈希 + 按地址后缀猜测扩展名 */
-  private static cachePathOf(url: string): string {
-    return PathConst.artworkCachePath + ArtworkCache.hashOf(url) + '.' + ArtworkCache.extOf(url);
-  }
-
+  /** 旧版缓存文件名哈希（URL 双 32 位 FNV，仅用于兼容已存在的旧缓存） */
   private static hashOf(url: string): string {
     let h1 = 0x811c9dc5;
     let h2 = 0x9e3779b9;
@@ -74,7 +172,7 @@ export class ArtworkCache {
     return h1.toString(16) + h2.toString(16);
   }
 
-  /** 从地址后缀猜测图片扩展名（去掉查询串），不识别时回退 jpg */
+  /** 从地址后缀猜测图片扩展名（去掉查询串），不识别时回退 jpg（仅用于兼容旧缓存） */
   private static extOf(url: string): string {
     let end = url.length;
     const q = url.indexOf('?');
@@ -96,6 +194,26 @@ export class ArtworkCache {
     const ext = url.substring(dot + 1, end).toLowerCase();
     if (ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp' || ext === 'gif' || ext === 'bmp') {
       return ext;
+    }
+    return 'jpg';
+  }
+
+  /** 按文件头嗅探图片扩展名，未知回退 jpg */
+  private static sniffExt(buf: Uint8Array): string {
+    if (buf.length >= 12) {
+      if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+        return 'png';
+      }
+      if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
+        return 'gif';
+      }
+      if (buf[0] === 0x42 && buf[1] === 0x4d) {
+        return 'bmp';
+      }
+      if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+        buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) {
+        return 'webp';
+      }
     }
     return 'jpg';
   }
