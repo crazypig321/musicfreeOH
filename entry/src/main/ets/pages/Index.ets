@@ -28,7 +28,7 @@ import { PlayBar } from '../view/PlayBar';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent } from '../utils/DialogUtils';
+  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -284,6 +284,8 @@ struct Index {
       SortJumpDialogContent()
     } else if (key === '选择器') {
       TextPickerDialogContent()
+    } else if (key === '更换音源') {
+      ChangeSourceDialogContent()
     } else if (key === '免责声明') {
       DisclaimerDialogContent()
     } else if (key === '设置缓存') {

@@ -14,6 +14,7 @@ import { appConfig } from './AppConfig';
 import { musicHistory } from './MusicHistory';
 import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
 import { pluginManager } from '../plugin/PluginManager';
+import { Plugin } from '../plugin/Plugin';
 import { SupportMediaType, SearchResult } from '../common/model/SheetTypes';
 import { Network } from '../infra/Network';
 import { playerEngine, PlayState } from './PlayerEngine';
@@ -645,6 +646,99 @@ export class TrackPlayer {
         : newPlayList,
     );
     await this.play(musicItem, true);
+  }
+
+  /**
+   * 手动更换音源：用新条目替换队列中的当前项并播放
+   * 返回是否成功（失败多为新音源不可用）
+   */
+  async changeSource(newItem: MusicItem): Promise<boolean> {
+    const musicItem = this.currentMusicItem;
+    if (musicItem === null) {
+      return false;
+    }
+    const idx = this.getMusicIndexInPlayList(musicItem);
+    if (idx !== -1) {
+      const newPlayList = this.playListItems.slice();
+      newPlayList[idx] = newItem;
+      this.setPlayList(newPlayList);
+    }
+    await this.play(newItem, true);
+    return true;
+  }
+
+  /**
+   * 替换播放队列中的指定条目（非当前播放歌曲的换源，不打断播放）
+   * 返回是否命中队列
+   */
+  replaceInQueue(oldItem: MusicItem, newItem: MusicItem): boolean {
+    const idx = this.getMusicIndexInPlayList(oldItem);
+    if (idx === -1) {
+      return false;
+    }
+    const newPlayList = this.playListItems.slice();
+    newPlayList[idx] = newItem;
+    this.setPlayList(newPlayList);
+    return true;
+  }
+
+  /**
+   * 搜索其它插件上的同一首歌（每个插件取最优匹配），供手动换源选择
+   * 并发搜索所有插件（单个插件超时 6s），总耗时约等于最慢的一个插件
+   */
+  async searchAlternateSources(musicItem: MusicItem): Promise<Array<MusicItem>> {
+    const keyword = musicItem.alias.length > 0 ? musicItem.alias : musicItem.title;
+    const plugins = pluginManager.getSearchablePlugins(SupportMediaType.Music);
+    const tasks: Array<Promise<MusicItem | null>> = [];
+    for (const plugin of plugins) {
+      if (plugin.name === musicItem.platform) {
+        continue;
+      }
+      tasks.push(TrackPlayer.searchBestFromPlugin(plugin, keyword, musicItem));
+    }
+    const results = await Promise.all(tasks);
+    const candidates: Array<MusicItem> = [];
+    for (const item of results) {
+      if (item !== null) {
+        candidates.push(item);
+      }
+    }
+    return candidates;
+  }
+
+  /** 单插件搜索同一首歌并取最优匹配（超时/失败返回 null） */
+  private static async searchBestFromPlugin(
+    plugin: Plugin,
+    keyword: string,
+    musicItem: MusicItem
+  ): Promise<MusicItem | null> {
+    const searchTask: Promise<SearchResult | null> =
+      plugin.methods.search(keyword, 1, SupportMediaType.Music)
+        .catch((_e: Object): SearchResult | null => null);
+    const timeoutTask: Promise<SearchResult | null> =
+      new Promise<SearchResult | null>((resolve: (v: SearchResult | null) => void) => {
+        setTimeout((): void => resolve(null), 6000);
+      });
+    const racers: Array<Promise<SearchResult | null>> = [searchTask, timeoutTask];
+    const results = await Promise.race(racers);
+    if (results === null) {
+      return null;
+    }
+    let best: MusicItem | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const item of results.musicData.slice(0, 2)) {
+      if (item.title === keyword && item.artist === musicItem.artist) {
+        best = item;
+        break;
+      }
+      const dist = MinDistance.compute(keyword, item.title) +
+        MinDistance.compute(item.artist, musicItem.artist);
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        best = item;
+      }
+    }
+    return best;
   }
 
   seekTo(progress: number): void {

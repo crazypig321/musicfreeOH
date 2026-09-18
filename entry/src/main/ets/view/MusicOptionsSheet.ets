@@ -12,6 +12,7 @@ import { ScheduleClose } from '../utils/ScheduleClose';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
 import { DialogManager } from '../utils/DialogUtils';
+import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 
 /** 快捷操作按钮（横向） */
 @ComponentV2
@@ -129,11 +130,14 @@ export struct MusicOptionsSheet {
   @Local showSheetPicker: boolean = false;
   @Local pickerInCreateMode: boolean = false;
   @Local newSheetTitle: string = '';
+  /** 来源行展示的插件名（换源成功后更新为新插件） */
+  @Local sourcePlatform: string = '';
 
   @Monitor('show')
   onShowChange(): void {
     if (this.show) {
       this.isFavorited = this.checkFavorited(this.optionsItem);
+      this.sourcePlatform = this.optionsItem.platform;
     }
   }
 
@@ -222,6 +226,49 @@ export struct MusicOptionsSheet {
   private playNext(): void {
     trackPlayer.addNext(this.optionsItem);
     this.showToast('将在下一首播放');
+  }
+
+  /** 更换音源：打开弹窗并发搜索可用音源（弹窗内加载动画→插件选择列表），确认后替换并保存（队列/我的歌单） */
+  private changeSource(): void {
+    const item = this.optionsItem;
+    if (localMusicSheet.isLocalMusic(item) !== null || downloadedSheet.isLocalMusic(item) !== null ||
+      item.platform === LOCAL_PLUGIN_PLATFORM) {
+      this.showToast('本地音乐不支持更换音源');
+      return;
+    }
+    DialogManager.changeSourceItem = item;
+    DialogManager.changeSourceCandidates = [];
+    DialogManager.changeSourceIndex = 0;
+    DialogManager.changeSourceConfirm = (index: number): void => {
+      const candidates = DialogManager.changeSourceCandidates;
+      if (index < 0 || index >= candidates.length) {
+        return;
+      }
+      const target = candidates[index];
+      if (trackPlayer.isCurrentMusic(item)) {
+        // 正在播放：替换队列并从新音源播放，同时保存到包含它的歌单
+        trackPlayer.changeSource(target).then((ok: boolean): void => {
+          if (ok) {
+            musicSheet.replaceMusicEverywhere(item, target);
+            this.sourcePlatform = target.platform;
+            this.showToast('已更换为「' + target.platform + '」音源');
+          } else {
+            this.showToast('更换音源失败');
+          }
+        });
+        return;
+      }
+      // 非播放中：替换队列中的同曲条目并保存到包含它的歌单
+      const inQueue = trackPlayer.replaceInQueue(item, target);
+      const saved = musicSheet.replaceMusicEverywhere(item, target);
+      if (inQueue || saved > 0) {
+        this.sourcePlatform = target.platform;
+        this.showToast('已更换为「' + target.platform + '」音源');
+      } else {
+        this.showToast('该歌曲不在播放队列或我的歌单中');
+      }
+    };
+    DialogManager.OpenDialog('更换音源');
   }
 
   private shareCurrent(): void {
@@ -457,10 +504,13 @@ export struct MusicOptionsSheet {
 
       List() {
         ListItem() {
-          DetailRowItem({
+          ActionRowItem({
             icon: $r('sys.symbol.link'),
             label: '来源',
-            value: this.optionsItem.platform
+            value: this.sourcePlatform,
+            onTap: (): void => {
+              this.changeSource();
+            }
           })
         }
         ListItem() {

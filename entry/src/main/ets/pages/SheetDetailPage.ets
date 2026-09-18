@@ -10,7 +10,7 @@ import { pluginManager } from '../plugin/PluginManager';
 import { trackPlayer } from '../core/TrackPlayer';
 import { downloader } from '../core/Downloader';
 import { downloadedSheet } from '../core/LocalMusicSheet';
-import { musicSheet } from '../core/MusicSheet';
+import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
 import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
@@ -59,6 +59,8 @@ export struct SheetDetailPage {
   private isLocalSheet: boolean = false;
   /** 后台补齐播放队列进行中 */
   private bgLoadingAll: boolean = false;
+  /** 导入我的歌单进行中 */
+  private importing: boolean = false;
   /** 页面存活标记（销毁后停止 UI 写入，队列补齐继续） */
   private pageAlive: boolean = true;
   /** 后台补齐安全页数上限 */
@@ -219,7 +221,7 @@ export struct SheetDetailPage {
 
   /** 后台加载剩余页并追加到播放队列尾部（同时补全页面列表）；loadingMore=true 阻断手动触底加载 */
   private loadRemainingToQueue(): void {
-    if (this.bgLoadingAll || this.isLocalSheet || this.isEnd) {
+    if (this.bgLoadingAll || this.importing || this.isLocalSheet || this.isEnd) {
       return;
     }
     if (this.plugin === null || this.sheet === null) {
@@ -287,6 +289,116 @@ export struct SheetDetailPage {
         this.showToast('剩余歌曲加载中断');
       }
     }
+  }
+
+  // ---------- 导入我的歌单 ----------
+
+  /** 导入我的歌单：已加载歌曲立即入册，未加载完时逐页补齐后整体导入（保留原名称与简介） */
+  private importToMySheets(): void {
+    if (this.importing) {
+      this.showToast('正在导入，请稍候');
+      return;
+    }
+    if (this.bgLoadingAll || this.loading || this.loadingMore) {
+      this.showToast('正在加载，请稍候');
+      return;
+    }
+    if (this.isLocalSheet) {
+      this.showToast('本地歌单无需导入');
+      return;
+    }
+    if (this.plugin === null || this.sheet === null) {
+      this.showToast('导入失败');
+      return;
+    }
+    if (this.musicCount === 0) {
+      this.showToast(this.loading ? '加载中，请稍候' : '暂无歌曲');
+      return;
+    }
+    this.importing = true;
+    // loadingMore=true 阻断手动触底加载，与导入链互斥
+    this.loadingMore = true;
+    this.showToast('正在导入歌单…');
+    if (this.isEnd) {
+      this.finishImport();
+      return;
+    }
+    this.importNextPage();
+  }
+
+  /** 逐页拉取剩余歌曲（仅补全页面列表，不动播放队列） */
+  private importNextPage(): void {
+    const plugin = this.plugin;
+    const sheet = this.sheet;
+    if (plugin === null || sheet === null ||
+      this.page >= SheetDetailPage.MAX_BG_PAGES || this.dataSource.totalCount() >= MAX_PLAYLIST_SIZE) {
+      this.finishImport();
+      return;
+    }
+    const nextPage = this.page + 1;
+    const apply = (musicList: Array<MusicItem>, isEnd: boolean): void => {
+      this.page = nextPage;
+      // 空页但未声明结束：视为结束，防止死循环
+      this.isEnd = isEnd || musicList.length === 0;
+      if (musicList.length > 0) {
+        this.dataSource.appendData(musicList);
+        this.musicCount = this.dataSource.totalCount();
+      }
+      if (this.isEnd) {
+        this.finishImport();
+      } else {
+        this.importNextPage();
+      }
+    };
+    if (this.isTopList) {
+      plugin.methods.getTopListDetail(sheet, nextPage).then((r: TopListInfoResult): void => {
+        apply(r.musicList, r.isEnd);
+      }).catch((_e: Object): void => {
+        this.finishImport();
+      });
+    } else {
+      plugin.methods.getMusicSheetInfo(sheet, nextPage).then((r: SheetInfoResult | null): void => {
+        if (r === null) {
+          this.finishImport();
+          return;
+        }
+        apply(r.musicList, r.isEnd);
+      }).catch((_e: Object): void => {
+        this.finishImport();
+      });
+    }
+  }
+
+  /** 导入收尾：新建歌单 → 写入全部歌曲 → 回写原简介/封面 */
+  private finishImport(): void {
+    this.importing = false;
+    this.loadingMore = false;
+    const items = this.dataSource.getItems();
+    if (items.length === 0) {
+      this.showToast('导入失败：歌单为空');
+      return;
+    }
+    let newSheetId = '';
+    musicSheet.addSheet(this.sheetTitle).then((id: string): Promise<void> => {
+      newSheetId = id;
+      return musicSheet.addMusic(newSheetId, items);
+    }).then((): void => {
+      // addMusic 会把封面改成本地第一首，这里回写原歌单简介与封面
+      const patch = new SheetBasePatch();
+      if (this.description.length > 0) {
+        patch.description = this.description;
+      }
+      if (this.coverUrl.length > 0) {
+        patch.coverImg = this.coverUrl;
+      }
+      if (this.sheet !== null && this.sheet.artist.length > 0) {
+        patch.artist = this.sheet.artist;
+      }
+      musicSheet.updateMusicSheetBase(newSheetId, patch);
+      this.showToast('已导入到我的歌单');
+    }).catch((_e: Object): void => {
+      this.showToast('导入失败');
+    });
   }
 
   /** 打开单项操作半模态（与搜索结果一致） */
@@ -766,7 +878,7 @@ export struct SheetDetailPage {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
 
-      // 全部播放 + 批量操作
+      // 全部播放 + 导入我的歌单 + 批量操作
       Row({ space: 12 }) {
         Row({ space: 6 }) {
           SymbolGlyph($r('sys.symbol.play_circle_fill'))
@@ -782,6 +894,13 @@ export struct SheetDetailPage {
         .onClick(() => {
           this.playAll();
         })
+
+        SymbolGlyph($r('sys.symbol.folder_badge_plus'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+          .onClick(() => {
+            this.importToMySheets();
+          })
 
         SymbolGlyph($r('sys.symbol.list_checkmask'))
           .fontSize(20)

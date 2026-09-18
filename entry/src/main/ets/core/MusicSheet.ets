@@ -15,6 +15,7 @@ import { MusicSheetStorage } from './MusicSheetStorage';
 import { appMeta } from './AppMeta';
 import { appConfig } from './AppConfig';
 import { CryptoUtil } from '../utils/CryptoUtil';
+import { MediaUtils } from '../utils/MediaUtils';
 import { Log } from '../utils/Log';
 
 /** 歌单曲目更新事件 */
@@ -495,6 +496,35 @@ export class MusicSheet {
     MusicSheetStorage.setMusicList(sheetId, musicList.musicList);
     MusicSheetStorage.setSheetMeta(sheetId, 'sort', SortType.None);
     this.emitMusicListUpdated(sheetId, 'resort');
+  }
+
+  /** 替换所有歌单中匹配的歌曲（手动换源后持久化新音源），返回受影响的歌单数 */
+  replaceMusicEverywhere(oldItem: MusicItem, newItem: MusicItem): number {
+    let touched = 0;
+    for (const sheet of this.sheets) {
+      const ml = this.musicListMap.get(sheet.id);
+      if (ml === undefined) {
+        continue;
+      }
+      const list = ml.musicList;
+      let changed = false;
+      for (let i = 0; i < list.length; ++i) {
+        if (MediaUtils.isSameMediaItem(list[i], oldItem)) {
+          const replacement = newItem.clone();
+          // 保留原条目的时间戳/排序，避免打乱歌单排序
+          replacement.timeStamp = list[i].timeStamp;
+          replacement.sortIndex = list[i].sortIndex;
+          list[i] = replacement;
+          changed = true;
+        }
+      }
+      if (changed) {
+        MusicSheetStorage.setMusicList(sheet.id, list);
+        this.emitMusicListUpdated(sheet.id, 'length');
+        touched++;
+      }
+    }
+    return touched;
   }
 
   /** 读取歌单元信息 */
