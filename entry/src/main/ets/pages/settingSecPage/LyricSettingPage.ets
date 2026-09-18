@@ -41,6 +41,7 @@ export struct LyricSettingPage {
                 .fontColor($r('sys.color.font_primary'))
                 .layoutWeight(1)
               Toggle({ type: ToggleType.Switch, isOn: this.autoSearchLyric })
+                .selectedColor(appState.accentColor)
                 .onChange((isOn: boolean) => {
                   this.autoSearchLyric = isOn;
                   appConfig.setConfig(ConfigKeys.LYRIC_AUTO_SEARCH_LYRIC, isOn);

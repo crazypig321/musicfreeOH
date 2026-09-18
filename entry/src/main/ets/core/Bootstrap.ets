@@ -121,8 +121,6 @@ export class Bootstrap {
     appState.accentColor = themeColorOf(appConfig.getAppearanceThemeColor());
     // Tab 切换动画
     appState.tabSwitchAnim = appConfig.getTabSwitchAnim();
-    // Tab 文本选中色使用主题色
-    appState.tabTextColorAccent = appConfig.getTabTextColorAccent();
     // 智感握姿订阅
     SmartReach.setup();
     // 屏幕方向

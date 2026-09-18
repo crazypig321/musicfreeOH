@@ -82,12 +82,10 @@ struct Index {
     }
   }
 
-  /** 底部 tab：文本选中色按设置使用主题色 */
+  /** 底部 tab：文本选中色直接适配主题色 */
   private tabBarOf(item: MenuItem): BottomTabBarStyle {
     const style = new BottomTabBarStyle(tabBarSymbolOf(item), item.label);
-    if (appState.tabTextColorAccent) {
-      style.labelStyle({ selectedColor: appState.accentColor });
-    }
+    style.labelStyle({ selectedColor: appState.accentColor });
     return style;
   }
 

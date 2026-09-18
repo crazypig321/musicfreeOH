@@ -1,4 +1,5 @@
-import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
+import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
+import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
@@ -35,6 +36,12 @@ export struct SubscriptionPage {
   @Local detailUrl: string = '';
   @Local updating: boolean = false;
   @Local statusText: string = '';
+  /** 编辑订阅源半模态（本地文件仅可改名称） */
+  @Local showEditSheet: boolean = false;
+  /** 编辑中的订阅源原始地址 */
+  @Local editSourceUrl: string = '';
+  @Local editName: string = '';
+  @Local editUrlInput: string = '';
   /** 状态行自动隐藏定时器 */
   private statusTimer: number = -1;
 
@@ -381,6 +388,73 @@ export struct SubscriptionPage {
     this.showToast('已删除订阅源');
   }
 
+  // ===== 左滑编辑/删除（UI 同我的歌单页） =====
+
+  /** 横滑操作（左滑呼出 编辑/删除）；批量模式下不提供 */
+  private swipeOptions(url: string): HdsSwipeActionOptions | undefined {
+    if (appState.isBatchMode) {
+      return undefined;
+    }
+    const options: HdsSwipeActionOptions = {
+      icons: [
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.openEditSource(url);
+          }
+        }
+      ],
+      deleteIconOptions: {
+        onAction: (): void => {
+          this.removeSource(url);
+        }
+      }
+    };
+    return options;
+  }
+
+  /** 打开编辑订阅源半模态（预填当前名称/地址） */
+  private openEditSource(url: string): void {
+    this.editSourceUrl = url;
+    this.editName = SubscriptionPage.sourceTitle(url);
+    this.editUrlInput = url;
+    this.showEditSheet = true;
+  }
+
+  /** 确认保存订阅源编辑（本地文件仅改名称；地址变更后自动同步） */
+  private confirmEditSource(): void {
+    const name = this.editName.trim();
+    if (name.length === 0) {
+      this.showToast('请输入订阅源名称');
+      return;
+    }
+    const oldUrl = this.editSourceUrl;
+    const isLocal = SubscriptionPage.isLocalSource(oldUrl);
+    const newUrl = this.editUrlInput.trim();
+    if (!isLocal && newUrl !== oldUrl) {
+      if (!Subscriptions.isValidSourceUrl(newUrl)) {
+        this.showToast('订阅地址必须以 .js 或 .json 结尾');
+        return;
+      }
+      if (!Subscriptions.changeSourceUrl(oldUrl, newUrl)) {
+        this.showToast('该订阅源已存在');
+        return;
+      }
+      Subscriptions.setSourceName(newUrl, name);
+      this.sources = Subscriptions.getSources();
+      this.showEditSheet = false;
+      this.showToast('已保存，正在同步新地址...');
+      this.updateSource(newUrl);
+      return;
+    }
+    Subscriptions.setSourceName(oldUrl, name);
+    this.sources = Subscriptions.getSources();
+    this.showEditSheet = false;
+    this.showToast('已保存');
+  }
+
   /** 打开订阅源详情半模态 */
   private openDetailSheet(url: string): void {
     this.detailUrl = url;
@@ -489,65 +563,11 @@ export struct SubscriptionPage {
           // 订阅源列表
           if (this.sources.length > 0) {
             ForEach(this.sources, (url: string, index: number) => {
-              ListItem() {
-                Row({ space: 12 }) {
-                  // 批量模式：勾选圈
-                  if (appState.isBatchMode) {
-                    SymbolGlyph(this.isSelected(url) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
-                      .fontSize(24)
-                      .fontColor([this.isSelected(url) ? appState.accentColor : $r('sys.color.icon_tertiary')])
-                      .transition(TransitionEffect.OPACITY)
-                  }
-                  Column() {
-                    SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
-                      .fontSize(22)
-                      .fontColor([$r('sys.color.icon_secondary')])
-                  }
-                  .width(40)
-                  .height(40)
-                  .borderRadius(10)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .justifyContent(FlexAlign.Center)
-
-                  Column({ space: 2 }) {
-                    Text(SubscriptionPage.sourceTitle(url))
-                      .fontSize(15)
-                      .fontColor($r('sys.color.font_primary'))
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    Text(SubscriptionPage.isLocalSource(url) ? '本地文件' : url)
-                      .fontSize(12)
-                      .fontColor($r('sys.color.font_tertiary'))
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  }
-                  .layoutWeight(1)
-                  .alignItems(HorizontalAlign.Start)
-                }
-                .width('100%')
-                .height(56)
-              }
-              .width('100%')
-              .borderRadius(16)
-              .padding(12)
-              .backgroundColor($r('sys.color.comp_background_list_card'))
-              .gesture(
-                LongPressGesture({ repeat: false, duration: 500 })
-                  .onAction((_event: GestureEvent) => {
-                    // 长按进入批量模式并勾选当前条目
-                    if (appState.isBatchMode) {
-                      return;
-                    }
-                    this.enterBatchMode();
-                    this.toggleBatchSelect(url);
-                  })
-              )
-              .onClick(() => {
-                if (appState.isBatchMode) {
-                  this.toggleBatchSelect(url);
-                } else {
-                  this.openDetailSheet(url);
-                }
+              HdsListItem({
+                customItemBuilder: (): void => {
+                  this.SourceRowBuilder(url);
+                },
+                swipeActionOptions: this.swipeOptions(url)
               })
             }, (url: string, index: number) =>
               url + '_' + index.toString() + '_' + Subscriptions.getSourceName(url) +
@@ -666,6 +686,17 @@ export struct SubscriptionPage {
       }
       .width('100%')
       .height('100%')
+      .bindSheet(!!this.showEditSheet, this.EditSheetBuilder(), {
+        scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        dragBar: true,
+        onWillDisappear: () => {
+          this.showEditSheet = false;
+          appState.isForegroundBlur = false
+        },
+        onWillAppear: () => {
+          appState.isForegroundBlur = true
+        }
+      })
       .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,
@@ -678,6 +709,127 @@ export struct SubscriptionPage {
         }
       })
     }
+  }
+
+  /** 订阅源条目行（卡片样式；批量模式下点击勾选、长按进入批量模式，否则点击进详情） */
+  @Builder
+  SourceRowBuilder(url: string) {
+    Column() {
+      Row({ space: 12 }) {
+        // 批量模式：勾选圈
+        if (appState.isBatchMode) {
+          SymbolGlyph(this.isSelected(url) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+            .fontSize(24)
+            .fontColor([this.isSelected(url) ? appState.accentColor : $r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
+        }
+        Column() {
+          SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
+            .fontSize(22)
+            .fontColor([$r('sys.color.icon_secondary')])
+        }
+        .width(40)
+        .height(40)
+        .borderRadius(10)
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .justifyContent(FlexAlign.Center)
+
+        Column({ space: 2 }) {
+          Text(SubscriptionPage.sourceTitle(url))
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(SubscriptionPage.isLocalSource(url) ? '本地文件' : url)
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
+      .width('100%')
+      .height(56)
+      .gesture(
+        LongPressGesture({ repeat: false, duration: 500 })
+          .onAction((_event: GestureEvent) => {
+            // 长按进入批量模式并勾选当前条目
+            if (appState.isBatchMode) {
+              return;
+            }
+            this.enterBatchMode();
+            this.toggleBatchSelect(url);
+          })
+      )
+      .onClick(() => {
+        if (appState.isBatchMode) {
+          this.toggleBatchSelect(url);
+        } else {
+          this.openDetailSheet(url);
+        }
+      })
+    }
+    .width('100%')
+    .borderRadius(16)
+    .padding(12)
+    .backgroundColor($r('sys.color.comp_background_list_card'))
+  }
+
+  /** 编辑订阅源半模态（本地文件仅可修改名称；UI 同编辑歌单） */
+  @Builder
+  EditSheetBuilder() {
+    Column() {
+      Text('编辑订阅源')
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ top: 4, bottom: 16 })
+      TextInput({ text: this.editName, placeholder: '订阅源名称' })
+        .width('100%')
+        .height(44)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(12)
+        .onChange((v: string) => {
+          this.editName = v;
+        })
+      if (!SubscriptionPage.isLocalSource(this.editSourceUrl)) {
+        TextInput({ text: this.editUrlInput, placeholder: '订阅源 URL（.js 或 .json）' })
+          .width('100%')
+          .height(44)
+          .fontSize(14)
+          .fontColor($r('sys.color.font_primary'))
+          .placeholderColor($r('sys.color.font_tertiary'))
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .borderRadius(12)
+          .margin({ top: 12 })
+          .onChange((v: string) => {
+            this.editUrlInput = v;
+          })
+      } else {
+        Text('本地文件导入的订阅源仅支持修改名称')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+          .margin({ top: 10 })
+      }
+      Button('保存')
+        .width('100%')
+        .height(42)
+        .fontSize(15)
+        .margin({ top: 20 })
+        .backgroundColor(appState.accentColor)
+        .onClick(() => {
+          this.confirmEditSource();
+        })
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
   }
 
   /** 订阅源详情半模态（UI 参考插件详情） */

@@ -115,6 +115,7 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.useCellularPlay })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.useCellularPlay = isOn;
                     appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_PLAY, isOn);
@@ -136,6 +137,7 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.autoPlayWhenAppStart })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.autoPlayWhenAppStart = isOn;
                     appConfig.setConfig(ConfigKeys.AUTO_PLAY_WHEN_APP_START, isOn);
@@ -157,6 +159,7 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.autoStopWhenError })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.autoStopWhenError = isOn;
                     appConfig.setConfig(ConfigKeys.AUTO_STOP_WHEN_ERROR, isOn);
@@ -178,6 +181,7 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.tryChangeSource })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.tryChangeSource = isOn;
                     appConfig.setConfig(ConfigKeys.TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL, isOn);

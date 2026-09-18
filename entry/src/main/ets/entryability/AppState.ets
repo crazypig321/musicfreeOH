@@ -47,8 +47,6 @@ class AppState{
   @Trace accentColor: ResourceColor = $r('sys.color.icon_emphasize');
   // Tab 切换过渡动画开关
   @Trace tabSwitchAnim: boolean = true;
-  // Tab 文本选中色使用主题色
-  @Trace tabTextColorAccent: boolean = false;
   // 智感握姿：握持手（left / right；未开启或未识别时为 right 即常规布局）
   @Trace holdingHand: string = 'right';
 

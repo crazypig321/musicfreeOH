@@ -39,7 +39,6 @@ export class ConfigKeys {
   static readonly APPEARANCE_BAR_LAYOUT_MODE = 'appearance.barLayoutMode';
   static readonly APPEARANCE_PLAYER_EXPAND_ANIM = 'appearance.playerExpandAnim';
   static readonly APPEARANCE_TAB_SWITCH_ANIM = 'appearance.tabSwitchAnim';
-  static readonly APPEARANCE_TAB_TEXT_COLOR = 'appearance.tabTextColor';
   static readonly APPEARANCE_SMART_REACH = 'appearance.smartReach';
   static readonly APPEARANCE_ORIENTATION = 'appearance.orientation';
   static readonly PLUGIN_SUBSCRIBE_URL = 'plugin.subscribeUrl';
@@ -272,11 +271,6 @@ export class AppConfig {
   /** Tab 切换过渡动画 */
   getTabSwitchAnim(): boolean {
     return this.getBoolean(ConfigKeys.APPEARANCE_TAB_SWITCH_ANIM, true);
-  }
-
-  /** Tab 文本选中色使用主题色 */
-  getTabTextColorAccent(): boolean {
-    return this.getBoolean(ConfigKeys.APPEARANCE_TAB_TEXT_COLOR, false);
   }
 
   /** 智感握姿（适人握持） */

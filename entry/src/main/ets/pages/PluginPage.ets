@@ -961,6 +961,7 @@ export struct PluginPage {
 
                   if (!appState.isBatchMode && row.name !== '本地') {
                     Toggle({ type: ToggleType.Switch, isOn: row.enabled })
+                      .selectedColor(appState.accentColor)
                       .transition(TransitionEffect.OPACITY)
                       .onChange((isOn: boolean) => {
                         this.togglePluginEnabled(row, isOn);

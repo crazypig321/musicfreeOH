@@ -74,6 +74,31 @@ export class Subscriptions {
     store.set(SOURCE_NAME_KEY, JSON.stringify(next));
   }
 
+  /** 更换订阅源地址（保留原位置并迁移自定义名称），新地址已存在时返回 false */
+  static changeSourceUrl(oldUrl: string, newUrl: string): boolean {
+    if (oldUrl === newUrl) {
+      return true;
+    }
+    const sources = Subscriptions.getSources();
+    for (const s of sources) {
+      if (s === newUrl) {
+        return false;
+      }
+    }
+    const next: Array<string> = [];
+    for (const s of sources) {
+      next.push(s === oldUrl ? newUrl : s);
+    }
+    KVStore.getOrCreate(SOURCE_STORE).set(SOURCE_KEY, JSON.stringify(next));
+    // 迁移自定义名称
+    const name = Subscriptions.getSourceName(oldUrl);
+    if (name.length > 0) {
+      Subscriptions.setSourceName(oldUrl, '');
+      Subscriptions.setSourceName(newUrl, name);
+    }
+    return true;
+  }
+
   /** 删除订阅源（同时清理自定义名称） */
   static removeSource(url: string): void {
     const sources = Subscriptions.getSources();

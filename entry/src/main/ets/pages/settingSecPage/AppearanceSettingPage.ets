@@ -6,7 +6,7 @@ import { SmartReach } from '../../utils/SmartReach';
 import { ContextHolder } from '../../common/ContextHolder';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import { hdsMaterial, HdsColorPicker, HdsColorPickerTabType } from '@kit.UIDesignKit';
-import { window } from '@kit.ArkUI';
+import { window, SymbolGlyphModifier, LengthMetrics } from '@kit.ArkUI';
 
 /** 菜单项数据（bindMenu 用） */
 class MenuOptionEntry {
@@ -23,31 +23,41 @@ class MenuOptionEntry {
 
 /**
  * 外观设置页面
- * 主题色（HdsColorPicker 取色器内嵌条目右侧 + Tab 文本色开关）/ 深色模式 / 沉浸光感材质 /
+ * 主题色（HdsColorPicker 取色器内嵌条目右侧）/ 深色模式 / 沉浸光感材质 /
  * 智感握姿 / 屏幕方向 / 动画
- * 选择类条目点击弹出 Menu 菜单（当前项带勾选标记）
+ * 选择类条目点击弹出 Menu 菜单（当前项带勾选标记，UI 参考 ting_reader；
+ * 智感握姿开启且左手握持时菜单从左侧弹出，否则默认条目右侧下方）
  */
 @ComponentV2
 export struct AppearanceSettingPage {
   scroller: Scroller = new Scroller();
   /** 主题色取色器当前色 */
   @Local pickerColor: string = '';
-  @Local tabTextColorAccent: boolean = false;
   @Local smartReachEnabled: boolean = false;
   @Local colorModeText: string = '';
   @Local materialText: string = '';
   @Local orientationText: string = '';
   @Local animText: string = '';
+  /** 各菜单手动弹出开关（bindMenu isShow 形式，便于控制 placement） */
+  @Local showColorModeMenu: boolean = false;
+  @Local showMaterialMenu: boolean = false;
+  @Local showOrientationMenu: boolean = false;
+  @Local showAnimMenu: boolean = false;
 
   aboutToAppear(): void {
     const stored = appConfig.getAppearanceThemeColor();
     this.pickerColor = stored.length > 0 ? stored : '#007DFF';
-    this.tabTextColorAccent = appConfig.getTabTextColorAccent();
     this.smartReachEnabled = appConfig.getSmartReachEnabled();
     this.refreshColorModeText();
     this.refreshMaterialText();
     this.refreshOrientationText();
     this.refreshAnimText();
+  }
+
+  /** 菜单弹出位置：智感握姿开启且左手握持 → 左侧（拇指可达），否则条目右侧下方 */
+  private menuPlacement(): Placement {
+    return this.smartReachEnabled && appState.holdingHand === 'left'
+      ? Placement.BottomLeft : Placement.BottomRight;
   }
 
   private static colorModeLabel(mode: string): string {
@@ -109,18 +119,30 @@ export struct AppearanceSettingPage {
     this.animText = AppearanceSettingPage.animLabel(appConfig.getPlayerExpandAnim(), appConfig.getTabSwitchAnim());
   }
 
-  /** 通用菜单 Builder：kind 分发应用逻辑（避免 Builder 传回调） */
+  /** 通用菜单 Builder（UI 参考 ting_reader）：选中项右侧勾选图标 + 分割线 + 圆角；kind 分发应用逻辑 */
   @Builder
   private menuOf(entries: Array<MenuOptionEntry>, kind: string): void {
     Menu() {
       ForEach(entries, (entry: MenuOptionEntry) => {
-        MenuItem({ content: entry.label })
-          .selectIcon(entry.selected)
+        MenuItem({
+          content: entry.label,
+          symbolEndIcon: entry.selected
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark')).fontColor([appState.accentColor]) : undefined
+        })
+          .contentFont({ size: 15 })
+          .contentFontColor($r('sys.color.font_primary'))
           .onClick(() => {
             this.onMenuPick(kind, entry.value);
           })
       }, (entry: MenuOptionEntry) => entry.value)
     }
+    .menuItemDivider({
+      color: $r('sys.color.comp_divider'),
+      strokeWidth: LengthMetrics.vp(1),
+      startMargin: LengthMetrics.vp(12),
+      endMargin: LengthMetrics.vp(12)
+    })
+    .borderRadius(20)
   }
 
   /** 菜单选中分发 */
@@ -289,63 +311,28 @@ export struct AppearanceSettingPage {
               .width('100%')
           }
 
-          // 主题色：取色器内嵌条目右侧 + Tab 文本色开关
+          // 主题色（Tab 文本选中色直接适配主题色）
           ListItem() {
-            Column() {
-              Row({ space: 12 }) {
-                Row({ space: 12 }){
-                  SymbolGlyph($r('sys.symbol.paintpalette'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                  Text('主题色')
-                    .fontSize(15)
-                    .fontColor($r('sys.color.font_primary'))
-                }
-
-                // 取色器（仅网格取色，紧凑内嵌）
-                HdsColorPicker({
-                  initialColor: this.pickerColor,
-                  onColorSelected: (selectedColor: string): void => {
-                    this.pickerColor = selectedColor;
-                    this.applyThemeColor(selectedColor);
-                  },
-                  options: { tabs: [HdsColorPickerTabType.GRID] }
-                })
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .height(52)
-              .justifyContent(FlexAlign.SpaceBetween)
-
-              Divider()
-                .DividerStyle()
-
-              // Tab 文本选中色跟随主题色
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.textformat'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Column({ space: 2 }) {
-                  Text('Tab 文本使用主题色')
-                    .fontSize(15)
-                    .fontColor($r('sys.color.font_primary'))
-                  Text('底部导航选中项的文字颜色')
-                    .fontSize(12)
-                    .fontColor($r('sys.color.font_tertiary'))
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.tabTextColorAccent })
-                  .onChange((isOn: boolean) => {
-                    this.tabTextColorAccent = isOn;
-                    appConfig.setConfig(ConfigKeys.APPEARANCE_TAB_TEXT_COLOR, isOn);
-                    appState.tabTextColorAccent = isOn;
-                  })
-              }
-              .width('100%')
-              .height(60)
+            Row({ space: 12 }) {
+              SymbolGlyph($r('sys.symbol.paintpalette'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+              Text('主题色')
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+              // 取色器（仅网格取色，紧凑内嵌）
+              HdsColorPicker({
+                initialColor: this.pickerColor,
+                onColorSelected: (selectedColor: string): void => {
+                  this.pickerColor = selectedColor;
+                  this.applyThemeColor(selectedColor);
+                },
+                options: { tabs: [HdsColorPickerTabType.GRID] }
+              })
+              .layoutWeight(1)
             }
             .width('100%')
+            .height(52)
           }.ListItemStyle()
 
           // 深色模式 / 材质 / 智感握姿 / 屏幕方向 / 动画
@@ -369,7 +356,15 @@ export struct AppearanceSettingPage {
               }
               .width('100%')
               .height(52)
-              .bindMenu(this.colorModeMenu)
+              .onClick(() => {
+                this.showColorModeMenu = true;
+              })
+              .bindMenu(this.showColorModeMenu, this.colorModeMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showColorModeMenu = false;
+                }
+              })
 
               Divider()
                 .DividerStyle()
@@ -392,7 +387,15 @@ export struct AppearanceSettingPage {
               }
               .width('100%')
               .height(52)
-              .bindMenu(this.materialMenu)
+              .onClick(() => {
+                this.showMaterialMenu = true;
+              })
+              .bindMenu(this.showMaterialMenu, this.materialMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showMaterialMenu = false;
+                }
+              })
 
               Divider()
                 .DividerStyle()
@@ -413,6 +416,7 @@ export struct AppearanceSettingPage {
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
                 Toggle({ type: ToggleType.Switch, isOn: this.smartReachEnabled })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.smartReachEnabled = isOn;
                     appConfig.setConfig(ConfigKeys.APPEARANCE_SMART_REACH, isOn);
@@ -443,7 +447,15 @@ export struct AppearanceSettingPage {
               }
               .width('100%')
               .height(52)
-              .bindMenu(this.orientationMenu)
+              .onClick(() => {
+                this.showOrientationMenu = true;
+              })
+              .bindMenu(this.showOrientationMenu, this.orientationMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showOrientationMenu = false;
+                }
+              })
 
               Divider()
                 .DividerStyle()
@@ -466,7 +478,15 @@ export struct AppearanceSettingPage {
               }
               .width('100%')
               .height(52)
-              .bindMenu(this.animMenu)
+              .onClick(() => {
+                this.showAnimMenu = true;
+              })
+              .bindMenu(this.showAnimMenu, this.animMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showAnimMenu = false;
+                }
+              })
             }
             .width('100%')
           }.ListItemStyle()

@@ -170,6 +170,7 @@ export struct DownloadSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.useCellularDownload })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.useCellularDownload = isOn;
                     appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_DOWNLOAD, isOn);

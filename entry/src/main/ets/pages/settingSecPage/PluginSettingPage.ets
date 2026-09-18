@@ -44,6 +44,7 @@ export struct PluginSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.autoUpdatePlugin })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.autoUpdatePlugin = isOn;
                     appConfig.setConfig(ConfigKeys.AUTO_UPDATE_PLUGIN, isOn);
@@ -65,6 +66,7 @@ export struct PluginSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.notCheckPluginVersion })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.notCheckPluginVersion = isOn;
                     appConfig.setConfig(ConfigKeys.NOT_CHECK_PLUGIN_VERSION, isOn);
@@ -86,6 +88,7 @@ export struct PluginSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.ignorePluginAppVersion })
+                  .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
                     this.ignorePluginAppVersion = isOn;
                     appConfig.setConfig(ConfigKeys.IGNORE_PLUGIN_APP_VERSION, isOn);
