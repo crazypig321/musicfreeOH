@@ -9,8 +9,9 @@ import { SheetItem, SheetInfoResult } from '../common/model/SheetTypes';
 import { appConfig } from '../core/AppConfig';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
-import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
-import { CommonBlur, MenuItemParams } from '../view/CommonCom';
+import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
+import { SymbolGlyphModifier } from '@kit.ArkUI';
+import { CommonBlur, MenuItemParams, CommonSearch } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { fileIo as fs, picker } from '@kit.CoreFileKit';
@@ -64,9 +65,23 @@ export struct PluginPage {
   /** 说明文本刷新标记：懒加载插件挂载完成后 +1 触发重绘 */
   @Local pluginImportHintRev: number = 0;
   @Local batchSelected: Array<string> = [];
+  /** 标题栏搜索框：开启后按关键词过滤插件条目 */
+  @Local showSearchBox: boolean = false;
+  @Local searchKeyword: string = '';
+  /** 当前所处 tab 序号（由 Index 传入，切走时收起搜索框） */
+  @Param hostTabIndex: number = 2;
   private detailHash: string = '';
   /** 是否正在同步订阅源 */
   private syncingSubscriptions: boolean = false;
+
+  /** 切换到其他 tab 时收起搜索框并清空关键词 */
+  @Monitor('hostTabIndex')
+  onTabIndexChanged(): void {
+    if (this.hostTabIndex !== 2 && this.showSearchBox) {
+      this.showSearchBox = false;
+      this.searchKeyword = '';
+    }
+  }
 
   aboutToAppear(): void {
     this.refreshPlugins();
@@ -105,6 +120,45 @@ export struct PluginPage {
       rows.push(row);
     }
     this.pluginRows = rows;
+  }
+
+  /** 按关键词过滤插件条目（名称/作者，不区分大小写；空关键词返回全部） */
+  private displayRows(): Array<PluginRow> {
+    const kw = this.searchKeyword.trim().toLowerCase();
+    if (kw.length === 0) {
+      return this.pluginRows;
+    }
+    const rows: Array<PluginRow> = [];
+    for (const row of this.pluginRows) {
+      if (row.name.toLowerCase().indexOf(kw) >= 0 ||
+        row.author.toLowerCase().indexOf(kw) >= 0) {
+        rows.push(row);
+      }
+    }
+    return rows;
+  }
+
+  /** 标题副文本：搜索中显示命中数量 */
+  private subTitleText(): string {
+    if (this.searchKeyword.trim().length > 0) {
+      return '找到 ' + this.displayRows().length.toString() + ' 个插件';
+    }
+    return '共 ' + this.pluginRows.length.toString() + ' 个插件';
+  }
+
+  /** 展开/收起标题栏搜索框（展开时列表回顶；收起时清空关键词恢复全部） */
+  private toggleSearchBox(): void {
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      this.showSearchBox = !this.showSearchBox;
+    });
+
+    if (!this.showSearchBox) {
+      this.searchKeyword = '';
+      return;
+    }
+    if (this.scroller.currentOffset().yOffset !== 0) {
+      this.scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 66 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
+    }
   }
 
   private static searchTypeName(type: string): string {
@@ -660,7 +714,73 @@ export struct PluginPage {
     }
   }
 
-  /** titleBar 菜单按钮（添加 + 菜单） */
+  /** 横滑操作（左滑呼出 编辑/卸载）；批量模式与内置插件不提供 */
+  private swipeOptions(row: PluginRow): HdsSwipeActionOptions | undefined {
+    if (appState.isBatchMode || row.name === '本地') {
+      return undefined;
+    }
+    const options: HdsSwipeActionOptions = {
+      icons: [
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.editRowSort(row);
+          }
+        }
+      ],
+      deleteIconOptions: {
+        onAction: (): void => {
+          this.confirmUninstallRow(row);
+        }
+      }
+    };
+    return options;
+  }
+
+  /** 行内编辑：弹「跳转排序」对话框，确认后直接改序并保存 */
+  private editRowSort(row: PluginRow): void {
+    const names: Array<string> = [];
+    for (const p of pluginManager.getSortedPlugins()) {
+      names.push(p.name);
+    }
+    const index = names.indexOf(row.name);
+    if (index < 0) {
+      this.showToast('内置插件不支持排序');
+      return;
+    }
+    this.sortNames = names;
+    DialogManager.sortJumpValue = (index + 1).toString();
+    DialogManager.sortJumpMax = names.length;
+    DialogManager.sortJumpConfirm = (target: number): void => {
+      this.moveSortItemTo(index, target);
+      this.saveSortOrder();
+    };
+    DialogManager.OpenDialog('跳转排序');
+  }
+
+  /** 行内卸载（弹窗确认，取消不卸载） */
+  private confirmUninstallRow(row: PluginRow): void {
+    if (row.name === '本地') {
+      this.showToast('内置插件无法卸载');
+      return;
+    }
+    const hash = row.hash;
+    const name = row.name;
+    DialogManager.ConfirmDelete('确定卸载插件「' + name + '」吗？', (): void => {
+      pluginManager.uninstallPlugin(hash)
+        .then(() => {
+          this.showToast('已卸载: ' + name);
+          this.refreshPlugins();
+        })
+        .catch((e: Object) => {
+          this.showToast('卸载失败: ' + (e instanceof Error ? e.message : ''));
+        });
+    });
+  }
+
+  /** titleBar 菜单按钮（添加 + 搜索 + 菜单） */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const add: HdsNavigationMenuItemOptions = {
       content: {
@@ -668,6 +788,15 @@ export struct PluginPage {
         label: '添加',
         action: (): void => {
           this.openAddMenu();
+        }
+      }
+    };
+    const search: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.magnifyingglass'),
+        label: '搜索',
+        action: (): void => {
+          this.toggleSearchBox();
         }
       }
     };
@@ -680,7 +809,7 @@ export struct PluginPage {
         }
       }
     };
-    return [add, more];
+    return [add, search, more];
   }
 
   private runMenuAction(action: () => void): void {
@@ -924,87 +1053,28 @@ export struct PluginPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf($r('app.string.tab_plugin'), '共 ' + this.pluginRows.length.toString() + ' 个插件', this.titleMenus()),
+      titleBarOp: titleBarOf($r('app.string.tab_plugin'), this.subTitleText(), this.titleMenus(),
+        (this.showSearchBox && appState.currTabsIndex === 2) ? { builder: (): void => { this.SearchBuilder() } } : undefined),
       isHideBackButton: true,
       scroller: this.scroller,
       doubleTapToTop: true,
     }) {
       Stack({ alignContent: Alignment.Top }) {
           List({ scroller: this.scroller, space: 16 }) {
-          if (this.pluginRows.length > 0) {
-            ForEach(this.pluginRows, (row: PluginRow, index: number) => {
-              ListItem() {
-                Row({ space: 12 }) {
-                  // 批量模式：勾选圈
-                  if (appState.isBatchMode && row.name !== '本地') {
-                    SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
-                      .fontSize(24)
-                      .fontColor([this.isSelected(row) ? appState.accentColor : $r('sys.color.icon_tertiary')])
-                      .transition(TransitionEffect.OPACITY)
-                  }
-                  Column() {
-                    SymbolGlyph($r('sys.symbol.AI_panels'))
-                      .fontSize(22)
-                      .fontColor([$r('sys.color.icon_secondary')])
-                  }
-                  .width(40)
-                  .height(40)
-                  .borderRadius(10)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .justifyContent(FlexAlign.Center)
-
-                  Column({ space: 2 }) {
-                    Text(row.name)
-                      .fontSize(15)
-                      .fontColor($r('sys.color.font_primary'))
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    Text((row.version.length > 0 ? 'v' + row.version : '') +
-                      (row.author.length > 0 ? ' · ' + row.author : ''))
-                      .fontSize(12)
-                      .fontColor($r('sys.color.font_tertiary'))
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  }
-                  .layoutWeight(1)
-                  .alignItems(HorizontalAlign.Start)
-
-                  if (!appState.isBatchMode && row.name !== '本地') {
-                    Toggle({ type: ToggleType.Switch, isOn: row.enabled })
-                      .selectedColor(appState.accentColor)
-                      .transition(TransitionEffect.OPACITY)
-                      .onChange((isOn: boolean) => {
-                        this.togglePluginEnabled(row, isOn);
-                      })
-                  }
-                }
-                .width('100%')
-                .height(56)
-                .borderRadius(12)
-                .gesture(
-                  LongPressGesture({ repeat: false, duration: 500 })
-                    .onAction((_event: GestureEvent) => {
-                      // 长按进入批量模式并勾选当前条目（内置插件仅进入批量模式）
-                      if (appState.isBatchMode) {
-                        return;
-                      }
-                      this.enterBatchMode();
-                      this.toggleBatchSelect(row);
-                    })
-                )
-              }.ListItemStyle()
-              .onClick(() => {
-                if (appState.isBatchMode) {
-                  this.toggleBatchSelect(row);
-                } else {
-                  this.openDetailSheet(row);
-                }
+          if (this.displayRows().length > 0) {
+            ForEach(this.displayRows(), (row: PluginRow, index: number) => {
+              HdsListItem({
+                customItemBuilder: (): void => {
+                  this.PluginRowBuilder(row);
+                },
+                swipeActionOptions: this.swipeOptions(row)
               })
             }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString() + '_' + row.enabled.toString() +
-              (appState.isBatchMode && this.isSelected(row) ? '_sel' : ''))
+              (appState.isBatchMode && this.isSelected(row) ? '_sel' : '') +
+              '_' + appState.swipeResetTick.toString())
           } else {
             ListItem() {
-              Text($r('app.string.home_no_plugin'))
+              Text(this.pluginRows.length > 0 ? '未找到匹配的插件' : $r('app.string.home_no_plugin'))
                 .fontSize(13)
                 .fontColor($r('sys.color.font_tertiary'))
                 .width('100%')
@@ -1013,7 +1083,7 @@ export struct PluginPage {
             }
           }
         }
-        .ListStyle()
+        .ListStyle(this.showSearchBox ? 56 : 0)
         .onScrollFrameBegin((offset: number) => {
           BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
           return { offsetRemain: offset }
@@ -1030,7 +1100,6 @@ export struct PluginPage {
           }
         })
 
-        // 底部批量模式时的渐变模糊组件
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：全选 / 导出 / 分享 / 删除
         if (appState.isBatchMode) {
           CommonBlur().position({ bottom: 0 })
@@ -1123,6 +1192,107 @@ export struct PluginPage {
         }
       })
     }
+  }
+
+  /**
+   * 搜索框
+   */
+  @Builder
+  SearchBuilder(){
+    // 搜索框（固定于标题栏下方，不随列表滚动消失；切到其他 tab 自动收起）
+    CommonSearch({
+      searchValue: this.searchKeyword,
+      placeholderValue: '搜索插件名称或作者',
+      isFocusable: true,
+      submit: (): void => {
+      },
+      change: (v: string): void => {
+        this.searchKeyword = v;
+      },
+      didDelete: (): void => {
+        this.searchKeyword = '';
+      },
+      click: (): void => {
+      }
+    })
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+      .transition(TransitionEffect.move(TransitionEdge.TOP))
+  }
+
+  /** 插件行（卡片样式内聚，供 HdsListItem customItemBuilder 使用） */
+  @Builder
+  PluginRowBuilder(row: PluginRow) {
+    Column() {
+      Row({ space: 12 }) {
+        // 批量模式：勾选圈
+        if (appState.isBatchMode && row.name !== '本地') {
+          SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+            .fontSize(24)
+            .fontColor([this.isSelected(row) ? appState.accentColor : $r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
+        }
+        Column() {
+          SymbolGlyph($r('sys.symbol.AI_panels'))
+            .fontSize(22)
+            .fontColor([$r('sys.color.icon_secondary')])
+        }
+        .width(40)
+        .height(40)
+        .borderRadius(10)
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .justifyContent(FlexAlign.Center)
+
+        Column({ space: 2 }) {
+          Text(row.name)
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text((row.version.length > 0 ? 'v' + row.version : '') +
+            (row.author.length > 0 ? ' · ' + row.author : ''))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        if (!appState.isBatchMode && row.name !== '本地') {
+          Toggle({ type: ToggleType.Switch, isOn: row.enabled })
+            .selectedColor(appState.accentColor)
+            .transition(TransitionEffect.OPACITY)
+            .onChange((isOn: boolean) => {
+              this.togglePluginEnabled(row, isOn);
+            })
+        }
+      }
+      .width('100%')
+      .height(56)
+      .gesture(
+        LongPressGesture({ repeat: false, duration: 500 })
+          .onAction((_event: GestureEvent) => {
+            // 长按进入批量模式并勾选当前条目（内置插件仅进入批量模式）
+            if (appState.isBatchMode) {
+              return;
+            }
+            this.enterBatchMode();
+            this.toggleBatchSelect(row);
+          })
+      )
+      .onClick(() => {
+        if (appState.isBatchMode) {
+          this.toggleBatchSelect(row);
+        } else {
+          this.openDetailSheet(row);
+        }
+      })
+    }
+    .width('100%')
+    .borderRadius(16)
+    .padding(12)
+    .backgroundColor($r('sys.color.comp_background_list_card'))
   }
 
   @Builder
@@ -1569,21 +1739,14 @@ export struct PluginPage {
   }
 }
 
-@Extend(ListItem)
-function ListItemStyle(){
-  .width('100%')
-  .borderRadius(16)
-  .padding(12)
-  .backgroundColor($r('sys.color.comp_background_list_card'))
-}
-
 @Extend(List)
-function ListStyle(){
+function ListStyle(extraTop: number){
   .width('100%')
   .height('100%')
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
-  .contentStartOffset(appState.topRect + 66)
+  // 搜索框展开时为固定搜索框让位
+  .contentStartOffset(appState.topRect + 66 + extraTop)
   // 批量模式/上下两排时底栏更高，末尾内容需多留滚动空间
   .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 :
     (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60)))

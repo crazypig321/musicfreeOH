@@ -100,7 +100,7 @@ struct Index {
               } else if (i === 1) {
                 MySheetsPage()
               } else if (i === 2) {
-                PluginPage()
+                PluginPage({ hostTabIndex: appState.currTabsIndex })
               } else if (i === 3) {
                 SubscriptionPage()
               } else {
