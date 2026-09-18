@@ -59,12 +59,21 @@ export struct AppearanceSettingPage {
     return '跟随系统';
   }
 
-  private static materialLabel(type: string): string {
+  private static materialLabel(type: string, level: string): string {
     if (type === 'adaptive') {
       return '跟随系统';
     }
     if (type === 'none') {
       return '关闭';
+    }
+    if (level === 'exquisite') {
+      return '沉浸光感·精致';
+    }
+    if (level === 'gentle') {
+      return '沉浸光感·轻柔';
+    }
+    if (level === 'smooth') {
+      return '沉浸光感·顺滑';
     }
     return '沉浸光感';
   }
@@ -97,7 +106,8 @@ export struct AppearanceSettingPage {
   }
 
   private refreshMaterialText(): void {
-    this.materialText = AppearanceSettingPage.materialLabel(appConfig.getAppearanceMaterialType());
+    this.materialText = AppearanceSettingPage.materialLabel(
+      appConfig.getAppearanceMaterialType(), appConfig.getAppearanceMaterialLevel());
   }
 
   private refreshOrientationText(): void {
@@ -169,25 +179,34 @@ export struct AppearanceSettingPage {
   }
 
   private applyMaterial(value: string): void {
-    appConfig.setConfig(ConfigKeys.APPEARANCE_MATERIAL_TYPE, value);
     if (value === 'adaptive') {
+      appConfig.setConfig(ConfigKeys.APPEARANCE_MATERIAL_TYPE, 'adaptive');
       appState.materialType = hdsMaterial.MaterialType.ADAPTIVE;
-    } else if (value === 'none') {
-      appState.materialType = hdsMaterial.MaterialType.NONE;
     } else {
+      // 沉浸光感材质等级：exquisite 精致 / gentle 轻柔 / smooth 顺滑
+      appConfig.setConfig(ConfigKeys.APPEARANCE_MATERIAL_TYPE, 'immersive');
+      appConfig.setConfig(ConfigKeys.APPEARANCE_MATERIAL_LEVEL, value);
       appState.materialType = hdsMaterial.MaterialType.IMMERSIVE;
+      if (value === 'exquisite') {
+        appState.materialLevel = hdsMaterial.MaterialLevel.EXQUISITE;
+      } else if (value === 'gentle') {
+        appState.materialLevel = hdsMaterial.MaterialLevel.GENTLE;
+      } else {
+        appState.materialLevel = hdsMaterial.MaterialLevel.SMOOTH;
+      }
     }
     this.refreshMaterialText();
   }
 
   private materialEntries(): Array<MenuOptionEntry> {
-    const types: Array<string> = ['immersive', 'adaptive', 'none'];
-    const labels: Array<string> = ['沉浸光感', '跟随系统', '关闭'];
-    const cur = appConfig.getAppearanceMaterialType();
-    const entries: Array<MenuOptionEntry> = [];
-    for (let i = 0; i < types.length; ++i) {
-      entries.push(new MenuOptionEntry(types[i], labels[i], types[i] === cur));
-    }
+    const type = appConfig.getAppearanceMaterialType();
+    const level = appConfig.getAppearanceMaterialLevel();
+    const entries: Array<MenuOptionEntry> = [
+      new MenuOptionEntry('adaptive', '跟随系统', type === 'adaptive'),
+      new MenuOptionEntry('exquisite', '精致', type === 'immersive' && level === 'exquisite'),
+      new MenuOptionEntry('gentle', '轻柔', type === 'immersive' && level === 'gentle'),
+      new MenuOptionEntry('smooth', '顺滑', type === 'immersive' && level === 'smooth')
+    ];
     return entries;
   }
 

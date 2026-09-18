@@ -12,6 +12,7 @@ import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { MediaUtils } from '../utils/MediaUtils';
+import { CoverSearch } from '../utils/CoverSearch';
 import { pluginManager } from '../plugin/PluginManager';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
@@ -25,7 +26,8 @@ import { DialogManager } from '../utils/DialogUtils';
 /**
  * 下载页面：上半部分为下载任务（等待/准备中/下载中/失败，带进度条），
  * 下半部分为已下载列表（下载记录歌单），条目风格与搜索结果一致；
- * 支持批量多选（全选/收藏/添加到歌单/搜索歌词/播放/分享/移出/删除）。
+ * 支持批量多选（全选/收藏/添加到歌单/搜索歌词/播放/分享/移出/删除；
+ * 本地模式第一行追加 搜索封面）。
  * isLocalMode 时为「本地音乐」页：数据源切换为扫描目录的本地音乐歌单，
  * 附加右上角 导入本地音频/刷新 菜单，移出语义为移出本地音乐（排除名单防复活）
  */
@@ -411,11 +413,15 @@ export struct DownloadPage {
     this.batchSelected = this.batchSelected.length === all.length ? [] : all;
   }
 
-  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」） */
+  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「搜索封面」） */
   private batchTopLabels(): Array<string> {
     const total = this.dataSource.totalCount();
     const allSelected = total > 0 && this.batchSelected.length === total;
-    return [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单', '搜索歌词'];
+    const labels: Array<string> = [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单', '搜索歌词'];
+    if (this.isLocalMode) {
+      labels.push('搜索封面');
+    }
+    return labels;
   }
 
   /** 批量操作按钮文案·第二行 */
@@ -537,6 +543,37 @@ export struct DownloadPage {
       }
       return plugin.methods.getLyric(target).then((lyric: LyricSource | null): Promise<void> => {
         if (lyric !== null && !lyric.isEmpty()) {
+          ok++;
+        } else {
+          fail++;
+        }
+        return searchNext(index + 1);
+      }).catch((_e: Object): Promise<void> => {
+        fail++;
+        return searchNext(index + 1);
+      });
+    };
+    searchNext(0);
+  }
+
+  /** 批量搜索封面（仅本地模式）：逐首搜索并写回本地条目，来源插件详情优先、其次全插件搜索 */
+  private batchSearchCover(): void {
+    const items = this.selectedItems();
+    if (items.length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    this.showToast('开始搜索 ' + items.length.toString() + ' 首封面...');
+    let ok = 0;
+    let fail = 0;
+    const searchNext = (index: number): Promise<void> => {
+      if (index >= items.length) {
+        this.showToast('封面搜索完成：成功 ' + ok.toString() + ' 首' +
+          (fail > 0 ? '，失败 ' + fail.toString() + ' 首' : ''));
+        return Promise.resolve();
+      }
+      return CoverSearch.searchAndApply(items[index]).then((found: boolean): Promise<void> => {
+        if (found) {
           ok++;
         } else {
           fail++;
@@ -680,7 +717,7 @@ export struct DownloadPage {
             ListItem() {
               this.DownloadedRowBuilder(item, index)
             }
-          }, (item: MusicItem, _index: number) => item.platform + '_' + item.id +
+          }, (item: MusicItem, _index: number) => item.platform + '_' + item.id + '_' + item.artwork +
             (appState.isBatchMode && this.isSelected(item) ? '_sel' : ''))
         }
 
@@ -734,7 +771,8 @@ export struct DownloadPage {
       })
 
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
-        // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词；第二行 播放 / 分享 / 移出 / 删除
+        // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词（本地模式追加 搜索封面）；
+        // 第二行 播放 / 分享 / 移出 / 删除
         if (appState.isBatchMode) {
           // 渐变模糊高度与底栏内容高度保持一致：
           // 14(顶距) + 22(已选行) + 10 + 36(按钮行1) + 10 + 36(按钮行2) + 12(底距) + 导航栏避让
@@ -762,11 +800,12 @@ export struct DownloadPage {
                 Button(v)
                   .layoutWeight(1)
                   .height(36)
-                  .fontSize(10)
+                  .fontSize(this.isLocalMode ? 9 : 10)
                   .fontWeight(FontWeight.Medium)
                   .borderRadius(10)
                   .backgroundColor($r('sys.color.comp_background_tertiary'))
                   .fontColor($r('sys.color.font_primary'))
+                  .padding({ left: 2, right: 2 })
                   .onClick(() => {
                     if (i === 0) {// 全选/取消全选
                       this.toggleSelectAll();
@@ -774,8 +813,10 @@ export struct DownloadPage {
                       this.batchFavorite();
                     } else if (i === 2) {// 添加到歌单
                       this.openBatchSheetPicker();
-                    } else {// 搜索歌词
+                    } else if (i === 3) {// 搜索歌词
                       this.batchSearchLyric();
+                    } else {// 搜索封面（仅本地模式）
+                      this.batchSearchCover();
                     }
                   })
               }, (v: string, i: number) => v + '_' + i.toString())

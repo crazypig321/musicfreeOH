@@ -208,6 +208,21 @@ export class LocalMusicSheet {
     return null;
   }
 
+  /** 更新匹配条目的封面（搜索封面命中后写回；无匹配或封面为空不处理） */
+  setArtwork(musicItem: MusicItem, artwork: string): void {
+    if (artwork.length === 0) {
+      return;
+    }
+    for (const it of this.localSheetItems) {
+      if (MediaUtils.isSameMediaItem(it, musicItem)) {
+        it.artwork = artwork;
+        this.saveLocalSheet();
+        this.notify();
+        return;
+      }
+    }
+  }
+
   getMusicList(): Array<MusicItem> {
     return this.localSheetItems;
   }

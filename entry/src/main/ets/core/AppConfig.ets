@@ -37,6 +37,7 @@ export class ConfigKeys {
   static readonly APPEARANCE_THEME_COLOR = 'appearance.themeColor';
   static readonly APPEARANCE_COLOR_MODE = 'appearance.colorMode';
   static readonly APPEARANCE_MATERIAL_TYPE = 'appearance.materialType';
+  static readonly APPEARANCE_MATERIAL_LEVEL = 'appearance.materialLevel';
   static readonly APPEARANCE_BAR_LAYOUT_MODE = 'appearance.barLayoutMode';
   static readonly APPEARANCE_PLAYER_EXPAND_ANIM = 'appearance.playerExpandAnim';
   static readonly APPEARANCE_TAB_SWITCH_ANIM = 'appearance.tabSwitchAnim';
@@ -288,6 +289,12 @@ export class AppConfig {
   /** 本地音乐自动匹配音乐封面（导入时提取内嵌封面并回填网络封面） */
   getLocalMusicAutoMatchCover(): boolean {
     return this.getBoolean(ConfigKeys.LOCAL_MUSIC_AUTO_MATCH_COVER, true);
+  }
+
+  /** 沉浸光感材质等级：exquisite 精致 / gentle 轻柔 / smooth 顺滑 / adaptive 跟随系统 */
+  getAppearanceMaterialLevel(): string {
+    const v = this.getString(ConfigKeys.APPEARANCE_MATERIAL_LEVEL, 'adaptive');
+    return v === 'exquisite' || v === 'gentle' || v === 'smooth' ? v : 'adaptive';
   }
 }
 

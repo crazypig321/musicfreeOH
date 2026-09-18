@@ -155,8 +155,7 @@ export struct BackupSettingPage {
                   Text('将歌单、插件、设置与订阅源导出为 JSON 备份文件，保存到本地')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .maxLines(2)
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
@@ -185,8 +184,7 @@ export struct BackupSettingPage {
                   Text('从本地备份文件恢复歌单、插件、设置与订阅源，与现有数据合并')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .maxLines(2)
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
@@ -227,8 +225,7 @@ export struct BackupSettingPage {
                   Text('通过 WebDAV 服务器在云端备份与恢复数据')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .maxLines(2)
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)

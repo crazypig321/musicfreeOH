@@ -11,6 +11,7 @@ import { downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { ScheduleClose } from '../utils/ScheduleClose';
 import { MediaUtils } from '../utils/MediaUtils';
+import { CoverSearch } from '../utils/CoverSearch';
 import { appState } from '../entryability/AppState';
 import { DialogManager } from '../utils/DialogUtils';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
@@ -357,6 +358,17 @@ export struct MusicOptionsSheet {
     this.showToast('已加入播放队列');
   }
 
+  /** 搜索封面（仅本地音乐显示）：来源插件详情优先，其次全插件按 标题+歌手 搜索；命中后写回本地条目 */
+  private searchCoverForCurrent(): void {
+    const target = this.optionsItem;
+    this.showToast('正在搜索封面...');
+    CoverSearch.searchAndApply(target).then((ok: boolean): void => {
+      this.showToast(ok ? '封面已更新' : '未找到封面');
+    }).catch((_e: Object): void => {
+      this.showToast('封面获取失败');
+    });
+  }
+
   /** 从当前歌单删除本曲（仅歌单详情页本地歌单面板显示；弹窗确认，取消不删除）；
    * 列表随 onMusicListUpdated 自动刷新 */
   private removeFromCurrentSheet(): void {
@@ -571,6 +583,19 @@ export struct MusicOptionsSheet {
               this.searchLyric();
             }
           })
+        }
+        // 本地音乐/已下载条目：搜索封面
+        if (localMusicSheet.isLocalMusic(this.optionsItem) !== null ||
+          downloadedSheet.isLocalMusic(this.optionsItem) !== null) {
+          ListItem() {
+            ActionRowItem({
+              icon: $r('sys.symbol.wand_and_stars'),
+              label: '搜索封面',
+              onTap: (): void => {
+                this.searchCoverForCurrent();
+              }
+            })
+          }
         }
         ListItem() {
           ActionRowItem({

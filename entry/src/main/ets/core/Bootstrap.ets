@@ -114,6 +114,15 @@ export class Bootstrap {
       appState.materialType = hdsMaterial.MaterialType.NONE;
     } else {
       appState.materialType = hdsMaterial.MaterialType.IMMERSIVE;
+      // 沉浸光感生效时的效果等级（exquisite 精致 / gentle 轻柔 / smooth 顺滑）
+      const ml = appConfig.getAppearanceMaterialLevel();
+      if (ml === 'exquisite') {
+        appState.materialLevel = hdsMaterial.MaterialLevel.EXQUISITE;
+      } else if (ml === 'gentle') {
+        appState.materialLevel = hdsMaterial.MaterialLevel.GENTLE;
+      } else if (ml === 'smooth') {
+        appState.materialLevel = hdsMaterial.MaterialLevel.SMOOTH;
+      }
     }
     // 底部栏排列模式
     appState.hdsBarLayoutMode = appConfig.getAppearanceBarLayoutMode();

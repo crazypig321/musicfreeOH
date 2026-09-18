@@ -282,8 +282,7 @@ export struct CachePage {
                   Text('导入本地音乐后自动匹配内嵌封面，无内嵌封面时回填网络封面')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .maxLines(2)
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
