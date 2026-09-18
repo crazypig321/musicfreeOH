@@ -564,7 +564,7 @@ export class DialogManager {
 export struct DisclaimerDialogContent {
   build() {
     Column() {
-      Text('本软件仅供交流与学习使用，是一款开源、免费的本地音乐播放工具。')
+      Text('本软件仅供交流与学习使用，是一款开源、免费的本地音乐播放工具，请勿相信付费传播渠道。')
         .fontSize(14)
         .fontColor($r('sys.color.font_primary'))
         .lineHeight(22)
