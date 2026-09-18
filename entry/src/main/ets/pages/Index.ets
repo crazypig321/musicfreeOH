@@ -24,7 +24,7 @@ import { PlayBar } from '../view/PlayBar';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent } from '../utils/DialogUtils';
+import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -270,6 +270,8 @@ struct Index {
       RenameDialogContent()
     } else if (key === '跳转排序') {
       SortJumpDialogContent()
+    } else if (key === '选择器') {
+      TextPickerDialogContent()
     }
   }
 }

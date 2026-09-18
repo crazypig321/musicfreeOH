@@ -89,7 +89,7 @@ export class AppConfig {
   // ---------- 业务化 getter（含默认值，与原版设置页默认值一致） ----------
 
   getAutoPlayWhenAppStart(): boolean {
-    return this.getBoolean(ConfigKeys.AUTO_PLAY_WHEN_APP_START, true);
+    return this.getBoolean(ConfigKeys.AUTO_PLAY_WHEN_APP_START, false);
   }
 
   getUseCellularNetworkPlay(): boolean {

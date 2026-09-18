@@ -1,5 +1,4 @@
 import { pasteboard } from '@kit.BasicServicesKit';
-import { promptAction } from '@kit.ArkUI';
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
 import { pluginManager } from '../plugin/PluginManager';
@@ -12,6 +11,7 @@ import { appConfig } from '../core/AppConfig';
 import { ScheduleClose } from '../utils/ScheduleClose';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
+import { DialogManager } from '../utils/DialogUtils';
 
 /** 快捷操作按钮（横向） */
 @ComponentV2
@@ -245,23 +245,14 @@ export struct MusicOptionsSheet {
   }
 
   private showSleepMenu(): void {
-    try {
-      this.getUIContext().getPromptAction().showActionMenu({
-        title: '定时关闭',
-        buttons: [
-          { text: '关闭定时', color: $r('sys.color.font_primary') },
-          { text: '播完当前歌曲', color: $r('sys.color.font_primary') },
-          { text: '15分钟', color: $r('sys.color.font_primary') },
-          { text: '30分钟', color: $r('sys.color.font_primary') },
-          { text: '60分钟', color: $r('sys.color.font_primary') }
-        ]
-      }).then((resp: promptAction.ActionMenuSuccessResponse): void => {
-        this.applySleepChoice(resp.index);
-      }).catch((_e: Object): void => {
-      });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    // TextPicker 滚轮选择：确定生效，取消/关闭弹窗不更改
+    DialogManager.pickerTitle = '定时关闭';
+    DialogManager.pickerOptions = ['关闭定时', '播完当前歌曲', '15分钟', '30分钟', '60分钟'];
+    DialogManager.pickerIndex = ScheduleClose.isCloseAfterPlayEnd() ? 1 : 0;
+    DialogManager.pickerConfirm = (index: number): void => {
+      this.applySleepChoice(index);
+    };
+    DialogManager.OpenDialog('选择器');
   }
 
   private applySleepChoice(index: number): void {

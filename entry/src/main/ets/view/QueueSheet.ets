@@ -112,7 +112,7 @@ struct QueueRow {
         Text((this.index + 1).toString())
           .fontSize(13)
           .fontColor(this.isCurrent() ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
-          .width(24)
+          .width(12)
           .textAlign(TextAlign.Start)
 
         Column({ space: 2 }) {
@@ -171,7 +171,7 @@ struct QueueRow {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 34 })
+          .margin({ left: 22 })
       }
     }
     .width('100%')
@@ -188,22 +188,31 @@ export struct QueueSheet {
   @Local queueCount: number = 0;
   /** 循环模式（切换后本地同步以刷新图标） */
   @Local repeatMode: MusicRepeatMode = MusicRepeatMode.QUEUE;
+  /** 当前播放歌曲（头部「当前播放：序号.歌曲名」显示） */
+  @Local currentMusic: MusicItem | null = null;
   /** 播放队列数据源（LazyForEach） */
   private queueDataSource: MusicDataSource = new MusicDataSource();
   private queueScroller: Scroller = new Scroller();
   private offPlayList: () => void = (): void => {
   };
+  private offCurrent: () => void = (): void => {
+  };
 
   aboutToAppear(): void {
     this.repeatMode = trackPlayer.repeatMode;
+    this.currentMusic = trackPlayer.currentMusic;
     this.refreshQueue();
     this.offPlayList = trackPlayer.onPlayListChanged(() => {
       this.refreshQueue();
+    });
+    this.offCurrent = trackPlayer.onCurrentMusicChanged((music: MusicItem | null) => {
+      this.currentMusic = music;
     });
   }
 
   aboutToDisappear(): void {
     this.offPlayList();
+    this.offCurrent();
   }
 
   /** 刷新播放队列数据源 */
@@ -240,6 +249,26 @@ export struct QueueSheet {
     return $r('sys.symbol.repeat');
   }
 
+  /** 循环模式文本 */
+  private repeatLabel(): string {
+    if (this.repeatMode === MusicRepeatMode.SHUFFLE) {
+      return '随机';
+    }
+    if (this.repeatMode === MusicRepeatMode.SINGLE) {
+      return '单曲循环';
+    }
+    return '列表循环';
+  }
+
+  /** 头部「当前播放：序号.歌曲名」 */
+  private currentPlayText(): string {
+    const idx = this.currentQueueIndex();
+    if (this.currentMusic === null || idx === -1) {
+      return '正在播放';
+    }
+    return '正在播放：' + (idx + 1).toString() + '. ' + this.currentMusic.title;
+  }
+
   /** 切换循环模式 */
   private toggleRepeatMode(): void {
     trackPlayer.toggleRepeatMode();
@@ -257,18 +286,6 @@ export struct QueueSheet {
       this.showToast('已清空播放队列');
     }).catch((_e: Object): void => {
       this.showToast('清空失败');
-    });
-  }
-
-  /** 全部播放：从队列第一首开始 */
-  private playAllFromQueue(): void {
-    const items = this.queueDataSource.getItems();
-    if (items.length === 0) {
-      this.showToast('播放队列为空');
-      return;
-    }
-    trackPlayer.play(items[0]).catch((_e: Object): void => {
-      this.showToast('播放失败');
     });
   }
 
@@ -304,41 +321,49 @@ export struct QueueSheet {
         .width('100%')
         .margin({ top: 4, bottom: 4 })
 
-        // 全部播放 + 循环模式/清空（UI 同歌单详情页）
+        // 当前播放 + 循环模式/清空（图标带文字标签）
         if (this.queueCount > 0) {
           Row() {
-            Row({ space: 6 }) {
-              SymbolGlyph($r('sys.symbol.play_circle_fill'))
-                .fontSize(36)
-                .fontColor([$r('sys.color.font')])
-              Text('全部播放 · ' + this.queueCount.toString())
-                .fontSize(18)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('sys.color.font'))
-            }
-            .height(40)
-            .onClick(() => {
-              this.playAllFromQueue();
-            })
+            Text(this.currentPlayText())
+              .fontSize(16)
+              .fontColor($r('sys.color.font_tertiary'))
+              .maxLines(1)
+              .fontWeight(FontWeight.Bold)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
 
-            Row({ space: 24 }) {
-              SymbolGlyph(this.repeatIcon())
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
-                .onClick(() => {
-                  this.toggleRepeatMode();
-                })
-              SymbolGlyph($r('sys.symbol.trash'))
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
-                .onClick(() => {
-                  this.clearQueue();
-                })
+            Row({ space: 20 }) {
+              Row({ space: 4 }) {
+                SymbolGlyph(this.repeatIcon())
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                Text(this.repeatLabel())
+                  .fontSize(12)
+                  .fontColor($r('sys.color.font_tertiary'))
+              }
+              .alignItems(VerticalAlign.Center)
+              .onClick(() => {
+                this.toggleRepeatMode();
+              })
+
+              Row({ space: 4 }) {
+                SymbolGlyph($r('sys.symbol.trash'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                Text('清空')
+                  .fontSize(12)
+                  .fontColor($r('sys.color.font_tertiary'))
+              }
+              .alignItems(VerticalAlign.Center)
+              .onClick(() => {
+                this.clearQueue();
+              })
             }
+            .alignItems(VerticalAlign.Center)
           }
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
-          .margin({ top: 16, bottom: 8 })
+          .margin({ top: 12, bottom: 8 })
         }
       }
       .width('100%')

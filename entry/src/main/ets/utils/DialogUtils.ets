@@ -112,6 +112,21 @@ export struct SortJumpDialogContent {
 }
 
 
+/** 「选择器」弹窗内容：TextPicker 滚轮选择 */
+@ComponentV2
+export struct TextPickerDialogContent {
+  build() {
+    TextPicker({ range: DialogManager.pickerOptions, selected: DialogManager.pickerIndex })
+      .onChange((value: string | string[], index: number | number[]) => {
+        if (typeof index === 'number') {
+          DialogManager.pickerIndex = index;
+        }
+      })
+      .width('100%')
+  }
+}
+
+
 /**
  * 公共弹窗管理：各页面通过 OpenDialog(key) 打开 Index 的公共弹窗，
  * 标题 / 按钮 / 确认取消逻辑集中在这里
@@ -139,6 +154,14 @@ export class DialogManager {
   public static sortJumpMax: number = 0;
   /** 「跳转排序」确认回调（target 为 0 基索引，弹窗关闭后自动清空） */
   public static sortJumpConfirm: ((target: number) => void) | null = null;
+  /** 「选择器」标题 */
+  public static pickerTitle: string = '';
+  /** 「选择器」选项文本 */
+  public static pickerOptions: Array<string> = [];
+  /** 「选择器」当前选中下标（打开前赋初值，弹窗内跟随滚动更新） */
+  public static pickerIndex: number = 0;
+  /** 「选择器」确认回调（index 为选中下标，弹窗关闭后自动清空；取消/关闭弹窗不触发） */
+  public static pickerConfirm: ((index: number) => void) | null = null;
 
   // ===== 由 Index 注册的宿主动作 =====
   private static opener: (() => void) | null = null;
@@ -180,6 +203,8 @@ export class DialogManager {
         return '重命名';
       case '跳转排序':
         return '跳转排序';
+      case '选择器':
+        return DialogManager.pickerTitle;
     }
     return '';
   }
@@ -270,6 +295,24 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '选择器': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '确定',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
     }
     return buttons;
   }
@@ -298,6 +341,11 @@ export class DialogManager {
         }
         break;
       }
+      case '选择器':
+        if (DialogManager.pickerConfirm !== null) {
+          DialogManager.pickerConfirm(DialogManager.pickerIndex);
+        }
+        break;
     }
   }
 
@@ -335,6 +383,13 @@ export class DialogManager {
       DialogManager.sortJumpValue = '';
       DialogManager.sortJumpMax = 0;
       DialogManager.sortJumpConfirm = null;
+    }
+    // 选择器同理（取消或关闭弹窗不触发确认回调）
+    if (key === '选择器') {
+      DialogManager.pickerTitle = '';
+      DialogManager.pickerOptions = [];
+      DialogManager.pickerIndex = 0;
+      DialogManager.pickerConfirm = null;
     }
 
     switch (key) {

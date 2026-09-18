@@ -1,5 +1,4 @@
 import { pasteboard } from '@kit.BasicServicesKit';
-import { promptAction } from '@kit.ArkUI';
 import { AVCastPicker } from '@kit.AVSessionKit';
 import { MusicItem, QualityKey, QUALITY_KEYS } from '../common/model/MediaTypes';
 import { CommentItem, CommentsResult } from '../common/model/SheetTypes';
@@ -20,6 +19,7 @@ import { downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
 import { PlayingVisual } from '../view/PlayingVisual';
+import { DialogManager } from '../utils/DialogUtils';
 
 /**
  * 全屏播放页（结构参考官方多设备音乐最佳实践）：
@@ -159,8 +159,20 @@ export struct PlayerPage {
 
   /** 进入歌词模式：定位到当前行 */
   private enterLyricMode(): void {
-    this.showLyric = true;
-    this.scrollToCurrentLyric(false);
+    this.setLyricMode(true);
+  }
+
+  /** 切换封面/歌词模式（显式动画包裹挂载/卸载渐隐） */
+  private setLyricMode(on: boolean): void {
+    if (this.showLyric === on) {
+      return;
+    }
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      this.showLyric = on;
+    });
+    if (on) {
+      this.scrollToCurrentLyric(false);
+    }
   }
 
   /** 用户触摸歌词列表：按下暂停自动滚动，松手 3 秒后恢复 */
@@ -305,37 +317,28 @@ export struct PlayerPage {
     this.loadComments(this.commentsPage + 1);
   }
 
-  /** 音质菜单：四档可选，当前档标注 */
+  /** 音质选择：TextPicker 滚轮（当前档标注），确定生效，取消/关闭弹窗不更改 */
   private showQualityMenu(): void {
-    try {
-      this.getUIContext().getPromptAction().showActionMenu({
-        title: '切换音质（当前：' + PlayerPage.qualityLabel(trackPlayer.quality) + '）',
-        buttons: [
-          { text: this.qualityButtonText('low'), color: $r('sys.color.font_primary') },
-          { text: this.qualityButtonText('standard'), color: $r('sys.color.font_primary') },
-          { text: this.qualityButtonText('high'), color: $r('sys.color.font_primary') },
-          { text: this.qualityButtonText('super'), color: $r('sys.color.font_primary') }
-        ]
-      }).then((resp: promptAction.ActionMenuSuccessResponse): void => {
-        if (resp.index < 0 || resp.index >= QUALITY_KEYS.length) {
-          return;
-        }
-        const quality = QUALITY_KEYS[resp.index];
-        if (quality === trackPlayer.quality) {
-          return;
-        }
-        trackPlayer.changeQuality(quality).then((ok: boolean): void => {
-          this.showToast(ok ? '已切换为' + PlayerPage.qualityLabel(quality) + '音质' : '音质切换失败');
-        });
-      }).catch((_e: Object): void => {
-      });
-    } catch (error) {
-      // TODO: Implement error handling.
+    const options: Array<string> = [];
+    for (const q of QUALITY_KEYS) {
+      options.push(PlayerPage.qualityLabel(q) + (q === trackPlayer.quality ? '（当前）' : ''));
     }
-  }
-
-  private qualityButtonText(q: QualityKey): string {
-    return PlayerPage.qualityLabel(q) + (q === trackPlayer.quality ? '（当前）' : '');
+    DialogManager.pickerTitle = '切换音质';
+    DialogManager.pickerOptions = options;
+    DialogManager.pickerIndex = QUALITY_KEYS.indexOf(trackPlayer.quality);
+    DialogManager.pickerConfirm = (index: number): void => {
+      if (index < 0 || index >= QUALITY_KEYS.length) {
+        return;
+      }
+      const quality = QUALITY_KEYS[index];
+      if (quality === trackPlayer.quality) {
+        return;
+      }
+      trackPlayer.changeQuality(quality).then((ok: boolean): void => {
+        this.showToast(ok ? '已切换为' + PlayerPage.qualityLabel(quality) + '音质' : '音质切换失败');
+      });
+    };
+    DialogManager.OpenDialog('选择器');
   }
 
   /** 切换系统音效开关 */
@@ -509,7 +512,7 @@ export struct PlayerPage {
                   .backgroundColor(this.showLyric ?
                     Color.Transparent : $r('sys.color.comp_background_primary'))
                   .onClick(() => {
-                    this.showLyric = false;
+                    this.setLyricMode(false);
                   })
                 Text('歌词')
                   .fontSize(12)
@@ -602,6 +605,7 @@ export struct PlayerPage {
                   // 播放中跳动柱形 + 粒子（歌词页隐藏）
                  // PlayingVisual().offset({ y: '20%' }).width(280).hitTestBehavior(HitTestMode.Transparent)
                 }.layoutWeight(1)
+                .transition(TransitionEffect.OPACITY)
               } else {
                 // 歌词区：横向滑动返回封面
                 Column() {
@@ -683,9 +687,10 @@ export struct PlayerPage {
                 .gesture(
                   SwipeGesture({ direction: SwipeDirection.Horizontal })
                     .onAction(() => {
-                      this.showLyric = false;
+                      this.setLyricMode(false);
                     })
                 )
+                .transition(TransitionEffect.OPACITY)
               }
 
 
@@ -747,6 +752,7 @@ export struct PlayerPage {
               .justifyContent(FlexAlign.Center)
               .alignItems(HorizontalAlign.Center)
               .margin({ top: 10 })
+              .transition(TransitionEffect.OPACITY)
             }
 
             // 进度条

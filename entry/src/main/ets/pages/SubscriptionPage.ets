@@ -299,7 +299,12 @@ export struct SubscriptionPage {
     }
     // downloadPath 可能无结尾斜杠（公共目录），先补齐再拼接，避免目录名黏连
     const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
-    const destPath = base + '订阅源/' + FileUtils.escapeCharacter(SubscriptionPage.sourceTitle(this.detailUrl));
+    // 文件名必须带 .js/.json 扩展名，否则本地导入的文件选择器按后缀过滤时不可见
+    let name = FileUtils.escapeCharacter(SubscriptionPage.sourceTitle(this.detailUrl));
+    if (!name.endsWith('.js') && !name.endsWith('.json')) {
+      name += this.detailUrl.split('?')[0].endsWith('.js') ? '.js' : '.json';
+    }
+    const destPath = base + '订阅源/' + name;
     if (FileUtils.writeFileText(destPath, text)) {
       this.showToast('已导出到 ' + destPath);
     } else {

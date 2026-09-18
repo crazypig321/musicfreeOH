@@ -723,6 +723,7 @@ export struct DownloadPage {
           // 渐变模糊高度与底栏内容高度保持一致：
           // 14(顶距) + 22(已选行) + 10 + 36(按钮行1) + 10 + 36(按钮行2) + 12(底距) + 导航栏避让
           CommonBlur({ heightValue: appState.bottomRect + 140 }).position({ bottom: 0 })
+            .transition(TransitionEffect.OPACITY)
 
 
           Column({ space: 10 }) {
@@ -793,6 +794,7 @@ export struct DownloadPage {
           .width('100%')
           .position({ bottom: 0 })
           .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+          .transition(TransitionEffect.OPACITY)
         }
 
         // 批量「添加到歌单」选择器锚点（独立节点挂载半模态，不与单项操作 sheet 共用宿主）
@@ -909,6 +911,7 @@ export struct DownloadPage {
           SymbolGlyph(this.isSelected(item) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
             .fontSize(24)
             .fontColor([this.isSelected(item) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
         }
         // 封面：有图用 Image，无图用音符占位
         if (item.artwork.length > 0) {
@@ -953,6 +956,7 @@ export struct DownloadPage {
           SymbolGlyph($r('sys.symbol.ellipsis_circle'))
             .fontSize(20)
             .fontColor([$r('sys.color.icon_secondary')])
+            .transition(TransitionEffect.OPACITY)
             .onClick(() => {
               this.optionsItem = item.clone();
               // 本地模式：与主页本地音乐条目一致的完整操作面板；下载模式：本页简化面板
