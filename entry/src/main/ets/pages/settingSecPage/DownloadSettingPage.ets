@@ -9,7 +9,7 @@ import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
  * 下载设置页面
  * 使用移动网络下载 / 下载音质 / 首选音质不可用时 / 最大同时下载数 / 任务间隔
  * 开关类条目右侧 Toggle；选择类条目右侧当前值 + chevron，点击弹「选择器」滚轮
- * 智感握姿：左手握持时行首图标镜像到行尾、文本右对齐（原理同歌单详情页条目）
+ * 智感握姿：左手握持时原本行尾的开关/值镜像到行首，文本右对齐，行首图标镜像到行尾
  */
 @ComponentV2
 export struct DownloadSettingPage {
@@ -163,6 +163,14 @@ export struct DownloadSettingPage {
             Column() {
               // 使用移动网络下载
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.useCellularDownload })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.useCellularDownload = isOn;
+                      appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_DOWNLOAD, isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.download'))
                     .fontSize(20)
@@ -173,12 +181,14 @@ export struct DownloadSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.useCellularDownload })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.useCellularDownload = isOn;
-                    appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_DOWNLOAD, isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.useCellularDownload })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.useCellularDownload = isOn;
+                      appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_DOWNLOAD, isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.download'))
                     .fontSize(20)
@@ -193,6 +203,14 @@ export struct DownloadSettingPage {
 
               // 下载音质
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.downloadQualityText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.hi_waveform_2'))
                     .fontSize(20)
@@ -203,12 +221,14 @@ export struct DownloadSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.downloadQualityText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.downloadQualityText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.hi_waveform_2'))
                     .fontSize(20)
@@ -226,6 +246,14 @@ export struct DownloadSettingPage {
 
               // 首选音质不可用时
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.downloadQualityOrderText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.waveform'))
                     .fontSize(20)
@@ -236,12 +264,14 @@ export struct DownloadSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.downloadQualityOrderText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.downloadQualityOrderText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.waveform'))
                     .fontSize(20)
@@ -259,6 +289,14 @@ export struct DownloadSettingPage {
 
               // 最大同时下载数
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.maxDownloadText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.square_stack_3d'))
                     .fontSize(20)
@@ -269,12 +307,14 @@ export struct DownloadSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.maxDownloadText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.maxDownloadText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.square_stack_3d'))
                     .fontSize(20)
@@ -292,6 +332,14 @@ export struct DownloadSettingPage {
 
               // 任务间隔
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.taskIntervalText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.timer'))
                     .fontSize(20)
@@ -302,12 +350,14 @@ export struct DownloadSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.taskIntervalText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.taskIntervalText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.timer'))
                     .fontSize(20)

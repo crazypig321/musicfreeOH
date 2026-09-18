@@ -16,6 +16,7 @@ import { SheetDetailNavParams, ROUTE_SHEET_DETAIL } from '../common/model/NavMod
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { JsonUtil } from '../common/JsonUtil';
+import { DialogManager } from '../utils/DialogUtils';
 
 /** 添加菜单锚点 id（openMenu 在锚点处弹出） */
 const ADD_ANCHOR_ID = 'mysheets_add_anchor';
@@ -460,14 +461,16 @@ export struct MySheetsPage {
     this.showToast('已保存');
   }
 
-  /** 删除歌单条目 */
+  /** 删除歌单条目（弹窗确认，取消不删除） */
   private deleteSheet(row: SheetRow): void {
     if (row.isDefault) {
       this.showToast('默认歌单无法删除');
       return;
     }
-    musicSheet.removeSheet(row.id);
-    this.showToast('已删除「' + row.title + '」');
+    DialogManager.ConfirmDelete('确定删除歌单「' + row.title + '」吗？', (): void => {
+      musicSheet.removeSheet(row.id);
+      this.showToast('已删除「' + row.title + '」');
+    });
   }
 
   /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出；显式动画包裹避免突兀） */
@@ -567,21 +570,23 @@ export struct MySheetsPage {
     });
   }
 
-  /** 批量删除选中歌单 */
+  /** 批量删除选中歌单（弹窗确认，取消不删除） */
   private batchDelete(): void {
     const sheets = this.selectedSheets();
     if (sheets.length === 0) {
       this.showToast('请先勾选歌单');
       return;
     }
-    let ok = 0;
-    for (const sheet of sheets) {
-      musicSheet.removeSheet(sheet.id);
-      ok++;
-    }
-    this.exitBatchMode();
-    this.refreshSheets();
-    this.showToast('已删除 ' + ok.toString() + ' 个歌单');
+    DialogManager.ConfirmDelete('确定删除选中的 ' + sheets.length.toString() + ' 个歌单吗？', (): void => {
+      let ok = 0;
+      for (const sheet of sheets) {
+        musicSheet.removeSheet(sheet.id);
+        ok++;
+      }
+      this.exitBatchMode();
+      this.refreshSheets();
+      this.showToast('已删除 ' + ok.toString() + ' 个歌单');
+    });
   }
 
   /** 进入歌单详情页（本地歌单模式） */

@@ -208,20 +208,23 @@ export struct SubscriptionPage {
     }
   }
 
-  /** 批量删除选中订阅源 */
+  /** 批量删除选中订阅源（弹窗确认，取消不删除） */
   private batchDelete(): void {
     if (this.batchSelected.length === 0) {
       this.showToast('请先勾选订阅源');
       return;
     }
-    let ok = 0;
-    for (const url of this.batchSelected) {
-      Subscriptions.removeSource(url);
-      ok++;
-    }
-    this.exitBatchMode();
-    this.sources = Subscriptions.getSources();
-    this.showToast('已删除 ' + ok.toString() + ' 个订阅源');
+    const targets = this.batchSelected.slice();
+    DialogManager.ConfirmDelete('确定删除选中的 ' + targets.length.toString() + ' 个订阅源吗？', (): void => {
+      let ok = 0;
+      for (const url of targets) {
+        Subscriptions.removeSource(url);
+        ok++;
+      }
+      this.exitBatchMode();
+      this.sources = Subscriptions.getSources();
+      this.showToast('已删除 ' + ok.toString() + ' 个订阅源');
+    });
   }
 
   /** 导入菜单：网络导入 / 本地导入 */
@@ -381,11 +384,13 @@ export struct SubscriptionPage {
     this.updating = false;
   }
 
-  /** 删除订阅源 */
+  /** 删除订阅源（弹窗确认，取消不删除；左滑与详情面板共用） */
   private removeSource(url: string): void {
-    Subscriptions.removeSource(url);
-    this.sources = Subscriptions.getSources();
-    this.showToast('已删除订阅源');
+    DialogManager.ConfirmDelete('确定删除订阅源「' + SubscriptionPage.sourceTitle(url) + '」吗？', (): void => {
+      Subscriptions.removeSource(url);
+      this.sources = Subscriptions.getSources();
+      this.showToast('已删除订阅源');
+    });
   }
 
   // ===== 左滑编辑/删除（UI 同我的歌单页） =====

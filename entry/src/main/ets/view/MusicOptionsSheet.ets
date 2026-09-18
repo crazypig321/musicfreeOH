@@ -357,13 +357,16 @@ export struct MusicOptionsSheet {
     this.showToast('已加入播放队列');
   }
 
-  /** 从当前歌单删除本曲（仅歌单详情页本地歌单面板显示）；列表随 onMusicListUpdated 自动刷新 */
+  /** 从当前歌单删除本曲（仅歌单详情页本地歌单面板显示；弹窗确认，取消不删除）；
+   * 列表随 onMusicListUpdated 自动刷新 */
   private removeFromCurrentSheet(): void {
     const target = this.optionsItem;
     const sheetId = this.removeSheetId;
     this.onClose();
-    musicSheet.removeMusic(sheetId, [target]).then((): void => {
-      this.showToast('已从歌单中删除');
+    DialogManager.ConfirmDelete('确定从当前歌单删除「' + target.title + '」吗？', (): void => {
+      musicSheet.removeMusic(sheetId, [target]).then((): void => {
+        this.showToast('已从歌单中删除');
+      });
     });
   }
 
@@ -377,12 +380,14 @@ export struct MusicOptionsSheet {
     });
   }
 
-  /** 删除歌曲与本地文件（已下载列表同步移除记录）；仅本地音乐列表面板显示 */
+  /** 删除歌曲与本地文件（已下载列表同步移除记录；弹窗确认，取消不删除）；仅本地音乐列表面板显示 */
   private deleteLocalMusicFile(): void {
     const target = this.optionsItem;
     this.onClose();
-    localMusicSheet.removeMusic(target, true).then((): void => {
-      this.showToast('已删除歌曲与本地文件');
+    DialogManager.ConfirmDelete('确定删除「' + target.title + '」及其本地文件吗？', (): void => {
+      localMusicSheet.removeMusic(target, true).then((): void => {
+        this.showToast('已删除歌曲与本地文件');
+      });
     });
   }
 

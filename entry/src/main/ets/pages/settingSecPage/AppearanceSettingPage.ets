@@ -317,6 +317,19 @@ export struct AppearanceSettingPage {
             Column() {
               // 主题色（Tab 文本选中色直接适配主题色）
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  // 取色器（仅网格取色，紧凑内嵌；左手时镜像到行首）
+                  Row() {
+                    HdsColorPicker({
+                      initialColor: this.pickerColor,
+                      onColorSelected: (selectedColor: string): void => {
+                        this.pickerColor = selectedColor;
+                        this.applyThemeColor(selectedColor);
+                      },
+                      options: { tabs: [HdsColorPickerTabType.GRID] }
+                    })
+                  }
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.paintpalette'))
                     .fontSize(20)
@@ -327,16 +340,18 @@ export struct AppearanceSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                // 取色器（仅网格取色，紧凑内嵌，靠行尾右对齐）
-                Row() {
-                  HdsColorPicker({
-                    initialColor: this.pickerColor,
-                    onColorSelected: (selectedColor: string): void => {
-                      this.pickerColor = selectedColor;
-                      this.applyThemeColor(selectedColor);
-                    },
-                    options: { tabs: [HdsColorPickerTabType.GRID] }
-                  })
+                if (appState.holdingHand !== 'left') {
+                  // 取色器（仅网格取色，紧凑内嵌，靠行尾右对齐）
+                  Row() {
+                    HdsColorPicker({
+                      initialColor: this.pickerColor,
+                      onColorSelected: (selectedColor: string): void => {
+                        this.pickerColor = selectedColor;
+                        this.applyThemeColor(selectedColor);
+                      },
+                      options: { tabs: [HdsColorPickerTabType.GRID] }
+                    })
+                  }
                 }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.paintpalette'))
@@ -352,6 +367,14 @@ export struct AppearanceSettingPage {
 
               // 深色模式
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.colorModeText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.moon'))
                     .fontSize(20)
@@ -362,12 +385,14 @@ export struct AppearanceSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.colorModeText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.colorModeText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.moon'))
                     .fontSize(20)
@@ -391,6 +416,14 @@ export struct AppearanceSettingPage {
 
               // 沉浸光感材质
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.materialText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.camera_filters'))
                     .fontSize(20)
@@ -401,12 +434,14 @@ export struct AppearanceSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.materialText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.materialText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.camera_filters'))
                     .fontSize(20)
@@ -430,6 +465,14 @@ export struct AppearanceSettingPage {
 
               // 动画
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.animText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.wand_and_stars'))
                     .fontSize(20)
@@ -440,12 +483,14 @@ export struct AppearanceSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.animText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.animText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.wand_and_stars'))
                     .fontSize(20)
@@ -472,6 +517,15 @@ export struct AppearanceSettingPage {
             Column() {
               // 智感握姿（适人握持）
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.smartReachEnabled })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.smartReachEnabled = isOn;
+                      appConfig.setConfig(ConfigKeys.APPEARANCE_SMART_REACH, isOn);
+                      SmartReach.setEnabled(isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.hand_thumbsup'))
                     .fontSize(20)
@@ -491,13 +545,15 @@ export struct AppearanceSettingPage {
                 }
                 .layoutWeight(1)
                 .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.smartReachEnabled })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.smartReachEnabled = isOn;
-                    appConfig.setConfig(ConfigKeys.APPEARANCE_SMART_REACH, isOn);
-                    SmartReach.setEnabled(isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.smartReachEnabled })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.smartReachEnabled = isOn;
+                      appConfig.setConfig(ConfigKeys.APPEARANCE_SMART_REACH, isOn);
+                      SmartReach.setEnabled(isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.hand_thumbsup'))
                     .fontSize(20)
@@ -512,6 +568,14 @@ export struct AppearanceSettingPage {
 
               // 屏幕方向
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.orientationText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.rotate_left'))
                     .fontSize(20)
@@ -522,12 +586,14 @@ export struct AppearanceSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.orientationText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.orientationText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.rotate_left'))
                     .fontSize(20)

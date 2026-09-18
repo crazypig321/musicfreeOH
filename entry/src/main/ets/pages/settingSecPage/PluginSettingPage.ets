@@ -6,7 +6,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 /**
  * 插件设置页面
  * 启动时自动更新插件 / 允许旧版本插件覆盖新版本插件 / 忽略插件的应用版本要求(实验性)
- * 条目行 UI 同播放/下载设置页；智感握姿：左手时行首图标镜像到行尾、文本右对齐
+ * 条目行 UI 同播放/下载设置页；智感握姿：左手时开关镜像到行首、文本右对齐、图标镜像到行尾
  */
 @ComponentV2
 export struct PluginSettingPage {
@@ -36,6 +36,14 @@ export struct PluginSettingPage {
             Column() {
               // 启动时自动更新插件
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoUpdatePlugin })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoUpdatePlugin = isOn;
+                      appConfig.setConfig(ConfigKeys.AUTO_UPDATE_PLUGIN, isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.arrow_clockwise'))
                     .fontSize(20)
@@ -46,12 +54,14 @@ export struct PluginSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.autoUpdatePlugin })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.autoUpdatePlugin = isOn;
-                    appConfig.setConfig(ConfigKeys.AUTO_UPDATE_PLUGIN, isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoUpdatePlugin })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoUpdatePlugin = isOn;
+                      appConfig.setConfig(ConfigKeys.AUTO_UPDATE_PLUGIN, isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.arrow_clockwise'))
                     .fontSize(20)
@@ -66,6 +76,14 @@ export struct PluginSettingPage {
 
               // 允许旧版本插件覆盖新版本插件
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.notCheckPluginVersion })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.notCheckPluginVersion = isOn;
+                      appConfig.setConfig(ConfigKeys.NOT_CHECK_PLUGIN_VERSION, isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.arrow_counterclockwise'))
                     .fontSize(20)
@@ -76,12 +94,14 @@ export struct PluginSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.notCheckPluginVersion })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.notCheckPluginVersion = isOn;
-                    appConfig.setConfig(ConfigKeys.NOT_CHECK_PLUGIN_VERSION, isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.notCheckPluginVersion })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.notCheckPluginVersion = isOn;
+                      appConfig.setConfig(ConfigKeys.NOT_CHECK_PLUGIN_VERSION, isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.arrow_counterclockwise'))
                     .fontSize(20)
@@ -96,6 +116,14 @@ export struct PluginSettingPage {
 
               // 忽略插件的应用版本要求(实验性)
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.ignorePluginAppVersion })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.ignorePluginAppVersion = isOn;
+                      appConfig.setConfig(ConfigKeys.IGNORE_PLUGIN_APP_VERSION, isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.gearshape'))
                     .fontSize(20)
@@ -106,12 +134,14 @@ export struct PluginSettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.ignorePluginAppVersion })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.ignorePluginAppVersion = isOn;
-                    appConfig.setConfig(ConfigKeys.IGNORE_PLUGIN_APP_VERSION, isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.ignorePluginAppVersion })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.ignorePluginAppVersion = isOn;
+                      appConfig.setConfig(ConfigKeys.IGNORE_PLUGIN_APP_VERSION, isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.gearshape'))
                     .fontSize(20)

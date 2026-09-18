@@ -176,6 +176,18 @@ export struct ClearCacheDialogContent {
 }
 
 
+/** 「确认删除」弹窗内容：确认文案 */
+@ComponentV2
+export struct ConfirmDeleteDialogContent {
+  build() {
+    Text(DialogManager.confirmDeleteMessage)
+      .fontSize(14)
+      .fontColor($r('sys.color.font_primary'))
+      .width('100%')
+  }
+}
+
+
 /** 「选择器」弹窗内容：TextPicker 滚轮选择 */
 @ComponentV2
 export struct TextPickerDialogContent {
@@ -343,6 +355,10 @@ export class DialogManager {
   public static clearCacheMessage: string = '';
   /** 「清除缓存」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
   public static clearCacheConfirm: (() => void) | null = null;
+  /** 「确认删除」正文（打开前由调用方赋值） */
+  public static confirmDeleteMessage: string = '';
+  /** 「确认删除」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
+  public static confirmDeleteConfirm: (() => void) | null = null;
 
   // ===== 由 Index 注册的宿主动作 =====
   private static opener: (() => void) | null = null;
@@ -362,6 +378,13 @@ export class DialogManager {
     if (DialogManager.opener !== null) {
       DialogManager.opener();
     }
+  }
+
+  /** 通用删除确认弹窗：message 提示文案，onConfirm 点击「删除」后才执行（取消不执行） */
+  public static ConfirmDelete(message: string, onConfirm: () => void): void {
+    DialogManager.confirmDeleteMessage = message;
+    DialogManager.confirmDeleteConfirm = onConfirm;
+    DialogManager.OpenDialog('确认删除');
   }
 
   /** 弹窗内轻提示 */
@@ -392,6 +415,8 @@ export class DialogManager {
         return '设置缓存';
       case '清除缓存':
         return '清除缓存';
+      case '确认删除':
+        return '删除';
       case '免责声明':
         return '免责声明';
     }
@@ -556,6 +581,24 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '确认删除': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '删除',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
       case '免责声明': {
         const ok: ButtonOptions = {
           value: '我知道了',
@@ -612,6 +655,11 @@ export class DialogManager {
       case '清除缓存':
         if (DialogManager.clearCacheConfirm !== null) {
           DialogManager.clearCacheConfirm();
+        }
+        break;
+      case '确认删除':
+        if (DialogManager.confirmDeleteConfirm !== null) {
+          DialogManager.confirmDeleteConfirm();
         }
         break;
     }
@@ -676,6 +724,11 @@ export class DialogManager {
     if (key === '清除缓存') {
       DialogManager.clearCacheMessage = '';
       DialogManager.clearCacheConfirm = null;
+    }
+    // 确认删除同理（取消或关闭弹窗不触发删除）
+    if (key === '确认删除') {
+      DialogManager.confirmDeleteMessage = '';
+      DialogManager.confirmDeleteConfirm = null;
     }
 
     switch (key) {

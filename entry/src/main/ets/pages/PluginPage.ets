@@ -601,13 +601,20 @@ export struct PluginPage {
     });
   }
 
-  /** 批量卸载选中插件 */
-  private async batchUninstall(): Promise<void> {
+  /** 批量卸载选中插件（弹窗确认，取消不卸载） */
+  private batchUninstall(): void {
     const plugins = this.selectedPlugins();
     if (plugins.length === 0) {
       this.showToast('请先勾选插件');
       return;
     }
+    DialogManager.ConfirmDelete('确定卸载选中的 ' + plugins.length.toString() + ' 个插件吗？', (): void => {
+      this.doBatchUninstall(plugins);
+    });
+  }
+
+  /** 确认后执行批量卸载 */
+  private async doBatchUninstall(plugins: Array<Plugin>): Promise<void> {
     let ok = 0;
     let fail = 0;
     for (const p of plugins) {
@@ -624,22 +631,25 @@ export struct PluginPage {
       (fail > 0 ? '，' + fail.toString() + ' 个失败' : ''));
   }
 
-  /** 卸载当前详情插件 */
+  /** 卸载当前详情插件（弹窗确认，取消不卸载） */
   private uninstallDetail(): void {
     if (this.detailName === '本地') {
       this.showToast('内置插件无法卸载');
       return;
     }
     const hash = this.detailHash;
-    this.showDetailSheet = false;
-    pluginManager.uninstallPlugin(hash)
-      .then(() => {
-        this.showToast('已卸载: ' + this.detailName);
-        this.refreshPlugins();
-      })
-      .catch((e: Object) => {
-        this.showToast('卸载失败: ' + (e instanceof Error ? e.message : ''));
-      });
+    const name = this.detailName;
+    DialogManager.ConfirmDelete('确定卸载插件「' + name + '」吗？', (): void => {
+      this.showDetailSheet = false;
+      pluginManager.uninstallPlugin(hash)
+        .then(() => {
+          this.showToast('已卸载: ' + name);
+          this.refreshPlugins();
+        })
+        .catch((e: Object) => {
+          this.showToast('卸载失败: ' + (e instanceof Error ? e.message : ''));
+        });
+    });
   }
 
   private showToast(message: string): void {

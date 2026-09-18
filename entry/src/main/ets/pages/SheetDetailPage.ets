@@ -16,6 +16,7 @@ import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
+import { DialogManager } from '../utils/DialogUtils';
 
 /**
  * 歌单详情页：主页榜单卡片 / 推荐歌单网格点击进入
@@ -627,7 +628,7 @@ export struct SheetDetailPage {
     });
   }
 
-  /** 批量删除本地歌单中的选中歌曲 */
+  /** 批量删除本地歌单中的选中歌曲（弹窗确认，取消不删除） */
   private batchRemoveFromSheet(): void {
     const items = this.selectedItems();
     if (items.length === 0) {
@@ -638,11 +639,13 @@ export struct SheetDetailPage {
     if (sheet === null) {
       return;
     }
-    musicSheet.removeMusic(sheet.id, items).then((): void => {
-      this.exitBatchMode();
-      this.showToast('已删除 ' + items.length.toString() + ' 首歌曲');
-    }).catch((_e: Object): void => {
-      this.showToast('删除失败');
+    DialogManager.ConfirmDelete('确定从歌单删除选中的 ' + items.length.toString() + ' 首歌曲吗？', (): void => {
+      musicSheet.removeMusic(sheet.id, items).then((): void => {
+        this.exitBatchMode();
+        this.showToast('已删除 ' + items.length.toString() + ' 首歌曲');
+      }).catch((_e: Object): void => {
+        this.showToast('删除失败');
+      });
     });
   }
 
@@ -974,22 +977,24 @@ export struct SheetDetailPage {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
 
-      // 全部播放 + 导入我的歌单 + 批量操作
+      // 全部播放 + 导入我的歌单 + 批量操作（智感握姿左手：全部播放与右侧图标互换）
       Row({ space: 12 }) {
-        Row({ space: 6 }) {
-          SymbolGlyph($r('sys.symbol.play_circle_fill'))
-            .fontSize(36)
-            .fontColor([$r('sys.color.font')])
-          Text('全部播放' + (this.musicCount > 0 ? ' · ' + this.musicCount.toString() : ''))
-            .fontSize(18)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font'))
+        if (appState.holdingHand !== 'left') {
+          Row({ space: 6 }) {
+            SymbolGlyph($r('sys.symbol.play_circle_fill'))
+              .fontSize(36)
+              .fontColor([$r('sys.color.font')])
+            Text('全部播放' + (this.musicCount > 0 ? ' · ' + this.musicCount.toString() : ''))
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font'))
+          }
+          .layoutWeight(1)
+          .height(40)
+          .onClick(() => {
+            this.playAll();
+          })
         }
-        .layoutWeight(1)
-        .height(40)
-        .onClick(() => {
-          this.playAll();
-        })
 
         // 本地歌单（我的歌单进入）不显示导入按钮
         if (!this.isLocalSheet) {
@@ -1007,6 +1012,24 @@ export struct SheetDetailPage {
           .onClick(() => {
             this.enterBatchMode();
           })
+
+        if (appState.holdingHand === 'left') {
+          Row({ space: 6 }) {
+            Text('全部播放' + (this.musicCount > 0 ? ' · ' + this.musicCount.toString() : ''))
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font'))
+            SymbolGlyph($r('sys.symbol.play_circle_fill'))
+              .fontSize(36)
+              .fontColor([$r('sys.color.font')])
+          }
+          .layoutWeight(1)
+          .height(40)
+          .justifyContent(FlexAlign.End)
+          .onClick(() => {
+            this.playAll();
+          })
+        }
       }
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
@@ -1018,7 +1041,7 @@ export struct SheetDetailPage {
   }
 
   /** 歌曲行（风格同本地音乐页条目）：点击播放，更多操作进半模态；批量模式下点击勾选、长按进入批量模式。
-   * 智感握姿：左手握持时文本右对齐，时长与更多按钮保持右侧原顺序，封面镜像到最右 */
+    * 智感握姿：左手握持时 更多按钮+时长 镜像到行首，歌名与下方文本右对齐，封面镜像到最右 */
   @Builder
   MusicRowBuilder(item: MusicItem, index: number) {
     Column() {
@@ -1029,6 +1052,21 @@ export struct SheetDetailPage {
             .fontSize(24)
             .fontColor([this.isSelected(item) ? appState.accentColor : $r('sys.color.icon_tertiary')])
             .transition(TransitionEffect.OPACITY)
+        }
+        // 智感握姿左手：更多按钮 + 时长镜像到行首
+        if (appState.holdingHand === 'left') {
+          if (!appState.isBatchMode) {
+            SymbolGlyph($r('sys.symbol.ellipsis_circle'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+              .transition(TransitionEffect.OPACITY)
+              .onClick(() => {
+                this.openOptions(item);
+              })
+          }
+          Text(SheetDetailPage.formatDuration(item.duration))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
         }
         // 封面：有图用 Image，无图用音符占位（左手时镜像到行尾）
         if (appState.holdingHand !== 'left') {
@@ -1060,8 +1098,8 @@ export struct SheetDetailPage {
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Row({ space: 5 }) {
-            // 来源标签（样式同首页来源标签）
-            if (item.platform.length > 0) {
+            // 来源标签（样式同首页来源标签；左手时镜像到文本右侧）
+            if (appState.holdingHand !== 'left' && item.platform.length > 0) {
               Text(item.platform)
                 .fontSize(10)
                 .fontColor($r('sys.color.font_tertiary'))
@@ -1078,24 +1116,38 @@ export struct SheetDetailPage {
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .layoutWeight(1)
+              .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+            if (appState.holdingHand === 'left' && item.platform.length > 0) {
+              Text(item.platform)
+                .fontSize(10)
+                .fontColor($r('sys.color.font_tertiary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .constraintSize({ maxWidth: 64 })
+                .padding({ top: 3, bottom: 3, left: 5, right: 5 })
+                .borderRadius(3)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+            }
           }
           .width('100%')
-          .justifyContent(appState.holdingHand === 'left' ? FlexAlign.End : FlexAlign.Start)
         }
         .layoutWeight(1)
         .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
 
-        Text(SheetDetailPage.formatDuration(item.duration))
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-        if (!appState.isBatchMode) {
-          SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-            .transition(TransitionEffect.OPACITY)
-            .onClick(() => {
-              this.openOptions(item);
-            })
+        // 右手：时长 + 更多按钮保持行尾原顺序
+        if (appState.holdingHand !== 'left') {
+          Text(SheetDetailPage.formatDuration(item.duration))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+          if (!appState.isBatchMode) {
+            SymbolGlyph($r('sys.symbol.ellipsis_circle'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+              .transition(TransitionEffect.OPACITY)
+              .onClick(() => {
+                this.openOptions(item);
+              })
+          }
         }
         // 智感握姿左手：封面镜像到行尾
         if (appState.holdingHand === 'left') {

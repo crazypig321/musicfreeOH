@@ -10,7 +10,7 @@ import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
  * 使用移动网络播放 / 启动自动续播 / 播放失败时停止播放 / 播放失败时尝试更换音源 /
  * 播放音质 / 首选音质不可用时
  * 开关类条目右侧 Toggle；选择类条目右侧当前值 + chevron，点击弹「选择器」滚轮
- * 智感握姿：左手握持时行首图标镜像到行尾、文本右对齐（原理同歌单详情页条目）
+ * 智感握姿：左手握持时原本行尾的开关/值镜像到行首，文本右对齐，行首图标镜像到行尾
  */
 @ComponentV2
 export struct PlaySettingPage {
@@ -108,6 +108,14 @@ export struct PlaySettingPage {
             Column() {
               // 使用移动网络播放
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.useCellularPlay })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.useCellularPlay = isOn;
+                      appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_PLAY, isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
                     .fontSize(20)
@@ -118,12 +126,14 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.useCellularPlay })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.useCellularPlay = isOn;
-                    appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_PLAY, isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.useCellularPlay })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.useCellularPlay = isOn;
+                      appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_PLAY, isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
                     .fontSize(20)
@@ -138,6 +148,14 @@ export struct PlaySettingPage {
 
               // 启动自动续播
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoPlayWhenAppStart })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoPlayWhenAppStart = isOn;
+                      appConfig.setConfig(ConfigKeys.AUTO_PLAY_WHEN_APP_START, isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.play_fill'))
                     .fontSize(20)
@@ -148,12 +166,14 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.autoPlayWhenAppStart })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.autoPlayWhenAppStart = isOn;
-                    appConfig.setConfig(ConfigKeys.AUTO_PLAY_WHEN_APP_START, isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoPlayWhenAppStart })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoPlayWhenAppStart = isOn;
+                      appConfig.setConfig(ConfigKeys.AUTO_PLAY_WHEN_APP_START, isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.play_fill'))
                     .fontSize(20)
@@ -168,6 +188,14 @@ export struct PlaySettingPage {
 
               // 播放失败时停止播放
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoStopWhenError })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoStopWhenError = isOn;
+                      appConfig.setConfig(ConfigKeys.AUTO_STOP_WHEN_ERROR, isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.stop_circle'))
                     .fontSize(20)
@@ -178,12 +206,14 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.autoStopWhenError })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.autoStopWhenError = isOn;
-                    appConfig.setConfig(ConfigKeys.AUTO_STOP_WHEN_ERROR, isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoStopWhenError })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoStopWhenError = isOn;
+                      appConfig.setConfig(ConfigKeys.AUTO_STOP_WHEN_ERROR, isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.stop_circle'))
                     .fontSize(20)
@@ -198,6 +228,14 @@ export struct PlaySettingPage {
 
               // 播放失败时尝试更换音源
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.tryChangeSource })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.tryChangeSource = isOn;
+                      appConfig.setConfig(ConfigKeys.TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL, isOn);
+                    })
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
                     .fontSize(20)
@@ -208,12 +246,14 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.tryChangeSource })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.tryChangeSource = isOn;
-                    appConfig.setConfig(ConfigKeys.TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL, isOn);
-                  })
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.tryChangeSource })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.tryChangeSource = isOn;
+                      appConfig.setConfig(ConfigKeys.TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL, isOn);
+                    })
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
                     .fontSize(20)
@@ -228,6 +268,14 @@ export struct PlaySettingPage {
 
               // 播放音质
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.playQualityText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.hi_waveform_2'))
                     .fontSize(20)
@@ -238,12 +286,14 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.playQualityText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.playQualityText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.hi_waveform_2'))
                     .fontSize(20)
@@ -261,6 +311,14 @@ export struct PlaySettingPage {
 
               // 首选音质不可用时
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.playQualityOrderText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand !== 'left') {
                   SymbolGlyph($r('sys.symbol.waveform'))
                     .fontSize(20)
@@ -271,12 +329,14 @@ export struct PlaySettingPage {
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                Text(this.playQualityOrderText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand !== 'left') {
+                  Text(this.playQualityOrderText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
                 if (appState.holdingHand === 'left') {
                   SymbolGlyph($r('sys.symbol.waveform'))
                     .fontSize(20)

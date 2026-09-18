@@ -6,7 +6,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 /**
  * 歌词设置页面
  * 歌词缺失时自动搜索（右侧开关）
- * 条目行 UI 同播放/下载设置页；智感握姿：左手时行首图标镜像到行尾、文本右对齐
+ * 条目行 UI 同播放/下载设置页；智感握姿：左手时开关镜像到行首、文本右对齐、图标镜像到行尾
  */
 @ComponentV2
 export struct LyricSettingPage {
@@ -33,6 +33,14 @@ export struct LyricSettingPage {
           ListItem() {
             // 歌词缺失时自动搜索
             Row({ space: 12 }) {
+              if (appState.holdingHand === 'left') {
+                Toggle({ type: ToggleType.Switch, isOn: this.autoSearchLyric })
+                  .selectedColor(appState.accentColor)
+                  .onChange((isOn: boolean) => {
+                    this.autoSearchLyric = isOn;
+                    appConfig.setConfig(ConfigKeys.LYRIC_AUTO_SEARCH_LYRIC, isOn);
+                  })
+              }
               if (appState.holdingHand !== 'left') {
                 SymbolGlyph($r('sys.symbol.doc_plaintext'))
                   .fontSize(20)
@@ -43,12 +51,14 @@ export struct LyricSettingPage {
                 .fontColor($r('sys.color.font_primary'))
                 .layoutWeight(1)
                 .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-              Toggle({ type: ToggleType.Switch, isOn: this.autoSearchLyric })
-                .selectedColor(appState.accentColor)
-                .onChange((isOn: boolean) => {
-                  this.autoSearchLyric = isOn;
-                  appConfig.setConfig(ConfigKeys.LYRIC_AUTO_SEARCH_LYRIC, isOn);
-                })
+              if (appState.holdingHand !== 'left') {
+                Toggle({ type: ToggleType.Switch, isOn: this.autoSearchLyric })
+                  .selectedColor(appState.accentColor)
+                  .onChange((isOn: boolean) => {
+                    this.autoSearchLyric = isOn;
+                    appConfig.setConfig(ConfigKeys.LYRIC_AUTO_SEARCH_LYRIC, isOn);
+                  })
+              }
               if (appState.holdingHand === 'left') {
                 SymbolGlyph($r('sys.symbol.doc_plaintext'))
                   .fontSize(20)

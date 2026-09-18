@@ -34,7 +34,7 @@ import { PlayBar } from '../view/PlayBar';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent } from '../utils/DialogUtils';
+  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -317,6 +317,8 @@ struct Index {
       CacheInputDialogContent()
     } else if (key === '清除缓存') {
       ClearCacheDialogContent()
+    } else if (key === '确认删除') {
+      ConfirmDeleteDialogContent()
     }
   }
 }
