@@ -227,7 +227,7 @@ export struct AboutPage {
                 .fontSize(15)
                 .fontColor($r('sys.color.font_primary'))
                 .layoutWeight(1)
-              Text('^1.0.1')
+              Text('1.0.1')
                 .fontSize(11)
                 .fontColor($r('sys.color.font_tertiary'))
               SymbolGlyph($r('sys.symbol.chevron_right'))
