@@ -163,7 +163,37 @@ export struct SubscriptionPage {
   /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」） */
   private batchButtonLabels(): Array<string> {
     const allSelected = this.sources.length > 0 && this.batchSelected.length === this.sources.length;
-    return [allSelected ? '取消全选' : '全选', '删除'];
+    return [allSelected ? '取消全选' : '全选', '导出', '删除'];
+  }
+
+  /** 批量导出选中订阅源文件到 下载目录/订阅源 文件夹 */
+  private async batchExport(): Promise<void> {
+    if (this.batchSelected.length === 0) {
+      this.showToast('请先勾选订阅源');
+      return;
+    }
+    if (this.updating) {
+      this.showToast('正在处理中，请稍候');
+      return;
+    }
+    this.updating = true;
+    this.showToast('正在导出订阅源...');
+    let ok = 0;
+    let fail = 0;
+    for (const url of this.batchSelected) {
+      const destPath = await this.exportSourceFile(url);
+      if (destPath !== null) {
+        ok++;
+      } else {
+        fail++;
+      }
+    }
+    this.updating = false;
+    if (fail === 0) {
+      this.showToast('已导出 ' + ok.toString() + ' 个订阅源文件');
+    } else {
+      this.showToast('导出完成：' + ok.toString() + ' 成功，' + fail.toString() + ' 失败');
+    }
   }
 
   /** 批量删除选中订阅源 */
@@ -369,6 +399,26 @@ export struct SubscriptionPage {
     });
   }
 
+  /** 拉取订阅源内容并写入 下载目录/订阅源，成功返回目标路径，失败返回 null */
+  private async exportSourceFile(url: string): Promise<string | null> {
+    // file:// 为本地导入的订阅源，直接读沙箱文件
+    const text = url.startsWith('file://')
+      ? FileUtils.readFileText(url.substring('file://'.length))
+      : await HttpClient.downloadText(url);
+    if (text === null) {
+      return null;
+    }
+    // downloadPath 可能无结尾斜杠（公共目录），先补齐再拼接，避免目录名黏连
+    const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
+    // 文件名必须带 .js/.json 扩展名，否则本地导入的文件选择器按后缀过滤时不可见
+    let name = FileUtils.escapeCharacter(SubscriptionPage.sourceTitle(url));
+    if (!name.endsWith('.js') && !name.endsWith('.json')) {
+      name += url.split('?')[0].endsWith('.js') ? '.js' : '.json';
+    }
+    const destPath = base + '订阅源/' + name;
+    return FileUtils.writeFileText(destPath, text) ? destPath : null;
+  }
+
   /** 导出订阅源文件到 下载目录/订阅源 文件夹（拉取源内容后保存） */
   private async exportDetailFile(): Promise<void> {
     if (this.updating) {
@@ -377,24 +427,9 @@ export struct SubscriptionPage {
     }
     this.updating = true;
     this.showToast('正在获取订阅源...');
-    // file:// 为本地导入的订阅源，直接读沙箱文件
-    const text = this.detailUrl.startsWith('file://')
-      ? FileUtils.readFileText(this.detailUrl.substring('file://'.length))
-      : await HttpClient.downloadText(this.detailUrl);
+    const destPath = await this.exportSourceFile(this.detailUrl);
     this.updating = false;
-    if (text === null) {
-      this.showToast('订阅源获取失败');
-      return;
-    }
-    // downloadPath 可能无结尾斜杠（公共目录），先补齐再拼接，避免目录名黏连
-    const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
-    // 文件名必须带 .js/.json 扩展名，否则本地导入的文件选择器按后缀过滤时不可见
-    let name = FileUtils.escapeCharacter(SubscriptionPage.sourceTitle(this.detailUrl));
-    if (!name.endsWith('.js') && !name.endsWith('.json')) {
-      name += this.detailUrl.split('?')[0].endsWith('.js') ? '.js' : '.json';
-    }
-    const destPath = base + '订阅源/' + name;
-    if (FileUtils.writeFileText(destPath, text)) {
+    if (destPath !== null) {
       this.showToast('已导出到 ' + destPath);
     } else {
       this.showToast('导出失败');
@@ -545,7 +580,7 @@ export struct SubscriptionPage {
         })
         .padding({ left: 16, right: 16 })
 
-        // 批量模式底栏（UI 同我的歌单页）：已选行 + 全选 / 删除
+        // 批量模式底栏（UI 同我的歌单页）：已选行 + 全选 / 导出 / 删除
         if (appState.isBatchMode) {
           CommonBlur({ heightValue: appState.bottomRect + 94 }).position({ bottom: 0 })
             .transition(TransitionEffect.OPACITY)
@@ -579,6 +614,8 @@ export struct SubscriptionPage {
                   .onClick(() => {
                     if (i === 0) {// 全选/取消全选
                       this.toggleSelectAll();
+                    } else if (i === 1) {// 批量导出
+                      this.batchExport();
                     } else {// 删除
                       this.batchDelete();
                     }
