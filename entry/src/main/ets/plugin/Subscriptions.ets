@@ -4,6 +4,7 @@ import { HttpClient } from '../infra/HttpClient';
 import { appConfig } from '../core/AppConfig';
 import { pluginManager } from './PluginManager';
 import { InstallPluginResult } from './PluginTypes';
+import { FileUtils } from '../utils/FileUtils';
 
 /** 订阅源存储（storage KV，随备份清单自动备份） */
 const SOURCE_STORE = 'storage';
@@ -87,9 +88,19 @@ export class Subscriptions {
     }
   }
 
-  /** 解析订阅源为插件 URL 列表：.json 为插件列表，.js 为单插件；失败返回 null */
+  /** 解析订阅源为插件 URL 列表：.json 为插件列表，.js 为单插件；失败返回 null
+   * file:// 前缀为本地导入的订阅源文件（沙箱路径），直接读文件内容 */
   static async resolveUrls(url: string): Promise<Array<string> | null> {
-    if (url.endsWith('.json')) {
+    let body: string | null = null;
+    if (url.startsWith('file://')) {
+      if (!url.endsWith('.json')) {
+        return [url];
+      }
+      body = FileUtils.readFileText(url.substring('file://'.length));
+      if (body === null) {
+        return null;
+      }
+    } else if (url.endsWith('.json')) {
       const resp = await HttpClient.get(url, {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
@@ -98,22 +109,24 @@ export class Subscriptions {
       if (resp === null) {
         return null;
       }
-      const rec = JsonUtil.parseRecord(resp.body);
-      const plugins = rec !== null ? JsonUtil.recArray(rec, 'plugins') : null;
-      if (plugins === null) {
-        return null;
-      }
-      const urls: Array<string> = [];
-      for (const item of plugins) {
-        const itemRec = JsonUtil.objToRecord(item);
-        const u = itemRec !== null ? JsonUtil.recStr(itemRec, 'url') : '';
-        if (u.length > 0) {
-          urls.push(u);
-        }
-      }
-      return urls.length > 0 ? urls : null;
+      body = resp.body;
+    } else {
+      return [url];
     }
-    return [url];
+    const rec = JsonUtil.parseRecord(body);
+    const plugins = rec !== null ? JsonUtil.recArray(rec, 'plugins') : null;
+    if (plugins === null) {
+      return null;
+    }
+    const urls: Array<string> = [];
+    for (const item of plugins) {
+      const itemRec = JsonUtil.objToRecord(item);
+      const u = itemRec !== null ? JsonUtil.recStr(itemRec, 'url') : '';
+      if (u.length > 0) {
+        urls.push(u);
+      }
+    }
+    return urls.length > 0 ? urls : null;
   }
 
   /** 安装一组插件 URL，返回成功/失败计数 */

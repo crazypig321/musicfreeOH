@@ -2,7 +2,7 @@ import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { picker } from '@kit.CoreFileKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
-import { MenuItemParams } from '../view/CommonCom';
+import { CommonBlur, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { appState } from '../entryability/AppState';
 import { JsonUtil } from '../common/JsonUtil';
@@ -26,6 +26,8 @@ const IMPORT_ANCHOR_ID = 'subscription_import_anchor';
 export struct SubscriptionPage {
   scroller: Scroller = new Scroller();
   @Local sources: Array<string> = [];
+  /** 批量模式选中项（订阅源地址） */
+  @Local batchSelected: Array<string> = [];
   @Local importUrl: string = '';
   @Local importName: string = '';
   @Local showImportSheet: boolean = false;
@@ -82,7 +84,7 @@ export struct SubscriptionPage {
     return name.length > 0 ? name : url;
   }
 
-  /** titleBar 菜单：导入 + 更新全部 */
+  /** titleBar 菜单：导入 + 更新全部 + 批量操作 */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const add: HdsNavigationMenuItemOptions = {
       content: {
@@ -102,7 +104,82 @@ export struct SubscriptionPage {
         }
       }
     };
-    return [add, updateAll];
+    const batch: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.list_checkmask'),
+        label: '批量操作',
+        action: (): void => {
+          this.enterBatchMode();
+        }
+      }
+    };
+    return [add, updateAll, batch];
+  }
+
+  // ===== 批量操作（UI 同我的歌单页） =====
+
+  /** 进入批量模式（全局状态：隐藏 tab 栏与迷你栏、返回键退出；显式动画包裹避免突兀） */
+  private enterBatchMode(): void {
+    if (this.sources.length === 0) {
+      this.showToast('暂无订阅源');
+      return;
+    }
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = true;
+    });
+    this.batchSelected = [];
+  }
+
+  /** 退出批量模式 */
+  private exitBatchMode(): void {
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = false;
+    });
+    this.batchSelected = [];
+  }
+
+  /** 行是否被勾选 */
+  private isSelected(url: string): boolean {
+    return this.batchSelected.indexOf(url) !== -1;
+  }
+
+  /** 批量模式下点击行：切换勾选状态 */
+  private toggleBatchSelect(url: string): void {
+    const next = this.batchSelected.slice();
+    const idx = next.indexOf(url);
+    if (idx === -1) {
+      next.push(url);
+    } else {
+      next.splice(idx, 1);
+    }
+    this.batchSelected = next;
+  }
+
+  /** 全选/取消全选 */
+  private toggleSelectAll(): void {
+    this.batchSelected = this.batchSelected.length === this.sources.length ? [] : this.sources.slice();
+  }
+
+  /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」） */
+  private batchButtonLabels(): Array<string> {
+    const allSelected = this.sources.length > 0 && this.batchSelected.length === this.sources.length;
+    return [allSelected ? '取消全选' : '全选', '删除'];
+  }
+
+  /** 批量删除选中订阅源 */
+  private batchDelete(): void {
+    if (this.batchSelected.length === 0) {
+      this.showToast('请先勾选订阅源');
+      return;
+    }
+    let ok = 0;
+    for (const url of this.batchSelected) {
+      Subscriptions.removeSource(url);
+      ok++;
+    }
+    this.exitBatchMode();
+    this.sources = Subscriptions.getSources();
+    this.showToast('已删除 ' + ok.toString() + ' 个订阅源');
   }
 
   /** 导入菜单：网络导入 / 本地导入 */
@@ -175,7 +252,7 @@ export struct SubscriptionPage {
     }
   }
 
-  /** 批量处理本地文件：.json 添加为订阅源，.js 安装为插件 */
+  /** 批量处理本地文件：.json 整体导入为 1 个本地订阅源（内容复制进沙箱），.js 直接安装插件 */
   private async importLocalFiles(uris: Array<string>): Promise<void> {
     if (this.updating) {
       this.showToast('正在处理中，请稍候');
@@ -187,31 +264,32 @@ export struct SubscriptionPage {
     const jsUris: Array<string> = [];
     for (const uri of uris) {
       if (uri.split('?')[0].endsWith('.json')) {
+        // 整体导入：校验内容为插件列表 json，复制进沙箱后以 file:// 路径作为单个订阅源
         const text = PluginImport.readUriText(uri, 'json');
         const rec = text !== null ? JsonUtil.parseRecord(text) : null;
         const plugins = rec !== null ? JsonUtil.recArray(rec, 'plugins') : null;
-        if (plugins === null) {
+        if (text === null || plugins === null) {
           dupSources++;
           continue;
         }
-        for (const item of plugins) {
-          const itemRec = JsonUtil.objToRecord(item);
-          const u = itemRec !== null ? JsonUtil.recStr(itemRec, 'url') : '';
-          if (u.length === 0) {
-            continue;
-          }
-          if (Subscriptions.addSource(u)) {
-            addedSources++;
-          } else {
-            dupSources++;
-          }
+        FileUtils.checkAndCreateDir(PathConst.dataPath + 'subscriptions');
+        const destPath = PathConst.dataPath + 'subscriptions/' +
+          FileUtils.escapeCharacter(SubscriptionPage.localFileName(uri));
+        if (!FileUtils.writeFileText(destPath, text)) {
+          dupSources++;
+          continue;
+        }
+        if (Subscriptions.addSource('file://' + destPath)) {
+          addedSources++;
+        } else {
+          dupSources++;
         }
       } else {
         jsUris.push(uri);
       }
     }
     let summary = '新增 ' + addedSources.toString() + ' 个订阅源' +
-      (dupSources > 0 ? '，' + dupSources.toString() + ' 个已存在' : '');
+      (dupSources > 0 ? '，' + dupSources.toString() + ' 个已存在或导入失败' : '');
     if (jsUris.length > 0) {
       const r = await PluginImport.installLocalJsFiles(jsUris);
       summary += '；安装 ' + r.success.toString() + ' 个插件' +
@@ -224,6 +302,14 @@ export struct SubscriptionPage {
     if (addedSources > 0) {
       this.updateAllSources();
     }
+  }
+
+  /** 取文件 URI 的最后一段文件名（去掉查询参数；空则回退默认名） */
+  private static localFileName(uri: string): string {
+    const clean = uri.split('?')[0];
+    const idx = clean.lastIndexOf('/');
+    const name = idx === -1 ? clean : clean.substring(idx + 1);
+    return name.length > 0 ? name : '订阅源.json';
   }
 
   /** 更新单个订阅源 */
@@ -291,7 +377,10 @@ export struct SubscriptionPage {
     }
     this.updating = true;
     this.showToast('正在获取订阅源...');
-    const text = await HttpClient.downloadText(this.detailUrl);
+    // file:// 为本地导入的订阅源，直接读沙箱文件
+    const text = this.detailUrl.startsWith('file://')
+      ? FileUtils.readFileText(this.detailUrl.substring('file://'.length))
+      : await HttpClient.downloadText(this.detailUrl);
     this.updating = false;
     if (text === null) {
       this.showToast('订阅源获取失败');
@@ -362,6 +451,13 @@ export struct SubscriptionPage {
             ForEach(this.sources, (url: string, index: number) => {
               ListItem() {
                 Row({ space: 12 }) {
+                  // 批量模式：勾选圈
+                  if (appState.isBatchMode) {
+                    SymbolGlyph(this.isSelected(url) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+                      .fontSize(24)
+                      .fontColor([this.isSelected(url) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+                      .transition(TransitionEffect.OPACITY)
+                  }
                   Column() {
                     SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
                       .fontSize(22)
@@ -395,11 +491,27 @@ export struct SubscriptionPage {
               .borderRadius(16)
               .padding(12)
               .backgroundColor($r('sys.color.comp_background_list_card'))
+              .gesture(
+                LongPressGesture({ repeat: false, duration: 500 })
+                  .onAction((_event: GestureEvent) => {
+                    // 长按进入批量模式并勾选当前条目
+                    if (appState.isBatchMode) {
+                      return;
+                    }
+                    this.enterBatchMode();
+                    this.toggleBatchSelect(url);
+                  })
+              )
               .onClick(() => {
-                this.openDetailSheet(url);
+                if (appState.isBatchMode) {
+                  this.toggleBatchSelect(url);
+                } else {
+                  this.openDetailSheet(url);
+                }
               })
             }, (url: string, index: number) =>
-              url + '_' + index.toString() + '_' + Subscriptions.getSourceName(url))
+              url + '_' + index.toString() + '_' + Subscriptions.getSourceName(url) +
+              (appState.isBatchMode && this.isSelected(url) ? '_sel' : ''))
           } else {
             // 空态说明
             ListItem() {
@@ -424,13 +536,62 @@ export struct SubscriptionPage {
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .contentStartOffset(appState.topRect + 66)
-        // 上下两排时底栏更高，末尾内容需多留滚动空间
-        .contentEndOffset(appState.bottomRect + (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60))
+        // 上下两排时底栏更高，末尾内容需多留滚动空间；批量模式避让批量底栏
+        .contentEndOffset(appState.bottomRect +
+          (appState.isBatchMode ? 170 : (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60)))
         .onScrollFrameBegin((offset: number) => {
           BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
           return { offsetRemain: offset }
         })
         .padding({ left: 16, right: 16 })
+
+        // 批量模式底栏（UI 同我的歌单页）：已选行 + 全选 / 删除
+        if (appState.isBatchMode) {
+          CommonBlur({ heightValue: appState.bottomRect + 94 }).position({ bottom: 0 })
+            .transition(TransitionEffect.OPACITY)
+
+          Column({ space: 10 }) {
+            Row() {
+              Text('已选 ' + this.batchSelected.length.toString() + ' 个订阅源')
+                .fontSize(13)
+                .fontColor($r('sys.color.font_secondary'))
+              Blank()
+              Text('取消')
+                .fontSize(16)
+                .fontColor($r('sys.color.font_secondary'))
+                .onClick(() => {
+                  this.exitBatchMode();
+                })
+            }
+            .width('100%')
+
+            Row({ space: 8 }) {
+              ForEach(this.batchButtonLabels(), (v: string, i: number) => {
+                Button(v)
+                  .layoutWeight(1)
+                  .height(36)
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .borderRadius(10)
+                  .padding({ left: 2, right: 2 })
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    if (i === 0) {// 全选/取消全选
+                      this.toggleSelectAll();
+                    } else {// 删除
+                      this.batchDelete();
+                    }
+                  })
+              }, (v: string, i: number) => v + '_' + i.toString())
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .position({ bottom: 0 })
+          .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+          .transition(TransitionEffect.OPACITY)
+        }
 
         // openMenu 锚点（位于标题栏下方右上角，菜单在锚点处弹出）
         Row({ space: 12 }) {

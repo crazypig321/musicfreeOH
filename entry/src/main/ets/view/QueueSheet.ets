@@ -328,7 +328,7 @@ export struct QueueSheet {
               .fontSize(16)
               .fontColor($r('sys.color.font_tertiary'))
               .maxLines(1)
-              .fontWeight(FontWeight.Bold)
+           //   .fontWeight(FontWeight.Bold)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .layoutWeight(1)
 
