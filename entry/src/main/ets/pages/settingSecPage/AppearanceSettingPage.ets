@@ -23,10 +23,11 @@ class MenuOptionEntry {
 
 /**
  * 外观设置页面
- * 主题色（HdsColorPicker 取色器内嵌条目右侧）/ 深色模式 / 沉浸光感材质 /
- * 智感握姿 / 屏幕方向 / 动画
+ * 卡片一：主题色（HdsColorPicker 取色器内嵌条目右侧）/ 深色模式 / 沉浸光感材质 / 动画
+ * 卡片二：智感握姿 / 屏幕方向
  * 选择类条目点击弹出 Menu 菜单（当前项带勾选标记，UI 参考 ting_reader；
  * 智感握姿开启且左手握持时菜单从左侧弹出，否则默认条目右侧下方）
+ * 智感握姿：左手握持时行首图标镜像到行尾、文本右对齐（原理同歌单详情页条目）
  */
 @ComponentV2
 export struct AppearanceSettingPage {
@@ -311,51 +312,67 @@ export struct AppearanceSettingPage {
               .width('100%')
           }
 
-          // 主题色（Tab 文本选中色直接适配主题色）
-          ListItem() {
-            Row({ space: 12 }) {
-              SymbolGlyph($r('sys.symbol.paintpalette'))
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
-              Text('主题色')
-                .fontSize(15)
-                .fontColor($r('sys.color.font_primary'))
-              // 取色器（仅网格取色，紧凑内嵌，靠行尾右对齐）
-              Row() {
-                HdsColorPicker({
-                  initialColor: this.pickerColor,
-                  onColorSelected: (selectedColor: string): void => {
-                    this.pickerColor = selectedColor;
-                    this.applyThemeColor(selectedColor);
-                  },
-                  options: { tabs: [HdsColorPickerTabType.GRID] }
-                })
-              }
-              .layoutWeight(1)
-              .justifyContent(FlexAlign.End)
-            }
-            .width('100%')
-            .height(52)
-          }.ListItemStyle()
-
-          // 深色模式 / 材质 / 智感握姿 / 屏幕方向 / 动画
+          // 卡片一：主题色 / 深色模式 / 沉浸光感材质 / 动画
           ListItem() {
             Column() {
+              // 主题色（Tab 文本选中色直接适配主题色）
+              Row({ space: 12 }) {
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.paintpalette'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                Text('主题色')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                // 取色器（仅网格取色，紧凑内嵌，靠行尾右对齐）
+                Row() {
+                  HdsColorPicker({
+                    initialColor: this.pickerColor,
+                    onColorSelected: (selectedColor: string): void => {
+                      this.pickerColor = selectedColor;
+                      this.applyThemeColor(selectedColor);
+                    },
+                    options: { tabs: [HdsColorPickerTabType.GRID] }
+                  })
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.paintpalette'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+              }
+              .width('100%')
+              .height(52)
+
+              Divider()
+                .DividerStyle()
+
               // 深色模式
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.moon'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.moon'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
                 Text('深色模式')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
                 Text(this.colorModeText)
                   .fontSize(11)
                   .fontColor($r('sys.color.font_tertiary'))
                 SymbolGlyph($r('sys.symbol.chevron_right'))
                   .fontSize(14)
                   .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.moon'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
               }
               .width('100%')
               .height(52)
@@ -374,19 +391,27 @@ export struct AppearanceSettingPage {
 
               // 沉浸光感材质
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.camera_filters'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.camera_filters'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
                 Text('沉浸光感材质')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
                 Text(this.materialText)
                   .fontSize(11)
                   .fontColor($r('sys.color.font_tertiary'))
                 SymbolGlyph($r('sys.symbol.chevron_right'))
                   .fontSize(14)
                   .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.camera_filters'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
               }
               .width('100%')
               .height(52)
@@ -403,81 +428,29 @@ export struct AppearanceSettingPage {
               Divider()
                 .DividerStyle()
 
-              // 智感握姿（适人握持）
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.hand_thumbsup'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Column({ space: 2 }) {
-                  Text('智感握姿')
-                    .fontSize(15)
-                    .fontColor($r('sys.color.font_primary'))
-                  Text('识别握持手，列表封面与更多按钮随拇指可达区域切换')
-                    .fontSize(12)
-                    .fontColor($r('sys.color.font_tertiary'))
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.smartReachEnabled })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.smartReachEnabled = isOn;
-                    appConfig.setConfig(ConfigKeys.APPEARANCE_SMART_REACH, isOn);
-                    SmartReach.setEnabled(isOn);
-                  })
-              }
-              .width('100%')
-              .height(60)
-
-              Divider()
-                .DividerStyle()
-
-              // 屏幕方向
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.rotate_left'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('屏幕方向')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                Text(this.orientationText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.showOrientationMenu = true;
-              })
-              .bindMenu(this.showOrientationMenu, this.orientationMenu, {
-                placement: this.menuPlacement(),
-                onDisappear: (): void => {
-                  this.showOrientationMenu = false;
-                }
-              })
-
-              Divider()
-                .DividerStyle()
-
               // 动画
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.wand_and_stars'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.wand_and_stars'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
                 Text('动画')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
                 Text(this.animText)
                   .fontSize(11)
                   .fontColor($r('sys.color.font_tertiary'))
                 SymbolGlyph($r('sys.symbol.chevron_right'))
                   .fontSize(14)
                   .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.wand_and_stars'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
               }
               .width('100%')
               .height(52)
@@ -488,6 +461,88 @@ export struct AppearanceSettingPage {
                 placement: this.menuPlacement(),
                 onDisappear: (): void => {
                   this.showAnimMenu = false;
+                }
+              })
+            }
+            .width('100%')
+          }.ListItemStyle()
+
+          // 卡片二：智感握姿 / 屏幕方向
+          ListItem() {
+            Column() {
+              // 智感握姿（适人握持）
+              Row({ space: 12 }) {
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.hand_thumbsup'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                Column({ space: 2 }) {
+                  Text('智感握姿')
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                    .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                    .width('100%')
+                  Text('识别握持手，列表封面与更多按钮随拇指可达区域切换')
+                    .fontSize(12)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                    .width('100%')
+                }
+                .layoutWeight(1)
+                .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
+                Toggle({ type: ToggleType.Switch, isOn: this.smartReachEnabled })
+                  .selectedColor(appState.accentColor)
+                  .onChange((isOn: boolean) => {
+                    this.smartReachEnabled = isOn;
+                    appConfig.setConfig(ConfigKeys.APPEARANCE_SMART_REACH, isOn);
+                    SmartReach.setEnabled(isOn);
+                  })
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.hand_thumbsup'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+              }
+              .width('100%')
+              .height(60)
+
+              Divider()
+                .DividerStyle()
+
+              // 屏幕方向
+              Row({ space: 12 }) {
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.rotate_left'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                Text('屏幕方向')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                Text(this.orientationText)
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(14)
+                  .fontColor([$r('sys.color.icon_tertiary')])
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.rotate_left'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+              }
+              .width('100%')
+              .height(52)
+              .onClick(() => {
+                this.showOrientationMenu = true;
+              })
+              .bindMenu(this.showOrientationMenu, this.orientationMenu, {
+                placement: this.menuPlacement(),
+                onDisappear: (): void => {
+                  this.showOrientationMenu = false;
                 }
               })
             }
@@ -515,7 +570,7 @@ function ListItemStyle() {
 @Extend(Divider)
 function DividerStyle() {
   .color($r('sys.color.comp_divider'))
-  .margin({ left: 32, right: 4 })
+  .margin(appState.holdingHand === 'left' ? { left: 4, right: 32 } : { left: 32, right: 4 })
 }
 
 @Extend(List)

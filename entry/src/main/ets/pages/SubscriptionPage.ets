@@ -571,7 +571,8 @@ export struct SubscriptionPage {
               })
             }, (url: string, index: number) =>
               url + '_' + index.toString() + '_' + Subscriptions.getSourceName(url) +
-              (appState.isBatchMode && this.isSelected(url) ? '_sel' : ''))
+              (appState.isBatchMode && this.isSelected(url) ? '_sel' : '') +
+              '_' + appState.swipeResetTick.toString())
           } else {
             // 空态（UI 同本地音乐页空态：图标 + 标题 + 说明）
             ListItem() {
@@ -607,6 +608,18 @@ export struct SubscriptionPage {
           return { offsetRemain: offset }
         })
         .padding({ left: 16, right: 16 })
+        // 编辑订阅源半模态挂载点（独立锚点，避免与详情 bindSheet 冲突）
+        .bindSheet(!!this.showEditSheet, this.EditSheetBuilder(), {
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          dragBar: true,
+          onWillDisappear: () => {
+            this.showEditSheet = false;
+            appState.isForegroundBlur = false
+          },
+          onWillAppear: () => {
+            appState.isForegroundBlur = true
+          }
+        })
 
         // 批量模式底栏（UI 同我的歌单页）：已选行 + 全选 / 导出 / 删除
         if (appState.isBatchMode) {
@@ -686,17 +699,6 @@ export struct SubscriptionPage {
       }
       .width('100%')
       .height('100%')
-      .bindSheet(!!this.showEditSheet, this.EditSheetBuilder(), {
-        scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
-        onWillDisappear: () => {
-          this.showEditSheet = false;
-          appState.isForegroundBlur = false
-        },
-        onWillAppear: () => {
-          appState.isForegroundBlur = true
-        }
-      })
       .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,

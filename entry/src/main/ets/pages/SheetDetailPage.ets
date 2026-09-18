@@ -991,12 +991,15 @@ export struct SheetDetailPage {
           this.playAll();
         })
 
-        SymbolGlyph($r('sys.symbol.folder_badge_plus'))
-          .fontSize(20)
-          .fontColor([$r('sys.color.icon_secondary')])
-          .onClick(() => {
-            this.importToMySheets();
-          })
+        // 本地歌单（我的歌单进入）不显示导入按钮
+        if (!this.isLocalSheet) {
+          SymbolGlyph($r('sys.symbol.folder_badge_plus'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_secondary')])
+            .onClick(() => {
+              this.importToMySheets();
+            })
+        }
 
         SymbolGlyph($r('sys.symbol.list_checkmask'))
           .fontSize(20)
@@ -1015,7 +1018,7 @@ export struct SheetDetailPage {
   }
 
   /** 歌曲行（风格同本地音乐页条目）：点击播放，更多操作进半模态；批量模式下点击勾选、长按进入批量模式。
-   * 智感握姿：左手握持时镜像布局（更多按钮与时长移到左侧、封面移到右侧、文本右对齐） */
+   * 智感握姿：左手握持时文本右对齐，时长与更多按钮保持右侧原顺序，封面镜像到最右 */
   @Builder
   MusicRowBuilder(item: MusicItem, index: number) {
     Column() {
@@ -1027,38 +1030,27 @@ export struct SheetDetailPage {
             .fontColor([this.isSelected(item) ? appState.accentColor : $r('sys.color.icon_tertiary')])
             .transition(TransitionEffect.OPACITY)
         }
-        // 智感握姿左手：更多按钮 + 时长移到左侧（拇指可达区）
-        if (appState.holdingHand === 'left' && !appState.isBatchMode) {
-          Text(SheetDetailPage.formatDuration(item.duration))
-            .fontSize(12)
-            .fontColor($r('sys.color.font_tertiary'))
-          SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-            .transition(TransitionEffect.OPACITY)
-            .onClick(() => {
-              this.openOptions(item);
-            })
-        }
-        // 封面：有图用 Image，无图用音符占位
-        if (item.artwork.length > 0) {
-          Image(ArtworkCache.resolve(item.artwork))
+        // 封面：有图用 Image，无图用音符占位（左手时镜像到行尾）
+        if (appState.holdingHand !== 'left') {
+          if (item.artwork.length > 0) {
+            Image(ArtworkCache.resolve(item.artwork))
+              .width(40)
+              .height(40)
+              .borderRadius(10)
+              .objectFit(ImageFit.Cover)
+              .alt($r('app.media.altImage'))
+          } else {
+            Column() {
+              SymbolGlyph($r('sys.symbol.music'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+            }
             .width(40)
             .height(40)
             .borderRadius(10)
-            .objectFit(ImageFit.Cover)
-            .alt($r('app.media.altImage'))
-        } else {
-          Column() {
-            SymbolGlyph($r('sys.symbol.music'))
-              .fontSize(20)
-              .fontColor([$r('sys.color.icon_secondary')])
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+            .justifyContent(FlexAlign.Center)
           }
-          .width(40)
-          .height(40)
-          .borderRadius(10)
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .justifyContent(FlexAlign.Center)
         }
 
         Column({ space: 2 }) {
@@ -1093,12 +1085,10 @@ export struct SheetDetailPage {
         .layoutWeight(1)
         .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
 
-        if (appState.holdingHand !== 'left') {
-          Text(SheetDetailPage.formatDuration(item.duration))
-            .fontSize(12)
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        if (!appState.isBatchMode && appState.holdingHand !== 'left') {
+        Text(SheetDetailPage.formatDuration(item.duration))
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+        if (!appState.isBatchMode) {
           SymbolGlyph($r('sys.symbol.ellipsis_circle'))
             .fontSize(20)
             .fontColor([$r('sys.color.icon_secondary')])
@@ -1106,6 +1096,28 @@ export struct SheetDetailPage {
             .onClick(() => {
               this.openOptions(item);
             })
+        }
+        // 智感握姿左手：封面镜像到行尾
+        if (appState.holdingHand === 'left') {
+          if (item.artwork.length > 0) {
+            Image(ArtworkCache.resolve(item.artwork))
+              .width(40)
+              .height(40)
+              .borderRadius(10)
+              .objectFit(ImageFit.Cover)
+              .alt($r('app.media.altImage'))
+          } else {
+            Column() {
+              SymbolGlyph($r('sys.symbol.music'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+            }
+            .width(40)
+            .height(40)
+            .borderRadius(10)
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+            .justifyContent(FlexAlign.Center)
+          }
         }
       }
       .width('100%')
@@ -1129,12 +1141,12 @@ export struct SheetDetailPage {
         }
       })
 
-      // 条目间分割线
+      // 条目间分割线（智感握姿左手时镜像边距，避让行尾封面）
       if (index < this.dataSource.totalCount() - 1) {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 68, right: 20 })
+          .margin(appState.holdingHand === 'left' ? { left: 20, right: 68 } : { left: 68, right: 20 })
       }
     }
     .width('100%')

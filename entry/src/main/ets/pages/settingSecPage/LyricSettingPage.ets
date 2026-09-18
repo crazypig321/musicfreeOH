@@ -6,7 +6,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 /**
  * 歌词设置页面
  * 歌词缺失时自动搜索（右侧开关）
- * 条目行 UI 同播放/下载设置页
+ * 条目行 UI 同播放/下载设置页；智感握姿：左手时行首图标镜像到行尾、文本右对齐
  */
 @ComponentV2
 export struct LyricSettingPage {
@@ -33,19 +33,27 @@ export struct LyricSettingPage {
           ListItem() {
             // 歌词缺失时自动搜索
             Row({ space: 12 }) {
-              SymbolGlyph($r('sys.symbol.doc_plaintext'))
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
+              if (appState.holdingHand !== 'left') {
+                SymbolGlyph($r('sys.symbol.doc_plaintext'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+              }
               Text('歌词缺失时自动搜索')
                 .fontSize(15)
                 .fontColor($r('sys.color.font_primary'))
                 .layoutWeight(1)
+                .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
               Toggle({ type: ToggleType.Switch, isOn: this.autoSearchLyric })
                 .selectedColor(appState.accentColor)
                 .onChange((isOn: boolean) => {
                   this.autoSearchLyric = isOn;
                   appConfig.setConfig(ConfigKeys.LYRIC_AUTO_SEARCH_LYRIC, isOn);
                 })
+              if (appState.holdingHand === 'left') {
+                SymbolGlyph($r('sys.symbol.doc_plaintext'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+              }
             }
             .width('100%')
             .height(52)

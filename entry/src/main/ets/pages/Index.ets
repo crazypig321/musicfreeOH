@@ -148,6 +148,8 @@ struct Index {
         .animationDuration(appState.tabSwitchAnim ? 500 : 0)
         .onSelected((index: number) => {
           appState.currTabsIndex = index
+          // 切换 tab 时递增计数，触发左滑条目（key 引用 tick）重建复位滑动状态
+          appState.swipeResetTick = appState.swipeResetTick + 1
         })
       }
       .titleMode(HdsNavigationTitleMode.FREE)

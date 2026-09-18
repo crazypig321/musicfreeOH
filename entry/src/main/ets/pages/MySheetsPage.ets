@@ -622,7 +622,8 @@ export struct MySheetsPage {
               })
             }, (row: SheetRow, index: number) => row.id + '_' + index.toString() + '_' + row.title +
               '_' + row.coverUrl + '_' + row.worksNum.toString() +
-              (appState.isBatchMode && this.isSelected(row) ? '_sel' : ''))
+              (appState.isBatchMode && this.isSelected(row) ? '_sel' : '') +
+              '_' + appState.swipeResetTick.toString())
           } else {
             ListItem() {
               Text('暂无歌单，点击右上角「添加」新建或导入歌单')

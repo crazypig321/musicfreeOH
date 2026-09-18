@@ -56,6 +56,8 @@ class AppState{
   @Trace isDialogOpen: boolean = false;
   // 批量操作模式（隐藏 tab 栏，返回键退出该模式）
   @Trace isBatchMode: boolean = false;
+  // Tab 切换计数：左滑条目以 key 引用，切换 tab 时重建行以复位左滑状态
+  @Trace swipeResetTick: number = 0;
 
   /**
    * 屏幕避让及断点
