@@ -88,6 +88,45 @@ export class Subscriptions {
     }
   }
 
+  /** 备份导出：订阅源列表 + 自定义名称 */
+  static exportData(): JsonRecord {
+    const rec: JsonRecord = {};
+    rec['sources'] = Subscriptions.getSources();
+    const names = JsonUtil.parseRecord(KVStore.getOrCreate(SOURCE_STORE).get(SOURCE_NAME_KEY));
+    if (names !== null) {
+      rec['names'] = names;
+    }
+    return rec;
+  }
+
+  /** 从备份恢复：订阅源合并去重（保留本地顺序，新源追加），自定义名称覆盖写入 */
+  static importData(rec: JsonRecord): void {
+    const sources = JsonUtil.parseStringArray(JsonUtil.safeStringify(rec['sources']));
+    if (sources !== null && sources.length > 0) {
+      const existing = Subscriptions.getSources();
+      const seen: Set<string> = new Set<string>(existing);
+      const next: Array<string> = existing.slice();
+      for (const url of sources) {
+        if (!seen.has(url)) {
+          seen.add(url);
+          next.push(url);
+        }
+      }
+      if (next.length !== existing.length) {
+        KVStore.getOrCreate(SOURCE_STORE).set(SOURCE_KEY, JSON.stringify(next));
+      }
+    }
+    const names = JsonUtil.objToRecord(rec['names']);
+    if (names !== null) {
+      for (const k of Object.keys(names)) {
+        const n = JsonUtil.recStr(names, k);
+        if (n.length > 0) {
+          Subscriptions.setSourceName(k, n);
+        }
+      }
+    }
+  }
+
   /** 解析订阅源为插件 URL 列表：.json 为插件列表，.js 为单插件；失败返回 null
    * file:// 前缀为本地导入的订阅源文件（沙箱路径），直接读文件内容 */
   static async resolveUrls(url: string): Promise<Array<string> | null> {

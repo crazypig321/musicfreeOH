@@ -2,12 +2,13 @@ import { JsonUtil, JsonRecord } from '../common/JsonUtil';
 import { ResumeMode } from '../common/Consts';
 import { musicSheet, SheetBackupEntry, backupEntriesFromRecord } from './MusicSheet';
 import { pluginManager } from '../plugin/PluginManager';
+import { Subscriptions } from '../plugin/Subscriptions';
 import { appConfig } from './AppConfig';
 import { VersionCompare } from '../utils/VersionCompare';
 
 /**
  * 备份与恢复（移植自 core/backup.ts）
- * 结果：一份大的 json 文件 { musicSheets: [], plugins: [], appConfig: {} }
+ * 结果：一份大的 json 文件 { musicSheets: [], plugins: [], appConfig: {}, subscriptions: {} }
  */
 export class Backup {
   /** 生成备份 JSON 字符串 */
@@ -33,6 +34,7 @@ export class Backup {
       'musicSheets': sheetRecs,
       'plugins': pluginRecs,
       'appConfig': appConfig.exportSettings(),
+      'subscriptions': Subscriptions.exportData(),
     };
     return JsonUtil.safeStringify(out);
   }
@@ -96,6 +98,12 @@ export class Backup {
         settings[key] = JsonUtil.recStr(settingsRec, key);
       }
       appConfig.importSettings(settings);
+    }
+
+    // 订阅源（旧备份无此字段时跳过；合并去重）
+    const subsRec = JsonUtil.objToRecord(obj['subscriptions']);
+    if (subsRec !== null) {
+      Subscriptions.importData(subsRec);
     }
 
     await Promise.all(resumePluginTasks.concat([resumeMusicSheets]));
