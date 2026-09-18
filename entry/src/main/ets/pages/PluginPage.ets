@@ -1058,6 +1058,7 @@ export struct PluginPage {
       isHideBackButton: true,
       scroller: this.scroller,
       doubleTapToTop: true,
+      isSearchBarScroller: false
     }) {
       Stack({ alignContent: Alignment.Top }) {
           List({ scroller: this.scroller, space: 16 }) {

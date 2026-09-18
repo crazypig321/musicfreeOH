@@ -41,6 +41,7 @@ export struct CommonNav{
   @Param avoidLayoutSafeArea: boolean = true
   @Param isShowPlayBar: boolean = false
   @Param scroller: Scroller | undefined = undefined
+  @Param isSearchBarScroller: boolean = true
   /** 双击标题栏区域时列表回滚到顶部 */
   @Param doubleTapToTop: boolean = false
   @Event backPressed: () => boolean = (): boolean => false
@@ -170,7 +171,7 @@ export struct CommonNav{
       return this.backPressed()
     })
     .dynamicHideTitleBar({
-      hideBottomBuilder: true,
+      hideBottomBuilder: this.isSearchBarScroller,
       mode: HideMode.SCROLL_UP_TO
     })
   }
