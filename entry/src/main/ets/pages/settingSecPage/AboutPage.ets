@@ -112,7 +112,7 @@ export struct AboutPage {
           ListItem() {
             Column() {
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.externaldrive'))
+                SymbolGlyph($r('sys.symbol.store'))
                   .fontSize(20)
                   .fontColor([$r('sys.color.icon_secondary')])
                 Text('项目仓库')
@@ -136,7 +136,7 @@ export struct AboutPage {
                 .DividerStyle()
 
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.externaldrive'))
+                SymbolGlyph($r('sys.symbol.store'))
                   .fontSize(20)
                   .fontColor([$r('sys.color.icon_secondary')])
                 Text('原项目仓库')
@@ -220,7 +220,7 @@ export struct AboutPage {
           }
           ListItem() {
             Row({ space: 12 }) {
-              SymbolGlyph($r('sys.symbol.externaldrive'))
+              SymbolGlyph($r('sys.symbol.store'))
                 .fontSize(20)
                 .fontColor([$r('sys.color.icon_secondary')])
               Text('@xiaoye/date')

@@ -553,9 +553,12 @@ export struct SubscriptionPage {
               url + '_' + index.toString() + '_' + Subscriptions.getSourceName(url) +
               (appState.isBatchMode && this.isSelected(url) ? '_sel' : ''))
           } else {
-            // 空态说明
+            // 空态（UI 同本地音乐页空态：图标 + 标题 + 说明）
             ListItem() {
               Column({ space: 8 }) {
+                SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
+                  .fontSize(44)
+                  .fontColor([$r('sys.color.icon_tertiary')])
                 Text('暂无订阅源')
                   .fontSize(14)
                   .fontColor($r('sys.color.font_secondary'))
@@ -563,10 +566,10 @@ export struct SubscriptionPage {
                   .fontSize(12)
                   .fontColor($r('sys.color.font_tertiary'))
                   .textAlign(TextAlign.Center)
-                  .padding({ left: 24, right: 24 })
+                  .padding({ left: 32, right: 32 })
               }
               .width('100%')
-              .margin({ top: 32 })
+              .margin({ top: 48 })
               .alignItems(HorizontalAlign.Center)
             }
           }

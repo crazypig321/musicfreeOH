@@ -16,9 +16,12 @@ export struct CachePage {
   @Local musicCacheSize: number = 0;
   @Local imageSize: number = 0;
   @Local lyricSize: number = 0;
+  /** 音乐缓存上限展示文本（值 + 单位，设置成功后刷新） */
+  @Local maxCacheLimitText: string = '';
 
   aboutToAppear(): void {
     this.refreshSizes();
+    this.maxCacheLimitText = CachePage.formatLimit(appConfig.getMaxCacheSize());
   }
 
   private showToast(message: string): void {
@@ -53,6 +56,16 @@ export struct CachePage {
     FileUtils.checkAndCreateDir(dir);
   }
 
+  /** 缓存上限格式化：整数 + 单位（如 512MB / 2GB） */
+  private static formatLimit(bytes: number): string {
+    const MB = 1024 * 1024;
+    const GB = MB * 1024;
+    if (bytes >= GB && bytes % GB === 0) {
+      return (bytes / GB).toString() + 'GB';
+    }
+    return Math.round(bytes / MB).toString() + 'MB';
+  }
+
   /** 音乐缓存上限：输入数值并选择单位（MB/GB），范围 100M-8G，存 basic.maxCacheSize */
   private showCacheLimitDialog(): void {
     const MB = 1024 * 1024;
@@ -72,10 +85,13 @@ export struct CachePage {
         DialogManager.Toast('请输入 100M-8G 范围内的数字');
         return;
       }
-      const unitBytes = DialogManager.cacheInputUnit === 'G' ? GB : MB;
+      const unit = DialogManager.cacheInputUnit;
+      const unitBytes = unit === 'G' ? GB : MB;
       // 越界自动收敛到边界（100M-8G，与 RN 行为一致）
       const clamped = Math.min(Math.max(val * unitBytes, 100 * MB), 8 * GB);
       appConfig.setConfig(ConfigKeys.MAX_CACHE_SIZE, clamped);
+      // 条目右侧展示设置的值 + 单位
+      this.maxCacheLimitText = (clamped / unitBytes).toString() + (unit === 'G' ? 'GB' : 'MB');
       this.showToast('设置成功');
     };
     DialogManager.OpenDialog('设置缓存');
@@ -116,7 +132,7 @@ export struct CachePage {
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
-                Text(CachePage.formatSize(appConfig.getMaxCacheSize()))
+                Text(this.maxCacheLimitText)
                   .fontSize(11)
                   .fontColor($r('sys.color.font_tertiary'))
                 SymbolGlyph($r('sys.symbol.chevron_right'))

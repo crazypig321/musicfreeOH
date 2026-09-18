@@ -112,16 +112,25 @@ export struct SortJumpDialogContent {
 }
 
 
-/** 「设置缓存」弹窗内容：缓存上限输入框 + 单位选择（MB / GB） */
+/** 「设置缓存」弹窗内容：缓存上限输入框 + 单位选择（并排显示） */
 @ComponentV2
 export struct CacheInputDialogContent {
   @Local unit: string = DialogManager.cacheInputUnit;
 
+  /** 单位选项（MB / GB） */
+  private static unitOptions(): Array<SelectOption> {
+    const opts: Array<SelectOption> = [];
+    const mb: SelectOption = { value: 'MB' };
+    const gb: SelectOption = { value: 'GB' };
+    opts.push(mb, gb);
+    return opts;
+  }
+
   build() {
-    Column({ space: 12 }) {
-      TextInput({ text: DialogManager.cacheInputValue, placeholder: '输入缓存占用上限，100M-8G' })
+    Row({ space: 8 }) {
+      TextInput({ text: DialogManager.cacheInputValue, placeholder: '100M-8G' })
         .type(InputType.Number)
-        .width('100%')
+        .layoutWeight(1)
         .height(44)
         .fontSize(14)
         .fontColor($r('sys.color.font_primary'))
@@ -132,32 +141,21 @@ export struct CacheInputDialogContent {
           DialogManager.cacheInputValue = v;
         })
 
-      Row({ space: 8 }) {
-        Text('MB')
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.unit === 'M' ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
-          .backgroundColor(this.unit === 'M' ? $r('sys.color.comp_background_tertiary') : Color.Transparent)
-          .padding({ left: 20, right: 20, top: 8, bottom: 8 })
-          .borderRadius(10)
-          .onClick(() => {
-            this.unit = 'M';
-            DialogManager.cacheInputUnit = 'M';
-          })
-        Text('GB')
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.unit === 'G' ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
-          .backgroundColor(this.unit === 'G' ? $r('sys.color.comp_background_tertiary') : Color.Transparent)
-          .padding({ left: 20, right: 20, top: 8, bottom: 8 })
-          .borderRadius(10)
-          .onClick(() => {
-            this.unit = 'G';
-            DialogManager.cacheInputUnit = 'G';
-          })
-        Blank()
-      }
-      .width('100%')
+      Select(CacheInputDialogContent.unitOptions())
+        .selected(this.unit === 'G' ? 1 : 0)
+        .value(this.unit === 'G' ? 'GB' : 'MB')
+        .font({ size: 14 })
+        .fontColor($r('sys.color.font_primary'))
+        .selectedOptionFont({ size: 14 })
+        .optionFont({ size: 14 })
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(10)
+        .height(44)
+        .width(96)
+        .onSelect((index: number, _text: string) => {
+          this.unit = index === 1 ? 'G' : 'M';
+          DialogManager.cacheInputUnit = this.unit;
+        })
     }
     .width('100%')
   }
@@ -570,17 +568,7 @@ export struct DisclaimerDialogContent {
         .fontSize(14)
         .fontColor($r('sys.color.font_primary'))
         .lineHeight(22)
-      Text('软件本身不内置、不存储、不提供任何音频资源，也不提供任何受版权保护的音乐内容。所有音源均来自第三方插件，插件由第三方开发者维护，其内容的合法性、准确性与版权状况由相应提供方负责，与本软件无关。')
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .lineHeight(22)
-        .margin({ top: 8 })
       Text('请遵守您所在地区的法律法规，合理、适度地使用本软件。因下载或使用本软件而产生的任何直接或间接责任，均由使用者自行承担。')
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .lineHeight(22)
-        .margin({ top: 8 })
-      Text('若本软件相关内容侵犯了您的合法权益，请与我们联系，我们将在核实后及时处理。')
         .fontSize(14)
         .fontColor($r('sys.color.font_primary'))
         .lineHeight(22)
