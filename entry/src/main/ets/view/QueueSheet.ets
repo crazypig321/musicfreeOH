@@ -110,9 +110,9 @@ struct QueueRow {
       Row({ space: 10 }) {
         // 序号（当前曲目高亮）
         Text((this.index + 1).toString())
-          .fontSize(13)
+          .fontSize(12)
           .fontColor(this.isCurrent() ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
-          .width(12)
+          .width(20)
           .textAlign(TextAlign.Start)
 
         Column({ space: 2 }) {
@@ -171,7 +171,7 @@ struct QueueRow {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 22 })
+          .margin({ left: 28 })
       }
     }
     .width('100%')
@@ -325,14 +325,15 @@ export struct QueueSheet {
         if (this.queueCount > 0) {
           Row() {
             Text(this.currentPlayText())
-              .fontSize(16)
+              .fontSize(12)
               .fontColor($r('sys.color.font_tertiary'))
               .maxLines(1)
            //   .fontWeight(FontWeight.Bold)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .layoutWeight(1)
+              .padding({right: 10})
 
-            Row({ space: 20 }) {
+            Row({ space: 10 }) {
               Row({ space: 4 }) {
                 SymbolGlyph(this.repeatIcon())
                   .fontSize(20)
