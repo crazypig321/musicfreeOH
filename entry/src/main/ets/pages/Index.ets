@@ -106,7 +106,8 @@ struct Index {
             materialLevel: appState.materialLevel
           },
           adaptToHandedness: true,
-          miniBar: {
+          // 批量操作模式下移除迷你栏，避免遮挡批量底栏
+          miniBar: appState.isBatchMode ? undefined : {
             miniBarBuilder: () => {
               this.miniBarBuilder()
             },
