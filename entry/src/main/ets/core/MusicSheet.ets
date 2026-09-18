@@ -374,17 +374,32 @@ export class MusicSheet {
     return result;
   }
 
+  /** 恢复单个歌单：同名歌单合并（歌曲按 platform+id 去重），否则新建 */
+  private resumeSheetEntry(entry: SheetBackupEntry, existsSheetIdMap: Map<string, string>): Promise<void> {
+    const existingId = existsSheetIdMap.get(entry.sheet.title);
+    if (existingId !== undefined) {
+      return this.addMusic(existingId, entry.musicList);
+    }
+    return this.addSheet(entry.sheet.title).then((newSheetId: string): Promise<void> => {
+      existsSheetIdMap.set(entry.sheet.title, newSheetId);
+      return this.addMusic(newSheetId, entry.musicList);
+    });
+  }
+
   /** 恢复歌单 */
   resumeSheets(sheets: Array<SheetBackupEntry>, resumeMode: ResumeMode): Promise<void> {
     const task = (): Promise<void> => {
       if (resumeMode === ResumeMode.Append) {
+        // 同名歌单去重：合并进本地已有歌单（备份内同标题歌单也只落一份）
+        const existsSheetIdMap: Map<string, string> = new Map();
+        for (const it of this.sheets) {
+          existsSheetIdMap.set(it.title, it.id);
+        }
         let chain: Promise<void> = Promise.resolve();
         for (let i = sheets.length - 1; i >= 0; --i) {
           const idx = i;
           chain = chain.then((): Promise<void> => {
-            return this.addSheet(sheets[idx].sheet.title).then((newSheetId: string): Promise<void> => {
-              return this.addMusic(newSheetId, sheets[idx].musicList);
-            });
+            return this.resumeSheetEntry(sheets[idx], existsSheetIdMap);
           });
         }
         return chain;
@@ -406,12 +421,14 @@ export class MusicSheet {
         exportedDefaultSheet !== null ? exportedDefaultSheet.musicList : [];
       let chain: Promise<void> = this.addMusic(this.defaultSheet.id, defaultMusic);
       if (resumeMode === ResumeMode.OverwriteDefault) {
+        const existsSheetIdMap: Map<string, string> = new Map();
+        for (const it of this.sheets) {
+          existsSheetIdMap.set(it.title, it.id);
+        }
         for (let i = sheets.length - 1; i >= 0; --i) {
           const idx = i;
           chain = chain.then((): Promise<void> => {
-            return this.addSheet(sheets[idx].sheet.title).then((newSheetId: string): Promise<void> => {
-              return this.addMusic(newSheetId, sheets[idx].musicList);
-            });
+            return this.resumeSheetEntry(sheets[idx], existsSheetIdMap);
           });
         }
       } else {
