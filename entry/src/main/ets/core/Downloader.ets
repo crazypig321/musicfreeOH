@@ -10,6 +10,7 @@ import { Qualities } from '../utils/Qualities';
 import { Network } from '../infra/Network';
 import { HttpClient } from '../infra/HttpClient';
 import { Log } from '../utils/Log';
+import { Delay } from '../utils/Delay';
 import { appConfig } from './AppConfig';
 import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
 import { LocalMusicExclusion } from './LocalMusicExclusion';
@@ -152,6 +153,24 @@ export class Downloader {
     this.updateTaskStatus(musicItem, DownloadStatus.Preparing);
   }
 
+  /** 上一个任务的实际启动时刻（任务间隔节流用） */
+  private lastTaskStartAt: number = 0;
+
+  /** 任务间隔节流：先预留下一个启动时刻（并发调用依次错开），再等待到点；间隔 0 直接返回 */
+  private async waitTaskInterval(): Promise<void> {
+    const intervalMs = Math.max(0, appConfig.getDownloadTaskInterval()) * 1000;
+    if (intervalMs === 0) {
+      return;
+    }
+    const now = Date.now();
+    const startAt = Math.max(now, this.lastTaskStartAt + intervalMs);
+    this.lastTaskStartAt = startAt;
+    const waitMs = startAt - now;
+    if (waitMs > 0) {
+      await Delay.wait(waitMs);
+    }
+  }
+
   private markTaskAsCompleted(musicItem: MusicItem): void {
     this.downloadingCount--;
     this.updateTaskStatus(musicItem, DownloadStatus.Completed);
@@ -252,6 +271,8 @@ export class Downloader {
 
     const musicItem = nextTask.musicItem;
     this.markTaskAsStarted(musicItem);
+    // 任务间隔：错开各任务的启动时刻，避免集中请求音源接口
+    await this.waitTaskInterval();
 
     let url = musicItem.url;
     let headers: Record<string, string> = Downloader.collectHeaders(musicItem);

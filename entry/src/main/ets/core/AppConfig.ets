@@ -23,6 +23,7 @@ export class ConfigKeys {
   static readonly PLAY_QUALITY_ORDER = 'basic.playQualityOrder';
   static readonly DEFAULT_DOWNLOAD_QUALITY = 'basic.defaultDownloadQuality';
   static readonly DOWNLOAD_QUALITY_ORDER = 'basic.downloadQualityOrder';
+  static readonly DOWNLOAD_TASK_INTERVAL = 'basic.downloadTaskInterval';
   static readonly MAX_HISTORY_LEN = 'basic.maxHistoryLen';
   static readonly MUSIC_ORDER_IN_LOCAL_SHEET = 'basic.musicOrderInLocalSheet';
   static readonly AUTO_UPDATE_PLUGIN = 'basic.autoUpdatePlugin';
@@ -139,6 +140,11 @@ export class AppConfig {
 
   getDownloadQualityOrder(): string {
     return this.getString(ConfigKeys.DOWNLOAD_QUALITY_ORDER, 'desc');
+  }
+
+  /** 下载任务启动间隔（秒，0 表示不间隔） */
+  getDownloadTaskInterval(): number {
+    return this.getNumber(ConfigKeys.DOWNLOAD_TASK_INTERVAL, 0);
   }
 
   getMaxHistoryLen(): number {
