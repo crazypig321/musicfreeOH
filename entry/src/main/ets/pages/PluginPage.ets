@@ -309,7 +309,7 @@ export struct PluginPage {
         const parts: Array<string> = [];
         for (const it of arr) {
           if (typeof it === 'string' && it.length > 0) {
-            parts.push('￮ ' + it);
+            parts.push('· ' + it);
           }
         }
         return parts.join('\n');
@@ -483,15 +483,19 @@ export struct PluginPage {
     }
   }
 
-  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出） */
+  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出；显式动画包裹避免突兀） */
   private enterBatchMode(): void {
-    appState.isBatchMode = true;
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = true;
+    });
     this.batchSelected = [];
   }
 
   /** 退出批量模式 */
   private exitBatchMode(): void {
-    appState.isBatchMode = false;
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = false;
+    });
     this.batchSelected = [];
   }
 
@@ -926,6 +930,7 @@ export struct PluginPage {
                     SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
                       .fontSize(24)
                       .fontColor([this.isSelected(row) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+                      .transition(TransitionEffect.OPACITY)
                   }
                   Column() {
                     SymbolGlyph($r('sys.symbol.AI_panels'))
@@ -1017,6 +1022,7 @@ export struct PluginPage {
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：全选 / 导出 / 分享 / 删除
         if (appState.isBatchMode) {
           CommonBlur().position({ bottom: 0 })
+            .transition(TransitionEffect.OPACITY)
 
           Column({ space: 10 }) {
             Row() {
@@ -1061,6 +1067,7 @@ export struct PluginPage {
           .width('100%')
           .position({ bottom: 0 })
           .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+          .transition(TransitionEffect.OPACITY)
         }
 
         // openMenu 锚点（位于标题栏下方右上角，菜单在锚点处弹出）

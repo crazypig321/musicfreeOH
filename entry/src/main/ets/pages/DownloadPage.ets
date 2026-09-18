@@ -359,15 +359,19 @@ export struct DownloadPage {
     return menus;
   }
 
-  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出） */
+  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出；显式动画包裹避免突兀） */
   private enterBatchMode(): void {
-    appState.isBatchMode = true;
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = true;
+    });
     this.batchSelected = [];
   }
 
   /** 退出批量模式 */
   private exitBatchMode(): void {
-    appState.isBatchMode = false;
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = false;
+    });
     this.batchSelected = [];
   }
 

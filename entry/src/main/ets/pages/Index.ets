@@ -191,7 +191,9 @@ struct Index {
       return true;
     }
     if (appState.isBatchMode) {
-      appState.isBatchMode = false;
+      this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+        appState.isBatchMode = false;
+      });
       return true;
     }
     return false;

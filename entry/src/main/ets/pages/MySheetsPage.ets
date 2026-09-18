@@ -311,7 +311,7 @@ export struct MySheetsPage {
         const parts: Array<string> = [];
         for (const it of arr) {
           if (typeof it === 'string' && it.length > 0) {
-            parts.push('￮ ' + it);
+            parts.push('· ' + it);
           }
         }
         return parts.join('\n');
@@ -469,14 +469,18 @@ export struct MySheetsPage {
     this.showToast('已删除「' + row.title + '」');
   }
 
-  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出） */
+  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出；显式动画包裹避免突兀） */
   private enterBatchMode(): void {
-    appState.isBatchMode = true;
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = true;
+    });
     this.batchSelected = [];
   }
   /** 退出批量模式 */
   private exitBatchMode(): void {
-    appState.isBatchMode = false;
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = false;
+    });
     this.batchSelected = [];
   }
 
@@ -649,6 +653,7 @@ export struct MySheetsPage {
         // 批量模式底栏（UI 同歌单详情页）：已选行 + 全选 / 分享 / 删除
         if (appState.isBatchMode) {
           CommonBlur({ heightValue: appState.bottomRect + 94 }).position({ bottom: 0 })
+            .transition(TransitionEffect.OPACITY)
 
           Column({ space: 10 }) {
             Row() {
@@ -692,6 +697,7 @@ export struct MySheetsPage {
           .width('100%')
           .position({ bottom: 0 })
           .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+          .transition(TransitionEffect.OPACITY)
         }
 
         // 编辑歌单半模态锚点（独立节点挂载半模态，不与新建歌单 sheet 共用宿主）
@@ -748,6 +754,7 @@ export struct MySheetsPage {
           SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
             .fontSize(24)
             .fontColor([this.isSelected(row) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
         }
         // 封面：有图用 Image，无图用歌单占位图标
         if (row.coverUrl.length > 0) {
@@ -789,6 +796,7 @@ export struct MySheetsPage {
           SymbolGlyph($r('sys.symbol.chevron_right'))
             .fontSize(16)
             .fontColor([$r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
         }
       }
       .width('100%')

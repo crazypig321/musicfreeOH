@@ -297,19 +297,23 @@ export struct SheetDetailPage {
 
   // ---------- 批量多选模式 ----------
 
-  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出） */
+  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出；显式动画包裹避免突兀） */
   private enterBatchMode(): void {
     if (this.musicCount === 0) {
       this.showToast('暂无歌曲');
       return;
     }
-    appState.isBatchMode = true;
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = true;
+    });
     this.batchSelected = [];
   }
 
   /** 退出批量模式 */
   private exitBatchMode(): void {
-    appState.isBatchMode = false;
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = false;
+    });
     this.batchSelected = [];
   }
 
@@ -624,6 +628,7 @@ export struct SheetDetailPage {
         if (appState.isBatchMode) {
           // 渐变模糊高度与底栏内容高度一致：14(顶距) + 22(已选行) + 10 + 36(按钮行) + 12(底距) + 导航栏避让
           CommonBlur({ heightValue: appState.bottomRect + 94 }).position({ bottom: 0 })
+            .transition(TransitionEffect.OPACITY)
 
           Column({ space: 10 }) {
             Row() {
@@ -679,6 +684,7 @@ export struct SheetDetailPage {
           .width('100%')
           .position({ bottom: 0 })
           .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+          .transition(TransitionEffect.OPACITY)
         }
 
         // 批量「添加到歌单」选择器锚点（独立节点挂载半模态，不与单项操作 sheet 共用宿主）
@@ -803,6 +809,7 @@ export struct SheetDetailPage {
           SymbolGlyph(this.isSelected(item) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
             .fontSize(24)
             .fontColor([this.isSelected(item) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
         }
         // 封面：有图用 Image，无图用音符占位
         if (item.artwork.length > 0) {
@@ -847,6 +854,7 @@ export struct SheetDetailPage {
           SymbolGlyph($r('sys.symbol.ellipsis_circle'))
             .fontSize(20)
             .fontColor([$r('sys.color.icon_secondary')])
+            .transition(TransitionEffect.OPACITY)
             .onClick(() => {
               this.openOptions(item);
             })
