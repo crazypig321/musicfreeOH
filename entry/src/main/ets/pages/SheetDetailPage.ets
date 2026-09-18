@@ -726,7 +726,7 @@ export struct SheetDetailPage {
                 LoadingProgress()
                   .width(18)
                   .height(18)
-                  .color($r('sys.color.icon_emphasize'))
+                  .color(appState.accentColor)
                 Text('加载中...')
                   .fontSize(12)
                   .fontColor($r('sys.color.font_tertiary'))
@@ -780,7 +780,7 @@ export struct SheetDetailPage {
                   LoadingProgress()
                     .width(18)
                     .height(18)
-                    .color($r('sys.color.icon_emphasize'))
+                    .color(appState.accentColor)
                   Text('加载中...')
                     .fontSize(12)
                     .fontColor($r('sys.color.font_tertiary'))
@@ -1023,7 +1023,7 @@ export struct SheetDetailPage {
         if (appState.isBatchMode) {
           SymbolGlyph(this.isSelected(item) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
             .fontSize(24)
-            .fontColor([this.isSelected(item) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+            .fontColor([this.isSelected(item) ? appState.accentColor : $r('sys.color.icon_tertiary')])
             .transition(TransitionEffect.OPACITY)
         }
         // 封面：有图用 Image，无图用音符占位

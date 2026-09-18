@@ -929,7 +929,7 @@ export struct PluginPage {
                   if (appState.isBatchMode && row.name !== '本地') {
                     SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
                       .fontSize(24)
-                      .fontColor([this.isSelected(row) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+                      .fontColor([this.isSelected(row) ? appState.accentColor : $r('sys.color.icon_tertiary')])
                       .transition(TransitionEffect.OPACITY)
                   }
                   Column() {
@@ -1142,7 +1142,7 @@ export struct PluginPage {
         .height(42)
         .fontSize(15)
         .margin({ top: 20 })
-        .backgroundColor($r('sys.color.background_emphasize'))
+        .backgroundColor(appState.accentColor)
         .onClick(() => {
           this.installFromInput();
         })
@@ -1210,7 +1210,7 @@ export struct PluginPage {
         .height(42)
         .fontSize(15)
         .margin({ top: 12 })
-        .backgroundColor($r('sys.color.background_emphasize'))
+        .backgroundColor(appState.accentColor)
         .onClick(() => {
           this.saveSortOrder();
         })
@@ -1539,7 +1539,7 @@ export struct PluginPage {
         .height(42)
         .fontSize(15)
         .margin({ top: 20 })
-        .backgroundColor($r('sys.color.background_emphasize'))
+        .backgroundColor(appState.accentColor)
         .onClick(() => {
           this.confirmPluginImport();
         })

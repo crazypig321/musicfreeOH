@@ -474,7 +474,7 @@ export struct SubscriptionPage {
                   LoadingProgress()
                     .width(16)
                     .height(16)
-                    .color($r('sys.color.icon_emphasize'))
+                    .color(appState.accentColor)
                 }
                 Text(this.statusText)
                   .fontSize(12)
@@ -495,7 +495,7 @@ export struct SubscriptionPage {
                   if (appState.isBatchMode) {
                     SymbolGlyph(this.isSelected(url) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
                       .fontSize(24)
-                      .fontColor([this.isSelected(url) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+                      .fontColor([this.isSelected(url) ? appState.accentColor : $r('sys.color.icon_tertiary')])
                       .transition(TransitionEffect.OPACITY)
                   }
                   Column() {
@@ -863,7 +863,7 @@ export struct SubscriptionPage {
         .height(42)
         .fontSize(15)
         .margin({ top: 20 })
-        .backgroundColor($r('sys.color.background_emphasize'))
+        .backgroundColor(appState.accentColor)
         .onClick(() => {
           this.confirmImportUrl();
         })

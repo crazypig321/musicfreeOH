@@ -422,7 +422,7 @@ export struct MySheetsPage {
         {
           icon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil'))
             .fontColor([Color.White]).fontSize(20),
-          backgroundColor: $r('sys.color.background_emphasize'),
+          backgroundColor: appState.accentColor,
           onAction: (): void => {
             this.openEditSheet(row);
           }
@@ -754,7 +754,7 @@ export struct MySheetsPage {
         if (appState.isBatchMode) {
           SymbolGlyph(this.isSelected(row) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
             .fontSize(24)
-            .fontColor([this.isSelected(row) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+            .fontColor([this.isSelected(row) ? appState.accentColor : $r('sys.color.icon_tertiary')])
             .transition(TransitionEffect.OPACITY)
         }
         // 封面：有图用 Image，无图用歌单占位图标
@@ -865,7 +865,7 @@ export struct MySheetsPage {
         .height(42)
         .fontSize(15)
         .margin({ top: 20 })
-        .backgroundColor($r('sys.color.background_emphasize'))
+        .backgroundColor(appState.accentColor)
         .onClick(() => {
           this.confirmCreateSheet();
         })
@@ -913,7 +913,7 @@ export struct MySheetsPage {
         .height(42)
         .fontSize(15)
         .margin({ top: 20 })
-        .backgroundColor($r('sys.color.background_emphasize'))
+        .backgroundColor(appState.accentColor)
         .onClick(() => {
           this.confirmEditSheet();
         })
@@ -1001,7 +1001,7 @@ export struct MySheetsPage {
         .height(42)
         .fontSize(15)
         .margin({ top: 20 })
-        .backgroundColor($r('sys.color.background_emphasize'))
+        .backgroundColor(appState.accentColor)
         .enabled(this.importPluginNames.length > 0)
         .onClick(() => {
           this.confirmImport();

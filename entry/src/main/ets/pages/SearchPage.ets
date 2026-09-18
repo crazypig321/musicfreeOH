@@ -271,7 +271,7 @@ export struct SearchPage {
               LoadingProgress()
                 .width(18)
                 .height(18)
-                .color($r('sys.color.icon_emphasize'))
+                .color(appState.accentColor)
               Text('加载中...')
                 .fontSize(12)
                 .fontColor($r('sys.color.font_tertiary'))
@@ -418,7 +418,7 @@ export struct SearchPage {
       Row({ space: 12 }) {
         Text((index + 1).toString())
           .fontSize(14)
-          .fontColor(index < 3 ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
+          .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
           .width(24)
           .textAlign(TextAlign.Center)
         Column({ space: 2 }) {

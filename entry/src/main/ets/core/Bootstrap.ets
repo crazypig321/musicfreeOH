@@ -14,6 +14,10 @@ import { mediaSession } from './MediaSession';
 import { lyricManager } from './LyricManager';
 import { ScheduleClose } from '../utils/ScheduleClose';
 import { pluginManager } from '../plugin/PluginManager';
+import { ConfigurationConstant } from '@kit.AbilityKit';
+import { hdsMaterial } from '@kit.UIDesignKit';
+import { ContextHolder } from '../common/ContextHolder';
+import { appState, themeColorOf } from '../entryability/AppState';
 
 /**
  * 应用启动编排（移植自 src/entry/bootstrap/bootstrap.ts，仅后端部分）
@@ -46,6 +50,9 @@ export class Bootstrap {
       musicSheet.setup(),
       musicHistory.setup()
     ]);
+
+    // 2.1 外观设置恢复（深浅模式/材质/底部栏布局/主题色/动画开关）
+    Bootstrap.applyAppearance();
 
     // 3. 插件
     await pluginManager.setup();
@@ -80,6 +87,38 @@ export class Bootstrap {
     // 6. 非阻塞收尾
     Bootstrap.extraMakeup().catch(() => {
     });
+  }
+
+  /** 恢复外观相关设置到全局状态 */
+  private static applyAppearance(): void {
+    // 深浅模式
+    try {
+      const mode = appConfig.getAppearanceColorMode();
+      let colorMode = ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET;
+      if (mode === 'light') {
+        colorMode = ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
+      } else if (mode === 'dark') {
+        colorMode = ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+      }
+      ContextHolder.get().getApplicationContext().setColorMode(colorMode);
+    } catch (e) {
+      // 静默失败，跟随系统
+    }
+    // 沉浸光感材质
+    const mt = appConfig.getAppearanceMaterialType();
+    if (mt === 'adaptive') {
+      appState.materialType = hdsMaterial.MaterialType.ADAPTIVE;
+    } else if (mt === 'none') {
+      appState.materialType = hdsMaterial.MaterialType.NONE;
+    } else {
+      appState.materialType = hdsMaterial.MaterialType.IMMERSIVE;
+    }
+    // 底部栏排列模式
+    appState.hdsBarLayoutMode = appConfig.getAppearanceBarLayoutMode();
+    // 主题色
+    appState.accentColor = themeColorOf(appConfig.getAppearanceThemeColor());
+    // Tab 切换动画
+    appState.tabSwitchAnim = appConfig.getTabSwitchAnim();
   }
 
   /** 旧版共享歌单拆分（仅执行一次）：插件平台条目移入已下载，其余（本地导入）保留 */

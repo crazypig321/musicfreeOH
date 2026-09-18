@@ -9,7 +9,7 @@ import {
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_WEBDAV_SETTING } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_WEBDAV_SETTING, ROUTE_APPEARANCE_SETTING } from '../common/model/NavModels';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
@@ -28,6 +28,7 @@ import { LyricSettingPage } from './settingSecPage/LyricSettingPage';
 import { PluginSettingPage } from './settingSecPage/PluginSettingPage';
 import { BackupSettingPage } from './settingSecPage/BackupSettingPage';
 import { WebDavSettingPage } from './settingSecPage/WebDavSettingPage';
+import { AppearanceSettingPage } from './settingSecPage/AppearanceSettingPage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
@@ -137,7 +138,7 @@ struct Index {
             },
           },
         })
-        .animationDuration(500)
+        .animationDuration(appState.tabSwitchAnim ? 500 : 0)
         .onSelected((index: number) => {
           appState.currTabsIndex = index
         })
@@ -237,6 +238,8 @@ struct Index {
       BackupSettingPage()
     } else if (name === ROUTE_WEBDAV_SETTING) {
       WebDavSettingPage()
+    } else if (name === ROUTE_APPEARANCE_SETTING) {
+      AppearanceSettingPage()
     }
   }
 

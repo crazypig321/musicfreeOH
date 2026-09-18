@@ -33,6 +33,12 @@ export class ConfigKeys {
   static readonly TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL = 'basic.tryChangeSourceWhenPlayFail';
   static readonly LYRIC_AUTO_SEARCH_LYRIC = 'lyric.autoSearchLyric';
   static readonly BACKUP_RESUME_MODE = 'backup.resumeMode';
+  static readonly APPEARANCE_THEME_COLOR = 'appearance.themeColor';
+  static readonly APPEARANCE_COLOR_MODE = 'appearance.colorMode';
+  static readonly APPEARANCE_MATERIAL_TYPE = 'appearance.materialType';
+  static readonly APPEARANCE_BAR_LAYOUT_MODE = 'appearance.barLayoutMode';
+  static readonly APPEARANCE_PLAYER_EXPAND_ANIM = 'appearance.playerExpandAnim';
+  static readonly APPEARANCE_TAB_SWITCH_ANIM = 'appearance.tabSwitchAnim';
   static readonly PLUGIN_SUBSCRIBE_URL = 'plugin.subscribeUrl';
   static readonly WEBDAV_URL = 'webdav.url';
   static readonly WEBDAV_PATH = 'webdav.path';
@@ -231,6 +237,38 @@ export class AppConfig {
 
   getPluginSubscribeUrl(): string {
     return this.getString(ConfigKeys.PLUGIN_SUBSCRIBE_URL, '');
+  }
+
+  /** 主题色（空串 = 跟随系统） */
+  getAppearanceThemeColor(): string {
+    return this.getString(ConfigKeys.APPEARANCE_THEME_COLOR, '');
+  }
+
+  /** 深浅模式：system / light / dark */
+  getAppearanceColorMode(): string {
+    const v = this.getString(ConfigKeys.APPEARANCE_COLOR_MODE, 'system');
+    return v === 'light' || v === 'dark' ? v : 'system';
+  }
+
+  /** 沉浸光感材质：immersive / adaptive / none */
+  getAppearanceMaterialType(): string {
+    const v = this.getString(ConfigKeys.APPEARANCE_MATERIAL_TYPE, 'immersive');
+    return v === 'adaptive' || v === 'none' ? v : 'immersive';
+  }
+
+  /** 底部栏排列模式：1 上下两排 / 0 单排 */
+  getAppearanceBarLayoutMode(): number {
+    return this.getNumber(ConfigKeys.APPEARANCE_BAR_LAYOUT_MODE, 1) === 0 ? 0 : 1;
+  }
+
+  /** 播放页展开/收起一镜到底动画 */
+  getPlayerExpandAnim(): boolean {
+    return this.getBoolean(ConfigKeys.APPEARANCE_PLAYER_EXPAND_ANIM, true);
+  }
+
+  /** Tab 切换过渡动画 */
+  getTabSwitchAnim(): boolean {
+    return this.getBoolean(ConfigKeys.APPEARANCE_TAB_SWITCH_ANIM, true);
   }
 }
 

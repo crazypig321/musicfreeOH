@@ -4,6 +4,7 @@ import { PlayState } from '../core/PlayerEngine';
 import { MusicRepeatMode } from '../common/Consts';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { MediaUtils } from '../utils/MediaUtils';
+import { appState } from '../entryability/AppState';
 
 /** 播放中指示器：5 根随机高度跳动的方柱（仅播放中跳动，暂停/停止时静止） */
 @ComponentV2
@@ -58,15 +59,15 @@ struct PlayingBars {
   build() {
     Row({ space: 2 }) {
       Column().width(3).height(this.heights[0]).borderRadius(1.5)
-        .backgroundColor($r('sys.color.icon_emphasize'))
+        .backgroundColor(appState.accentColor)
       Column().width(3).height(this.heights[1]).borderRadius(1.5)
-        .backgroundColor($r('sys.color.icon_emphasize'))
+        .backgroundColor(appState.accentColor)
       Column().width(3).height(this.heights[2]).borderRadius(1.5)
-        .backgroundColor($r('sys.color.icon_emphasize'))
+        .backgroundColor(appState.accentColor)
       Column().width(3).height(this.heights[3]).borderRadius(1.5)
-        .backgroundColor($r('sys.color.icon_emphasize'))
+        .backgroundColor(appState.accentColor)
       Column().width(3).height(this.heights[4]).borderRadius(1.5)
-        .backgroundColor($r('sys.color.icon_emphasize'))
+        .backgroundColor(appState.accentColor)
     }
     .height(18)
     .alignItems(VerticalAlign.Bottom)
@@ -111,7 +112,7 @@ struct QueueRow {
         // 序号（当前曲目高亮）
         Text((this.index + 1).toString())
           .fontSize(12)
-          .fontColor(this.isCurrent() ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary'))
+          .fontColor(this.isCurrent() ? appState.accentColor : $r('sys.color.font_tertiary'))
           .width(20)
           .textAlign(TextAlign.Start)
 
@@ -119,7 +120,7 @@ struct QueueRow {
           Text(this.item.title)
             .fontSize(15)
             .fontWeight(this.isCurrent() ? FontWeight.Medium : FontWeight.Normal)
-            .fontColor(this.isCurrent() ? $r('sys.color.font_emphasize') : $r('sys.color.font_primary'))
+            .fontColor(this.isCurrent() ? appState.accentColor : $r('sys.color.font_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Text(this.item.artist + (this.item.album.length > 0 ? ' · ' + this.item.album : ''))

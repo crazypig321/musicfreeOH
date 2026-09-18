@@ -40,7 +40,7 @@ struct QuickActionItem {
       })
       Text(this.label)
         .fontSize(11)
-        .fontColor(this.isHighlight ? $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+        .fontColor(this.isHighlight ? appState.accentColor : $r('sys.color.font_secondary'))
         .maxLines(1)
     }
     .width(64)

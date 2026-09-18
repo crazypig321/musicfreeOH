@@ -841,7 +841,7 @@ export struct DownloadPage {
             LoadingProgress()
               .width(20)
               .height(20)
-              .color($r('sys.color.icon_emphasize'))
+              .color(appState.accentColor)
           } else if (task.status === DownloadStatus.Error) {
             SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
               .fontSize(20)
@@ -874,7 +874,7 @@ export struct DownloadPage {
             Progress({ value: DownloadPage.taskPercent(task), total: 100, type: ProgressType.Linear })
               .width('100%')
               .height(3)
-              .color($r('sys.color.icon_emphasize'))
+              .color(appState.accentColor)
               .backgroundColor($r('sys.color.comp_background_tertiary'))
           }
         }
@@ -911,7 +911,7 @@ export struct DownloadPage {
         if (appState.isBatchMode) {
           SymbolGlyph(this.isSelected(item) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
             .fontSize(24)
-            .fontColor([this.isSelected(item) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_tertiary')])
+            .fontColor([this.isSelected(item) ? appState.accentColor : $r('sys.color.icon_tertiary')])
             .transition(TransitionEffect.OPACITY)
         }
         // 封面：有图用 Image，无图用音符占位

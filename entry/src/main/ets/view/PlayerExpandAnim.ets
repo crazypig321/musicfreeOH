@@ -2,6 +2,7 @@ import { componentUtils, display } from '@kit.ArkUI';
 import { AnimatorResult } from '@ohos.animator';
 import { ContextHolder } from '../common/ContextHolder';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { appConfig } from '../core/AppConfig';
 
 /** 展开/收起时长与曲线（官方 miniplayeranimation 案例） */
 const ANIM_DURATION = 500;
@@ -117,6 +118,11 @@ export class PlayerExpandAnimController {
     playerAnim.anchorY = barY;
     playerAnim.anchorW = barW;
     playerAnim.anchorH = barH;
+    // 关闭动画：直达展开态（裁剪窗口放开到全屏，迷你条隐藏）
+    if (!appConfig.getPlayerExpandAnim()) {
+      PlayerExpandAnimController.expandDirect();
+      return;
+    }
     playerAnim.isAnimating = true;
     // 覆盖层平时平移在屏幕外：先跳回 translate=0（仍透明不可见），保证测量不受平移影响
     playerAnim.pageTranslateY = 0;
@@ -153,9 +159,46 @@ export class PlayerExpandAnimController {
     }, 30);
   }
 
+  /** 关闭动画时的直达展开态（不经 animator，屏幕尺寸缺失时退回动画路径） */
+  private static expandDirect(): void {
+    try {
+      const ui = ContextHolder.getUiContext();
+      const d = display.getDefaultDisplaySync();
+      playerAnim.density = d.densityPixels;
+      playerAnim.screenWidth = ui.px2vp(d.width);
+      playerAnim.screenHeight = ui.px2vp(d.height);
+    } catch (error) {
+      // 保留 Index 初始化的屏幕尺寸
+    }
+    if (playerAnim.screenWidth <= 0 || playerAnim.screenHeight <= 0) {
+      playerAnim.isAnimating = true;
+      playerAnim.pageTranslateY = 0;
+      PlayerExpandAnimController.measureAndPlay(0);
+      return;
+    }
+    playerAnim.pageTranslateY = 0;
+    playerAnim.pageOpacity = 1;
+    playerAnim.topBarOpacity = 1;
+    playerAnim.miniBarOpacity = 0;
+    playerAnim.bigCoverHidden = false;
+    playerAnim.coverOpacity = 0;
+    playerAnim.clipX = 0;
+    playerAnim.clipY = 0;
+    playerAnim.clipW = playerAnim.screenWidth;
+    playerAnim.clipH = playerAnim.screenHeight;
+    playerAnim.clipR = 0;
+    playerAnim.isAnimating = false;
+    playerAnim.isExpand = true;
+  }
+
   /** 收起播放页，一镜到底退回迷你条 */
   static collapse(): void {
     if (playerAnim.isAnimating || !playerAnim.isExpand) {
+      return;
+    }
+    // 关闭动画：直接复位收起态
+    if (!appConfig.getPlayerExpandAnim()) {
+      PlayerExpandAnimController.resetCollapsed();
       return;
     }
     playerAnim.bigCoverHidden = true;

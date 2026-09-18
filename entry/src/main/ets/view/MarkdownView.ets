@@ -1,4 +1,5 @@
 import { MarkdownUtils, MdBlock, MdSpan } from '../utils/MarkdownUtils';
+import { appState } from '../entryability/AppState';
 
 /**
  * 轻量 markdown 渲染组件：按块级结构排版（标题/段落/引用/列表/代码块/分割线），
@@ -16,7 +17,7 @@ export struct MarkdownView {
           .fontWeight(s.bold ? FontWeight.Bold : FontWeight.Normal)
           .fontStyle(s.italic ? FontStyle.Italic : FontStyle.Normal)
           .fontFamily(s.code ? 'monospace' : 'HarmonyOS Sans')
-          .fontColor(s.link ? $r('sys.color.brand') : $r('sys.color.font_primary'))
+          .fontColor(s.link ? appState.accentColor : $r('sys.color.font_primary'))
       }, (s: MdSpan, index: number) => index.toString())
     }
     .fontSize(14)

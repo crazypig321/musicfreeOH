@@ -504,7 +504,7 @@ export struct PlayerPage {
                   .fontSize(12)
                   .fontWeight(this.showLyric ? FontWeight.Normal : FontWeight.Medium)
                   .fontColor(this.showLyric ?
-                    $r('sys.color.font_secondary') : $r('sys.color.font_emphasize'))
+                    $r('sys.color.font_secondary') : appState.accentColor)
                   .height(26)
                   .padding({ left: 12, right: 12 })
                   .borderRadius(13)
@@ -518,7 +518,7 @@ export struct PlayerPage {
                   .fontSize(12)
                   .fontWeight(this.showLyric ? FontWeight.Medium : FontWeight.Normal)
                   .fontColor(this.showLyric ?
-                    $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+                    appState.accentColor : $r('sys.color.font_secondary'))
                   .height(26)
                   .padding({ left: 12, right: 12 })
                   .borderRadius(13)
@@ -645,7 +645,7 @@ export struct PlayerPage {
                               .fontSize(this.isCurrentLyric(item) ? 18 : 16)
                               .fontWeight(this.isCurrentLyric(item) ? FontWeight.Bold : FontWeight.Normal)
                               .fontColor(this.isCurrentLyric(item) ?
-                                $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+                                appState.accentColor : $r('sys.color.font_secondary'))
                               .maxLines(2)
                               .textOverflow({ overflow: TextOverflow.Ellipsis })
                             if (this.hasTranslation && item.translation.length > 0) {
@@ -921,7 +921,7 @@ export struct PlayerPage {
               //   Text('音效')
               //     .fontSize(10)
               //     .fontColor(this.audioEffectOn ?
-              //       $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+              //       appState.accentColor : $r('sys.color.font_secondary'))
               // }
               // .alignItems(HorizontalAlign.Center)
               // .onClick(() => {

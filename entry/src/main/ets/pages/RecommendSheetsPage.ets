@@ -308,7 +308,7 @@ export struct RecommendSheetsPage {
               LoadingProgress()
                 .width(18)
                 .height(18)
-                .color($r('sys.color.icon_emphasize'))
+                .color(appState.accentColor)
               Text('加载中...')
                 .fontSize(12)
                 .fontColor($r('sys.color.font_tertiary'))
