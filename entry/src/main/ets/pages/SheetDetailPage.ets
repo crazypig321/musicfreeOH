@@ -686,7 +686,7 @@ export struct SheetDetailPage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
-            detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true,
             onWillDisappear: () => {
               this.showBatchSheetPicker = false;

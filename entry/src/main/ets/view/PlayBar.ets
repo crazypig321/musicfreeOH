@@ -203,7 +203,7 @@ export struct PlayBar {
     })
     .opacity(playerAnim.miniBarOpacity)
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
-      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true,
       backgroundColor: $r('sys.color.background_secondary'),
       onWillDisappear: () => {

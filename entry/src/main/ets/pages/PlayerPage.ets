@@ -600,7 +600,7 @@ export struct PlayerPage {
                       })
                   )
                   // 播放中跳动柱形 + 粒子（歌词页隐藏）
-                  PlayingVisual().offset({ y: '20%' }).width(280).hitTestBehavior(HitTestMode.Transparent)
+                 // PlayingVisual().offset({ y: '20%' }).width(280).hitTestBehavior(HitTestMode.Transparent)
                 }.layoutWeight(1)
               } else {
                 // 歌词区：横向滑动返回封面
@@ -754,11 +754,13 @@ export struct PlayerPage {
               Slider({
                 value: Math.min(this.currentPosition, this.sliderMax()),
                 min: 0,
-                max: this.sliderMax()
+                max: this.sliderMax(),
+                style: SliderStyle.NONE
               })
-                .selectedColor($r('sys.color.icon_emphasize'))
+                .selectedColor($r('sys.color.icon'))
                 .trackColor($r('sys.color.comp_background_tertiary'))
-                .blockColor($r('sys.color.icon_emphasize'))
+                .blockColor($r('sys.color.icon'))
+                .trackThickness(this.isSeeking ? 8 : 5)
                 .width('100%')
                 .onChange((value: number, mode: SliderChangeMode) => {
                   if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
@@ -797,30 +799,22 @@ export struct PlayerPage {
                 })
 
               SymbolGlyph($r('sys.symbol.backward_end_fill'))
-                .fontSize(30)
+                .fontSize(36)
                 .fontColor([$r('sys.color.icon_primary')])
                 .padding(8)
                 .onClick(() => {
                   this.skipToPrevious();
                 })
 
-              Column() {
-                SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill'))
-                  .fontSize(30)
-                  .fontColor([Color.White])
-              }
-              .width(68)
-              .height(68)
-              .borderRadius(34)
-              .backgroundColor($r('sys.color.background_emphasize'))
-              .justifyContent(FlexAlign.Center)
-              .alignItems(HorizontalAlign.Center)
-              .onClick(() => {
-                this.togglePlay();
-              })
+              SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause_circle_fill') : $r('sys.symbol.play_circle_fill'))
+                .fontSize(58)
+                .fontColor([$r('sys.color.icon_primary')])
+                .onClick(() => {
+                  this.togglePlay();
+                })
 
               SymbolGlyph($r('sys.symbol.forward_end_fill'))
-                .fontSize(30)
+                .fontSize(36)
                 .fontColor([$r('sys.color.icon_primary')])
                 .padding(8)
                 .onClick(() => {
@@ -975,7 +969,7 @@ export struct PlayerPage {
           .width(0)
           .height(0)
           .bindSheet(!!this.showComments, this.CommentsSheetBuilder(), {
-            detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true,
             backgroundColor: $r('sys.color.background_secondary'),
             onWillDisappear: () => {
@@ -1003,7 +997,7 @@ export struct PlayerPage {
         })
     )
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
-      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true,
       backgroundColor: $r('sys.color.background_secondary'),
       onWillDisappear: () => {

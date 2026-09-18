@@ -442,7 +442,7 @@ export struct SubscriptionPage {
         .padding({ right: 16 })
         .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
-          detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
           onWillDisappear: () => {
             this.showImportSheet = false;
@@ -456,7 +456,7 @@ export struct SubscriptionPage {
       .width('100%')
       .height('100%')
       .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
-        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,
         onWillDisappear: () => {
           this.showDetailSheet = false;

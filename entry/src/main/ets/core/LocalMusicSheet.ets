@@ -32,6 +32,8 @@ export class LocalMusicSheet {
   private localSheetItems: Array<MusicItem> = [];
   private ee: EventEmitter = new EventEmitter();
   private importToken: string | null = null;
+  /** 关联的另一域实例（本地音乐 ↔ 已下载）：删除源文件时同步移除两边记录 */
+  peer: LocalMusicSheet | null = null;
 
   constructor(storeKey: string, eventName: string) {
     this.storeKey = storeKey;
@@ -175,6 +177,10 @@ export class LocalMusicSheet {
     this.localSheetItems = newSheet;
     this.notify();
     this.saveLocalSheet();
+    // 删除了源文件：另一域中同一首歌的记录也一并移除（仅移除列表时不联动）
+    if (deleteOriginalFile && idx !== -1 && this.peer !== null) {
+      this.peer.removeMusic(musicItem, false);
+    }
     return Promise.resolve();
   }
 
@@ -390,3 +396,7 @@ export const localMusicSheet = new LocalMusicSheet('LocalMusicSheet', 'UpdateLoc
 
 /** 已下载（下载器产生 + 下载目录扫描），与本地音乐互不关联 */
 export const downloadedSheet = new LocalMusicSheet('DownloadedSheet', 'UpdateDownloadedSheet');
+
+// 两域互为 peer：删除源文件时同步移除两边记录
+localMusicSheet.peer = downloadedSheet;
+downloadedSheet.peer = localMusicSheet;

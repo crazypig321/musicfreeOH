@@ -12,6 +12,7 @@ import { HttpClient } from '../infra/HttpClient';
 import { Log } from '../utils/Log';
 import { appConfig } from './AppConfig';
 import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
+import { LocalMusicExclusion } from './LocalMusicExclusion';
 import { MediaExtra, MediaExtraProperties } from './MediaExtra';
 import { pluginManager } from '../plugin/PluginManager';
 
@@ -332,6 +333,11 @@ export class Downloader {
         extras[INTERNAL_SERIALIZE_KEY] = internalRec;
         localItem.extras = extras;
         downloadedSheet.addMusic(localItem);
+        // 下载完成即加入本地音乐列表（与手动刷新扫描口径一致：跳过被「移出本地音乐」排除的文件）
+        const destFileName = FileUtils.getFileName(FileUtils.normalizePath(targetDownloadPath));
+        if (destFileName.length > 0 && !LocalMusicExclusion.getExcludedFiles().has(destFileName)) {
+          localMusicSheet.addMusic(localItem);
+        }
 
         const patch = new MediaExtraProperties();
         patch.downloaded = true;

@@ -379,7 +379,7 @@ export struct MySheetsPage {
           return { offsetRemain: offset }
         })
         .bindSheet(!!this.showCreateSheet, this.CreateSheetBuilder(), {
-          detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
           onWillDisappear: () => {
             this.showCreateSheet = false;
@@ -443,7 +443,7 @@ export struct MySheetsPage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showEditSheet, this.EditSheetBuilder(), {
-            detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true,
             onWillDisappear: () => {
               this.showEditSheet = false;

@@ -806,7 +806,7 @@ export struct PluginPage {
           return { offsetRemain: offset }
         })
         .bindSheet(!!this.showSortSheet, this.SortSheetBuilder(), {
-          detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
           onWillDisappear: () => {
             this.showSortSheet = false;
@@ -883,7 +883,7 @@ export struct PluginPage {
         .padding({ right: 16 })
         .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
-          detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
           onWillDisappear: () => {
             this.showDetailSheet = false;
@@ -897,7 +897,7 @@ export struct PluginPage {
       .width('100%')
       .height('100%')
       .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
-        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,
         onWillDisappear: () => {
           this.showImportSheet = false;

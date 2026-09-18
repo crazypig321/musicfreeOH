@@ -6,6 +6,7 @@ import { pluginManager } from '../plugin/PluginManager';
 import { trackPlayer } from '../core/TrackPlayer';
 import { musicSheet } from '../core/MusicSheet';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
+import { LocalMusicExclusion } from '../core/LocalMusicExclusion';
 import { downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { ScheduleClose } from '../utils/ScheduleClose';
@@ -117,6 +118,8 @@ export struct MusicOptionsSheet {
   @Require @Param optionsItem: MusicItem;
   /** 是否显示操作面板 */
   @Param show: boolean = false;
+  /** 本地音乐列表面板（仅 DownloadPage 本地模式传 true）：追加移出/删除入口 */
+  @Param localListMode: boolean = false;
   /** 面板消失回调（页面将 show 置回 false） */
   @Event onClose: () => void = (): void => {};
 
@@ -313,12 +316,31 @@ export struct MusicOptionsSheet {
     this.showToast('已加入播放队列');
   }
 
+  /** 移出本地音乐列表（保留文件；写入排除名单防止扫描复活）；仅本地音乐列表面板显示 */
+  private removeFromLocalMusic(): void {
+    const target = this.optionsItem;
+    this.onClose();
+    LocalMusicExclusion.excludeItem(target);
+    localMusicSheet.removeMusic(target, false).then((): void => {
+      this.showToast('已移出本地音乐');
+    });
+  }
+
+  /** 删除歌曲与本地文件（已下载列表同步移除记录）；仅本地音乐列表面板显示 */
+  private deleteLocalMusicFile(): void {
+    const target = this.optionsItem;
+    this.onClose();
+    localMusicSheet.removeMusic(target, true).then((): void => {
+      this.showToast('已删除歌曲与本地文件');
+    });
+  }
+
   build() {
     // 两个空节点分别挂载操作面板与歌单选择器（二级半模态），互不影响
     Column() {
       Column()
         .bindSheet(!!this.showSheetPicker, this.SheetPickerBuilder(), {
-          detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
           onDisappear: () => {
             this.showSheetPicker = false;
@@ -329,7 +351,7 @@ export struct MusicOptionsSheet {
     .width('100%')
     .height(0)
     .bindSheet(!!this.show, this.OptionsSheetBuilder(), {
-      detents: [600, SheetSize.LARGE],
+      scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [600, SheetSize.LARGE],
       dragBar: true,
       preferType: SheetType.CENTER,
       onWillDisappear: () => {
@@ -499,6 +521,27 @@ export struct MusicOptionsSheet {
               this.addToPlayQueue();
             }
           })
+        }
+        // 仅本地音乐列表的详情面板：移出本地音乐列表 / 删除歌曲文件
+        if (this.localListMode) {
+          ListItem() {
+            ActionRowItem({
+              icon: $r('sys.symbol.trash'),
+              label: '移出本地音乐列表',
+              onTap: (): void => {
+                this.removeFromLocalMusic();
+              }
+            })
+          }
+          ListItem() {
+            ActionRowItem({
+              icon: $r('sys.symbol.trash'),
+              label: '删除歌曲文件',
+              onTap: (): void => {
+                this.deleteLocalMusicFile();
+              }
+            })
+          }
         }
       }
       .width('100%')

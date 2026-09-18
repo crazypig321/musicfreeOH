@@ -702,7 +702,7 @@ export struct DownloadPage {
       .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 216 : 60))
       .padding({ left: 16, right: 16 })
       .bindSheet(!this.isLocalMode && !!this.showOptions, this.OptionsSheetBuilder(), {
-        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,
         onWillDisappear: () => {
           this.showOptions = false;
@@ -796,7 +796,7 @@ export struct DownloadPage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
-            detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true,
             onWillDisappear: () => {
               this.showBatchSheetPicker = false;
@@ -807,11 +807,12 @@ export struct DownloadPage {
             }
           })
 
-        // 本地模式：单项操作面板与主页本地音乐条目完全一致（收藏/添加到歌单/搜索歌词等）
+        // 本地模式：单项操作面板与主页本地音乐条目一致，额外提供移出/删除入口
         if (this.isLocalMode) {
           MusicOptionsSheet({
             optionsItem: this.optionsItem,
             show: this.showLocalOptions,
+            localListMode: true,
             onClose: (): void => {
               this.showLocalOptions = false;
             }

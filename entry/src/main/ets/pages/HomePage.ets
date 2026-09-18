@@ -134,10 +134,11 @@ export struct HomePage{
         .padding({ right: 16 })
         .margin({ top: appState.topRect + 20 })
 
-        // 本地音乐条目操作半模态（与搜索页共用）
+        // 本地音乐条目操作半模态（与搜索页共用；本地音乐条目提供移出/删除入口）
         MusicOptionsSheet({
           optionsItem: this.optionsItem,
           show: this.showOptions,
+          localListMode: true,
           onClose: (): void => {
             this.showOptions = false;
           }
