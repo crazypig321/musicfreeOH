@@ -205,6 +205,8 @@ export class DialogManager {
         return '跳转排序';
       case '选择器':
         return DialogManager.pickerTitle;
+      case '免责声明':
+        return '免责声明';
     }
     return '';
   }
@@ -313,6 +315,16 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '免责声明': {
+        const ok: ButtonOptions = {
+          value: '我知道了',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+          }
+        };
+        buttons.push(ok);
+        break;
+      }
     }
     return buttons;
   }
@@ -411,5 +423,35 @@ export class DialogManager {
     }
     pluginManager.setUserVariables(plugin, vars);
     DialogManager.Toast('配置已保存');
+  }
+}
+
+/** 「免责声明」弹窗内容 */
+@ComponentV2
+export struct DisclaimerDialogContent {
+  build() {
+    Column() {
+      Text('本软件仅供交流与学习使用，是一款开源、免费的本地音乐播放工具。')
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(22)
+      Text('软件本身不内置、不存储、不提供任何音频资源，也不提供任何受版权保护的音乐内容。所有音源均来自第三方插件，插件由第三方开发者维护，其内容的合法性、准确性与版权状况由相应提供方负责，与本软件无关。')
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(22)
+        .margin({ top: 8 })
+      Text('请遵守您所在地区的法律法规，合理、适度地使用本软件。因下载或使用本软件而产生的任何直接或间接责任，均由使用者自行承担。')
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(22)
+        .margin({ top: 8 })
+      Text('若本软件相关内容侵犯了您的合法权益，请与我们联系，我们将在核实后及时处理。')
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(22)
+        .margin({ top: 8 })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 }

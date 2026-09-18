@@ -9,7 +9,7 @@ import {
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT } from '../common/model/NavModels';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
 import { MySheetsPage } from './MySheetsPage';
@@ -19,12 +19,13 @@ import { SubscriptionPage } from './SubscriptionPage';
 import { LocalMusicPage } from './LocalMusicPage';
 import { RecommendSheetsPage } from './RecommendSheetsPage';
 import { SheetDetailPage } from './SheetDetailPage';
+import { AboutPage } from './settingSecPage/AboutPage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent } from '../utils/DialogUtils';
+import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent, DisclaimerDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -212,6 +213,8 @@ struct Index {
       RecommendSheetsPage()
     } else if (name === ROUTE_SHEET_DETAIL) {
       SheetDetailPage()
+    } else if (name === ROUTE_ABOUT) {
+      AboutPage()
     }
   }
 
@@ -272,6 +275,8 @@ struct Index {
       SortJumpDialogContent()
     } else if (key === '选择器') {
       TextPickerDialogContent()
+    } else if (key === '免责声明') {
+      DisclaimerDialogContent()
     }
   }
 }

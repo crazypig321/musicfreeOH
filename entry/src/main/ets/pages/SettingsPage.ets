@@ -1,6 +1,8 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
+import { NavPathUtils } from '../utils/NavPathUtils';
+import { ROUTE_ABOUT } from '../common/model/NavModels';
 
 /** 设置条目 */
 interface SettingRow {
@@ -85,7 +87,11 @@ export struct SettingsPage {
               .height(56)
             }.ListItemStyle()
             .onClick(() => {
-              this.showToast('「' + row.title + '」开发中');
+              if (row.title === '关于') {
+                NavPathUtils.push(ROUTE_ABOUT);
+              } else {
+                this.showToast('「' + row.title + '」开发中');
+              }
             })
           }, (row: SettingRow) => row.title)
         }

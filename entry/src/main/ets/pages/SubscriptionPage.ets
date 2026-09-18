@@ -84,6 +84,11 @@ export struct SubscriptionPage {
     return name.length > 0 ? name : url;
   }
 
+  /** 是否本地导入的订阅源（file:// 沙箱路径，不对外展示路径） */
+  private static isLocalSource(url: string): boolean {
+    return url.startsWith('file://');
+  }
+
   /** titleBar 菜单：导入 + 更新全部 + 批量操作 */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const add: HdsNavigationMenuItemOptions = {
@@ -510,7 +515,7 @@ export struct SubscriptionPage {
                       .fontColor($r('sys.color.font_primary'))
                       .maxLines(1)
                       .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    Text(url)
+                    Text(SubscriptionPage.isLocalSource(url) ? '本地文件' : url)
                       .fontSize(12)
                       .fontColor($r('sys.color.font_tertiary'))
                       .maxLines(1)
@@ -685,7 +690,7 @@ export struct SubscriptionPage {
         .margin({ top: 4 })
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(this.detailUrl)
+      Text(SubscriptionPage.isLocalSource(this.detailUrl) ? '本地文件' : this.detailUrl)
         .fontSize(12)
         .fontColor($r('sys.color.font_tertiary'))
         .width('100%')
@@ -741,21 +746,31 @@ export struct SubscriptionPage {
           SymbolGlyph($r('sys.symbol.share'))
             .fontSize(20)
             .fontColor([$r('sys.color.icon_secondary')])
-          Text('分享源地址')
+          Text(SubscriptionPage.isLocalSource(this.detailUrl) ? '分享源文件' : '分享源地址')
             .fontSize(15)
             .fontColor($r('sys.color.font_primary'))
             .layoutWeight(1)
-          Text(this.detailUrl)
-            .fontSize(11)
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .constraintSize({ maxWidth: '45%' })
+          if (SubscriptionPage.isLocalSource(this.detailUrl)) {
+            // 本地文件分享待接入鸿蒙系统分享能力，暂不可用
+            Text('开发中')
+              .fontSize(11)
+              .fontColor($r('sys.color.font_tertiary'))
+          } else {
+            Text(this.detailUrl)
+              .fontSize(11)
+              .fontColor($r('sys.color.font_tertiary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .constraintSize({ maxWidth: '45%' })
+          }
         }
         .width('100%')
         .height(48)
         .padding({ left: 16, right: 16 })
         .onClick(() => {
+          if (SubscriptionPage.isLocalSource(this.detailUrl)) {
+            return;
+          }
           this.shareDetailUrl();
         })
 
