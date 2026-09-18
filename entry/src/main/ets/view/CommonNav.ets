@@ -97,7 +97,7 @@ export struct CommonNav{
         .scrollable(false)
         .barPosition(BarPosition.End)
         .barFloatingStyle({
-          barWidth: {smallWidth: 330},
+          barWidth: { smallWidth: 330, mediumWidth: 480, largeWidth: 560 },
           barBottomMargin: 28,
           systemMaterialEffect: {
             materialType: appState.materialType,
