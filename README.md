@@ -36,12 +36,8 @@ MusicFreeOH 是开源插件化音乐播放器 [MusicFree](https://github.com/mao
   <tr>
     <td><img src="appImage/screenshot_20260919_082706_com.crazypig321.music.jpg" width="100%"></td>
     <td><img src="appImage/screenshot_20260919_082720_com.crazypig321.music.jpg" width="100%"></td>
-    <td><img src="appImage/screenshot_20260919_082742_com.crazypig321.music.jpg" width="100%"></td>
-    <td><img src="appImage/screenshot_20260919_082753_com.crazypig321.music.jpg" width="100%"></td>
-  </tr>
-  <tr>
     <td><img src="appImage/screenshot_20260919_082811_com.crazypig321.music.jpg" width="100%"></td>
-    <td></td><td></td><td></td>
+    <td><img src="appImage/screenshot_20260919_082753_com.crazypig321.music.jpg" width="100%"></td>
   </tr>
 </table>
 
