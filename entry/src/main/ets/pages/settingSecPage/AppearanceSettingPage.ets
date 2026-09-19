@@ -8,6 +8,9 @@ import { ConfigurationConstant } from '@kit.AbilityKit';
 import { hdsMaterial, HdsColorPicker, HdsColorPickerTabType } from '@kit.UIDesignKit';
 import { window } from '@kit.ArkUI';
 import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
+import { deviceInfo } from '@kit.BasicServicesKit';
+import { HSBColorPicker } from '@keke/color-picker';
+import { sheetTopAvoidVp } from '../../utils/BreakpointUtils';
 
 /**
  * 外观设置页面
@@ -32,6 +35,8 @@ export struct AppearanceSettingPage {
   @Local showMaterialMenu: boolean = false;
   @Local showOrientationMenu: boolean = false;
   @Local showAnimMenu: boolean = false;
+  /** 低于 26 API 的取色器半模态开关（三方库 HSBColorPicker） */
+  @Local showColorSheet: boolean = false;
 
   aboutToAppear(): void {
     const stored = appConfig.getAppearanceThemeColor();
@@ -284,6 +289,26 @@ export struct AppearanceSettingPage {
     appState.accentColor = themeColorOf(hex);
   }
 
+  /** 低于 26 API 的取色器半模态：三方库 HSBColorPicker（含透明度通道 + 预设色） */
+  @Builder
+  ColorSheetBuilder() {
+    Column() {
+      HSBColorPicker({
+        color: this.pickerColor,
+        radius: 8,
+        showAlpha: true,
+        predefine: ['#8b27f4', '#73f9fc', '#fffe55', '#f5cee3', '#eb4827',
+          '#e93bf4', '#3e68f4', '#c5e6d3', '#e4e4e4', '#fa7105'],
+        onChange: (value: string): void => {
+          this.pickerColor = value;
+          this.applyThemeColor(value);
+        }
+      })
+        .height(270)
+    }
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
+  }
+
   build() {
     CommonNav({
       titleBarOp: titleBarOf('外观设置'),
@@ -309,14 +334,29 @@ export struct AppearanceSettingPage {
                 if (appState.holdingHand === 'left') {
                   // 取色器（仅网格取色，紧凑内嵌；左手时镜像到行首）
                   Row() {
-                    HdsColorPicker({
-                      initialColor: this.pickerColor,
-                      onColorSelected: (selectedColor: string): void => {
-                        this.pickerColor = selectedColor;
-                        this.applyThemeColor(selectedColor);
-                      },
-                      options: { tabs: [HdsColorPickerTabType.GRID] }
-                    })
+                    if (deviceInfo.apiAvailable('26.0.0')) {
+                      HdsColorPicker({
+                        initialColor: this.pickerColor,
+                        onColorSelected: (selectedColor: string): void => {
+                          this.pickerColor = selectedColor;
+                          this.applyThemeColor(selectedColor);
+                        },
+                        options: { tabs: [HdsColorPickerTabType.GRID] }
+                      })
+                    } else {
+                      // 低 API 兜底：色块点击弹出三方库取色器半模态
+                      Row().width(20).height(20).borderRadius(10)
+                        .backgroundColor(this.pickerColor)
+                        .onClick(() => {
+                          this.showColorSheet = true;
+                        })
+                        .bindSheet(!!this.showColorSheet, this.ColorSheetBuilder(), {
+                          dragBar: true,
+                          onWillDisappear: () => {
+                            this.showColorSheet = false;
+                          }
+                        })
+                    }
                   }
                 }
                 if (appState.holdingHand !== 'left') {
@@ -330,16 +370,30 @@ export struct AppearanceSettingPage {
                   .layoutWeight(1)
                   .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
                 if (appState.holdingHand !== 'left') {
-                  // 取色器（仅网格取色，紧凑内嵌，靠行尾右对齐）
+                  // 取色器（仅网格取色，紧凑内嵌，靠行尾右对齐；低 API 兜底色块半模态）
                   Row() {
-                    HdsColorPicker({
-                      initialColor: this.pickerColor,
-                      onColorSelected: (selectedColor: string): void => {
-                        this.pickerColor = selectedColor;
-                        this.applyThemeColor(selectedColor);
-                      },
-                      options: { tabs: [HdsColorPickerTabType.GRID] }
-                    })
+                    if (deviceInfo.apiAvailable('26.0.0')) {
+                      HdsColorPicker({
+                        initialColor: this.pickerColor,
+                        onColorSelected: (selectedColor: string): void => {
+                          this.pickerColor = selectedColor;
+                          this.applyThemeColor(selectedColor);
+                        },
+                        options: { tabs: [HdsColorPickerTabType.GRID] }
+                      })
+                    } else {
+                      Row().width(20).height(20).borderRadius(10)
+                        .backgroundColor(this.pickerColor)
+                        .onClick(() => {
+                          this.showColorSheet = true;
+                        })
+                        .bindSheet(!!this.showColorSheet, this.ColorSheetBuilder(), {
+                          dragBar: true,
+                          onWillDisappear: () => {
+                            this.showColorSheet = false;
+                          }
+                        })
+                    }
                   }
                 }
                 if (appState.holdingHand === 'left') {
