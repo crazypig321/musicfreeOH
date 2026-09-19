@@ -564,12 +564,7 @@ export struct SearchPage {
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Row({ space: 6 }) {
-            Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
-              .fontSize(12)
-              .fontColor($r('sys.color.font_tertiary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
+            // 来源标签（位于副文本前，圆角同歌单详情页来源标签）
             if (item.platform.length > 0) {
               Text(item.platform)
                 .fontSize(10)
@@ -578,9 +573,15 @@ export struct SearchPage {
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .constraintSize({ maxWidth: 84 })
                 .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                .borderRadius(8)
+                .borderRadius(3)
                 .backgroundColor($r('sys.color.comp_background_tertiary'))
             }
+            Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
+              .fontSize(12)
+              .fontColor($r('sys.color.font_tertiary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
           }
           .width('100%')
         }
