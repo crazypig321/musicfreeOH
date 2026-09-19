@@ -2,13 +2,15 @@ import { BlurStrategy, HdsNavigationTitleBarOptions, ScrollEffectType } from "@k
 import { LengthMetrics } from "@kit.ArkUI";
 import { TimeTipUtils } from "../../utils/TimeTipUtils";
 import { appState } from "../../entryability/AppState";
-import { MediaTag, SheetItem } from "./SheetTypes";
+import { MediaTag, SheetItem, AlbumItem, ArtistItem } from "./SheetTypes";
 
 export const ROUTE_SEARCH: string = 'search';
 export const ROUTE_DOWNLOAD: string = 'download';
 export const ROUTE_LOCAL_MUSIC: string = 'localMusic';
 export const ROUTE_RECOMMEND_SHEETS: string = 'recommendSheets';
 export const ROUTE_SHEET_DETAIL: string = 'sheetDetail';
+export const ROUTE_ALBUM_DETAIL: string = 'albumDetail';
+export const ROUTE_ARTIST_DETAIL: string = 'artistDetail';
 export const ROUTE_PLAYER: string = 'player';
 export const ROUTE_ABOUT: string = 'about';
 export const ROUTE_CACHE: string = 'cache';
@@ -38,6 +40,18 @@ export class SheetDetailNavParams {
   static sheet: SheetItem | null = null;
   /** true：榜单（getTopListDetail）；false：歌单（getMusicSheetInfo） */
   static isTopList: boolean = false;
+}
+
+/**
+ * 专辑/歌手详情页跳转参数（album 与 artist 二选一，均非空时按专辑处理）
+ */
+export class MediaDetailNavParams {
+  /** 来源插件名 */
+  static pluginName: string = '';
+  /** 专辑详情模式 */
+  static album: AlbumItem | null = null;
+  /** 歌手详情模式 */
+  static artist: ArtistItem | null = null;
 }
 
 export function NavTitleBarOp() : HdsNavigationTitleBarOptions {

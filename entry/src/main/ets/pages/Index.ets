@@ -9,7 +9,7 @@ import {
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_WEBDAV_SETTING, ROUTE_APPEARANCE_SETTING } from '../common/model/NavModels';
+import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ALBUM_DETAIL, ROUTE_ARTIST_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_WEBDAV_SETTING, ROUTE_APPEARANCE_SETTING } from '../common/model/NavModels';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
@@ -20,6 +20,7 @@ import { SubscriptionPage } from './SubscriptionPage';
 import { LocalMusicPage } from './LocalMusicPage';
 import { RecommendSheetsPage } from './RecommendSheetsPage';
 import { SheetDetailPage } from './SheetDetailPage';
+import { MediaDetailPage } from './MediaDetailPage';
 import { AboutPage } from './settingSecPage/AboutPage';
 import { CachePage } from './settingSecPage/CachePage';
 import { PlaySettingPage } from './settingSecPage/PlaySettingPage';
@@ -316,6 +317,8 @@ struct Index {
       RecommendSheetsPage()
     } else if (name === ROUTE_SHEET_DETAIL) {
       SheetDetailPage()
+    } else if (name === ROUTE_ALBUM_DETAIL || name === ROUTE_ARTIST_DETAIL) {
+      MediaDetailPage()
     } else if (name === ROUTE_ABOUT) {
       AboutPage()
     } else if (name === ROUTE_CACHE) {

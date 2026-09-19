@@ -1,6 +1,9 @@
 import { MusicItem } from '../common/model/MediaTypes';
 import { SearchResult, SupportMediaType, AlbumItem, ArtistItem, SheetItem } from '../common/model/SheetTypes';
-import { ROUTE_SHEET_DETAIL, SheetDetailNavParams } from '../common/model/NavModels';
+import {
+  ROUTE_SHEET_DETAIL, SheetDetailNavParams,
+  ROUTE_ALBUM_DETAIL, ROUTE_ARTIST_DETAIL, MediaDetailNavParams
+} from '../common/model/NavModels';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { pluginManager } from '../plugin/PluginManager';
@@ -379,6 +382,36 @@ export struct SearchPage {
     NavPathUtils.push(ROUTE_SHEET_DETAIL);
   }
 
+  /** 专辑结果点击：进入专辑详情页 */
+  private openAlbumDetail(album: AlbumItem): void {
+    const current = this.currentPlugin();
+    const pluginName = album.platform.length > 0 ? album.platform :
+      (current !== null ? current.name : '');
+    if (pluginName.length === 0) {
+      this.showToast('插件不可用');
+      return;
+    }
+    MediaDetailNavParams.pluginName = pluginName;
+    MediaDetailNavParams.album = album;
+    MediaDetailNavParams.artist = null;
+    NavPathUtils.push(ROUTE_ALBUM_DETAIL);
+  }
+
+  /** 歌手结果点击：进入歌手详情页 */
+  private openArtistDetail(artist: ArtistItem): void {
+    const current = this.currentPlugin();
+    const pluginName = artist.platform.length > 0 ? artist.platform :
+      (current !== null ? current.name : '');
+    if (pluginName.length === 0) {
+      this.showToast('插件不可用');
+      return;
+    }
+    MediaDetailNavParams.pluginName = pluginName;
+    MediaDetailNavParams.album = null;
+    MediaDetailNavParams.artist = artist;
+    NavPathUtils.push(ROUTE_ARTIST_DETAIL);
+  }
+
   /** 清除键：清空输入与结果，回到搜索前状态（恢复历史词展示） */
   private resetSearch(): void {
     this.keyword = '';
@@ -726,34 +759,29 @@ export struct SearchPage {
     .alignItems(HorizontalAlign.Start)
   }
 
-  /** 结果分类标签条（搜索后出现于插件选择条下方） */
+  /** 结果分类标签条（搜索后出现于插件选择条下方）：四项均分一排，中间竖向分割线 */
   @Builder
   CategoryTabsBuilder() {
-    List({ space: 22 }) {
+    Row() {
       ForEach(SearchPage.CATEGORY_LABELS, (label: string, index: number) => {
-        ListItem() {
-          Column({ space: 4 }) {
-            Text(label)
-              .fontSize(15)
-              .fontWeight(this.categoryIndex === index ? FontWeight.Bold : FontWeight.Normal)
-              .fontColor(this.categoryIndex === index ?
+        Column({ space: 4 }) {
+          Text(label)
+            .fontSize(15)
+            .fontWeight(this.categoryIndex === index ? FontWeight.Bold : FontWeight.Normal)
+            .fontColor(this.categoryIndex === index ?
               $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
-            Divider()
-              .strokeWidth(2)
-              .width(18)
-              .color(this.categoryIndex === index ? appState.accentColor : 'transparent')
-          }
-          .alignItems(HorizontalAlign.Center)
-          .onClick(() => {
-            this.onSelectCategory(index);
-          })
+          Divider()
+            .strokeWidth(2)
+            .width(18)
+            .color(this.categoryIndex === index ? appState.accentColor : 'transparent')
         }
+        .alignItems(HorizontalAlign.Center)
+        .onClick(() => {
+          this.onSelectCategory(index);
+        })
       }, (label: string, index: number) => label + '_' + index.toString())
     }
-    .alignListItem(ListItemAlign.Center)
-    .listDirection(Axis.Horizontal)
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
+    .justifyContent(FlexAlign.SpaceAround)
     .width('100%')
     .margin({ top: 10 })
   }
@@ -761,121 +789,148 @@ export struct SearchPage {
   /** 专辑结果行：封面 + 标题/歌手 + 歌曲数 */
   @Builder
   AlbumRowBuilder(item: AlbumItem, index: number) {
-    Row({ space: 12 }) {
-      Text((index + 1).toString())
-        .fontSize(14)
-        .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
-        .width(24)
-        .textAlign(TextAlign.Center)
-      Image(ArtworkCache.resolve(item.artwork))
-        .width(48)
-        .height(48)
-        .borderRadius(8)
-        .objectFit(ImageFit.Cover)
-        .alt($r('app.media.altImage'))
-      Column({ space: 2 }) {
-        Text(item.title)
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(item.artist + (item.date.length > 0 ? ' · ' + item.date : ''))
+    Column() {
+      Row({ space: 12 }) {
+        Text((index + 1).toString())
+          .fontSize(14)
+          .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
+          .width(24)
+          .textAlign(TextAlign.Center)
+        Image(ArtworkCache.resolve(item.artwork))
+          .width(48)
+          .height(48)
+          .borderRadius(8)
+          .objectFit(ImageFit.Cover)
+          .alt($r('app.media.altImage'))
+        Column({ space: 2 }) {
+          Text(item.title)
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(item.artist + (item.date.length > 0 ? ' · ' + item.date : ''))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        Text(item.worksNum > 0 ? item.worksNum.toString() + '首' : '')
           .fontSize(12)
           .fontColor($r('sys.color.font_tertiary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      Text(item.worksNum > 0 ? item.worksNum.toString() + '首' : '')
-        .fontSize(12)
-        .fontColor($r('sys.color.font_tertiary'))
+      .width('100%')
+      .height(64)
+      .onClick(() => {
+        this.openAlbumDetail(item);
+      })
+      if (index < this.albumResults.length - 1) {
+        Divider()
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 84 })
+      }
     }
     .width('100%')
-    .height(64)
-    .borderRadius(12)
-    .onClick(() => {
-      this.showToast('专辑详情即将上线');
-    })
+    .alignItems(HorizontalAlign.Start)
   }
 
   /** 歌手结果行：头像 + 名称 + 作品/粉丝数 */
   @Builder
   ArtistRowBuilder(item: ArtistItem, index: number) {
-    Row({ space: 12 }) {
-      Text((index + 1).toString())
-        .fontSize(14)
-        .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
-        .width(24)
-        .textAlign(TextAlign.Center)
-      Image(ArtworkCache.resolve(item.avatar))
-        .width(44)
-        .height(44)
-        .borderRadius(22)
-        .objectFit(ImageFit.Cover)
-        .alt($r('app.media.altImage'))
-      Column({ space: 2 }) {
-        Text(item.name)
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(SearchPage.formatArtistSub(item))
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+    Column() {
+      Row({ space: 12 }) {
+        Text((index + 1).toString())
+          .fontSize(14)
+          .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
+          .width(24)
+          .textAlign(TextAlign.Center)
+        Image(ArtworkCache.resolve(item.avatar))
+          .width(44)
+          .height(44)
+          .borderRadius(22)
+          .objectFit(ImageFit.Cover)
+          .alt($r('app.media.altImage'))
+        Column({ space: 2 }) {
+          Text(item.name)
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(SearchPage.formatArtistSub(item))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+      .height(60)
+      .onClick(() => {
+        this.openArtistDetail(item);
+      })
+      if (index < this.artistResults.length - 1) {
+        Divider()
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 80 })
+      }
     }
     .width('100%')
-    .height(60)
-    .borderRadius(12)
-    .onClick(() => {
-      this.showToast('歌手详情即将上线');
-    })
+    .alignItems(HorizontalAlign.Start)
   }
 
   /** 歌单结果行：封面 + 标题/作者 + 歌曲数，点击进入歌单详情 */
   @Builder
   SheetRowBuilder(item: SheetItem, index: number) {
-    Row({ space: 12 }) {
-      Text((index + 1).toString())
-        .fontSize(14)
-        .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
-        .width(24)
-        .textAlign(TextAlign.Center)
-      Image(ArtworkCache.resolve(item.coverUrl()))
-        .width(48)
-        .height(48)
-        .borderRadius(8)
-        .objectFit(ImageFit.Cover)
-        .alt($r('app.media.altImage'))
-      Column({ space: 2 }) {
-        Text(item.title)
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(item.artist + (item.worksNum > 0 ? ' · ' + item.worksNum.toString() + '首' : ''))
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+    Column() {
+      Row({ space: 12 }) {
+        Text((index + 1).toString())
+          .fontSize(14)
+          .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
+          .width(24)
+          .textAlign(TextAlign.Center)
+        Image(ArtworkCache.resolve(item.coverUrl()))
+          .width(48)
+          .height(48)
+          .borderRadius(8)
+          .objectFit(ImageFit.Cover)
+          .alt($r('app.media.altImage'))
+        Column({ space: 2 }) {
+          Text(item.title)
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(item.artist + (item.worksNum > 0 ? ' · ' + item.worksNum.toString() + '首' : ''))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(14)
+          .fontColor([$r('sys.color.icon_tertiary')])
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(14)
-        .fontColor([$r('sys.color.icon_tertiary')])
+      .width('100%')
+      .height(64)
+      .onClick(() => {
+        this.openSheetDetail(item);
+      })
+      if (index < this.sheetResults.length - 1) {
+        Divider()
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 84 })
+      }
     }
     .width('100%')
-    .height(64)
-    .borderRadius(12)
-    .onClick(() => {
-      this.openSheetDetail(item);
-    })
+    .alignItems(HorizontalAlign.Start)
   }
 
   /** 歌手副文本：作品数 + 粉丝数 */
