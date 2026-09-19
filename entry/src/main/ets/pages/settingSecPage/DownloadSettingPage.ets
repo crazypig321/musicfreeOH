@@ -4,6 +4,8 @@ import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
 import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
+import { PathConst } from '../../common/PathConst';
+import { pasteboard } from '@kit.BasicServicesKit';
 
 /**
  * 下载设置页面
@@ -30,9 +32,30 @@ export struct DownloadSettingPage {
   @Local showOrderMenu: boolean = false;
   @Local showMaxMenu: boolean = false;
   @Local showIntervalMenu: boolean = false;
+  /** 当前实际下载路径（公共目录解析完成后刷新） */
+  @Local downloadPathText: string = '';
 
   aboutToAppear(): void {
     this.refreshTexts();
+    this.refreshDownloadPath();
+  }
+
+  /** 下载路径：先取当前值，再等公共目录解析完成后兜底刷新（覆盖启动早期竞态） */
+  private refreshDownloadPath(): void {
+    this.downloadPathText = appConfig.getDownloadPath();
+    PathConst.bootstrapPublicDownloadDir().then((): void => {
+      this.downloadPathText = appConfig.getDownloadPath();
+    });
+  }
+
+  /** 复制下载路径到剪贴板 */
+  private copyDownloadPath(): void {
+    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, this.downloadPathText);
+    pasteboard.getSystemPasteboard().setData(data).then((): void => {
+      this.getUIContext().getPromptAction().showToast({ message: '已复制下载路径', duration: 1500 });
+    }).catch((_e: Object): void => {
+      this.getUIContext().getPromptAction().showToast({ message: '复制失败', duration: 1500 });
+    });
   }
 
   private static qualityLabel(q: QualityKey): string {
@@ -420,6 +443,39 @@ export struct DownloadSettingPage {
                 onDisappear: (): void => {
                   this.showIntervalMenu = false;
                 }
+              })
+
+              Divider()
+                .DividerStyle()
+
+              // 下载位置
+              Column() {
+                Row({ space: 12 }) {
+                  SymbolGlyph($r('sys.symbol.folder'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                  Text('下载位置')
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                    .layoutWeight(1)
+                  Text('点击复制')
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                }
+                .width('100%')
+                .height(52)
+
+                Text(this.downloadPathText)
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                  .maxLines(3)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+                  .padding({ bottom: 12 })
+              }
+              .width('100%')
+              .onClick(() => {
+                this.copyDownloadPath();
               })
             }
             .width('100%')

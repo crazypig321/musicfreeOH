@@ -99,7 +99,7 @@ export class Downloader {
   private downloadTasks: Map<string, DownloadTaskInfo> = new Map();
   private downloadingCount: number = 0;
 
-  /** 确保公共下载目录解析完成后再启动下载队列（沙箱回落时下载功能不受影响） */
+  /** 确保公共下载目录就绪后再启动下载队列（目录缺失时由 bootstrap 自动重建） */
   private static async ensureDownloadDirResolved(): Promise<void> {
     await PathConst.bootstrapPublicDownloadDir();
   }

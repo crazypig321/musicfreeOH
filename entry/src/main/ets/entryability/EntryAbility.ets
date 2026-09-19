@@ -76,7 +76,7 @@ export default class EntryAbility extends UIAbility {
       }catch (e) {
 
       }
-      // 解析公共下载目录（DOWNLOAD 模式免弹窗，失败自动回落沙箱）
+      // 确保公共下载目录存在（缺失时通过 DOWNLOAD 模式免弹窗重建，不回落沙箱）
       PathConst.bootstrapPublicDownloadDir();
     });
   }
