@@ -8,6 +8,7 @@ import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { CommonBlur } from '../view/CommonCom';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { appState } from '../entryability/AppState';
+import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
 import { MusicDataSource } from '../common/model/MusicDataSource';
@@ -1257,7 +1258,7 @@ export struct DownloadPage {
       .backgroundColor($r('sys.color.comp_background_list_card'))
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -1310,7 +1311,7 @@ export struct DownloadPage {
       }
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 }

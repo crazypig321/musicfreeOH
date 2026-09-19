@@ -3,6 +3,8 @@ import { AnimatorResult } from '@ohos.animator';
 import { ContextHolder } from '../common/ContextHolder';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { appConfig } from '../core/AppConfig';
+import { appState } from '../entryability/AppState';
+import { useSidebarLayout } from '../utils/BreakpointUtils';
 
 /** 展开/收起时长与曲线（官方 miniplayeranimation 案例） */
 const ANIM_DURATION = 500;
@@ -81,6 +83,8 @@ export class PlayerExpandAnimState {
   bigCoverSize: number = 280;
   /** 封面飞行距离：miniCoverY - bigCoverY */
   coverTravel: number = 0;
+  /** 迷你条实例 id 前缀（展开时记录，窗口尺寸变化后按 id 重测迷你条几何） */
+  miniBarIdPrefix: string = '';
   /** 屏幕像素密度：clipShape 的 Path 坐标单位是 px（官方 FAQ 要求 vp2px 转换），状态字段保持 vp */
   density: number = 1;
 
@@ -102,13 +106,15 @@ export class PlayerExpandAnimController {
   private static playToken: number = 0;
 
   /** 从迷你条封面位置一镜到底展开播放页。
-   * 锚点用点击事件的窗口坐标（真实视觉位置）：HdsTabs 对迷你条做过平移摆放，
-   * getRectangleById 的 windowOffset 不含 translate，测到的是布局占位 */
+    * 锚点用点击事件的窗口坐标（真实视觉位置）：HdsTabs 对迷你条做过平移摆放，
+    * getRectangleById 的 windowOffset 不含 translate，测到的是布局占位。
+    * idPrefix：迷你条实例 id 前缀，供窗口尺寸变化后重测迷你条几何 */
   static expand(coverX: number, coverY: number, coverSize: number,
-    barX: number, barY: number, barW: number, barH: number): void {
+    barX: number, barY: number, barW: number, barH: number, idPrefix: string): void {
     if (playerAnim.isAnimating || playerAnim.isExpand) {
       return;
     }
+    playerAnim.miniBarIdPrefix = idPrefix;
     playerAnim.miniCoverX = coverX;
     playerAnim.miniCoverY = coverY;
     playerAnim.miniCoverSize = coverSize;
@@ -159,17 +165,27 @@ export class PlayerExpandAnimController {
     }, 30);
   }
 
-  /** 关闭动画时的直达展开态（不经 animator，屏幕尺寸缺失时退回动画路径） */
-  private static expandDirect(): void {
+  /** 同步屏幕/窗口尺寸：自由窗口模式下 display 是物理屏尺寸，必须优先用窗口尺寸（appState 随 windowSizeChange 更新） */
+  private static syncScreenSize(): void {
     try {
-      const ui = ContextHolder.getUiContext();
       const d = display.getDefaultDisplaySync();
       playerAnim.density = d.densityPixels;
+      if (appState.screenWidth > 0 && appState.screenHeight > 0) {
+        playerAnim.screenWidth = appState.screenWidth;
+        playerAnim.screenHeight = appState.screenHeight;
+        return;
+      }
+      const ui = ContextHolder.getUiContext();
       playerAnim.screenWidth = ui.px2vp(d.width);
       playerAnim.screenHeight = ui.px2vp(d.height);
     } catch (error) {
-      // 保留 Index 初始化的屏幕尺寸
+      // 保留已有屏幕尺寸
     }
+  }
+
+  /** 关闭动画时的直达展开态（不经 animator，屏幕尺寸缺失时退回动画路径） */
+  private static expandDirect(): void {
+    PlayerExpandAnimController.syncScreenSize();
     if (playerAnim.screenWidth <= 0 || playerAnim.screenHeight <= 0) {
       playerAnim.isAnimating = true;
       playerAnim.pageTranslateY = 0;
@@ -216,6 +232,8 @@ export class PlayerExpandAnimController {
     if (playerAnim.isAnimating || !playerAnim.isExpand) {
       return;
     }
+    // 窗口可能在上次展开后变化过：拖拽前重测几何，避免用过期坐标导致封面跳变
+    PlayerExpandAnimController.refreshGeometry();
     const travel = playerAnim.miniDistanceToTop;
     if (travel <= 0) {
       return;
@@ -282,15 +300,11 @@ export class PlayerExpandAnimController {
     playerAnim.topBarOpacity = 1;
   }
 
-  /** 测量迷你条根/迷你封面/播放页大封面的窗口坐标（全屏布局下即页面坐标） */
   /** 测量播放页大封面与屏幕尺寸（迷你条锚点已由点击事件提供，无需再测迷你条） */
   private static measure(): boolean {
     try {
       const ui = ContextHolder.getUiContext();
-      const d = display.getDefaultDisplaySync();
-      playerAnim.density = d.densityPixels;
-      playerAnim.screenWidth = ui.px2vp(d.width);
-      playerAnim.screenHeight = ui.px2vp(d.height);
+      PlayerExpandAnimController.syncScreenSize();
       const big = componentUtils.getRectangleById('player_page_cover');
       playerAnim.bigCoverX = ui.px2vp(big.windowOffset.x);
       playerAnim.bigCoverY = ui.px2vp(big.windowOffset.y);
@@ -310,6 +324,49 @@ export class PlayerExpandAnimController {
     } catch (error) {
       return false;
     }
+  }
+
+  /** 重测几何（窗口尺寸变化后调用）：播放页大封面始终重测；
+    * 悬浮迷你条（侧边栏布局）无平移摆放，可按 id 重测视觉位置与锚点；
+    * HdsTabs 模式 windowOffset 不含 translate，保持点击事件提供的视觉值 */
+  private static refreshGeometry(): void {
+    PlayerExpandAnimController.syncScreenSize();
+    try {
+      const ui = ContextHolder.getUiContext();
+      const big = componentUtils.getRectangleById('player_page_cover');
+      playerAnim.bigCoverX = ui.px2vp(big.windowOffset.x);
+      playerAnim.bigCoverY = ui.px2vp(big.windowOffset.y);
+      playerAnim.bigCoverSize = ui.px2vp(big.size.width);
+      if (playerAnim.miniBarIdPrefix.length > 0 &&
+        useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth)) {
+        const cover = componentUtils.getRectangleById(playerAnim.miniBarIdPrefix + '_cover');
+        const root = componentUtils.getRectangleById(playerAnim.miniBarIdPrefix + '_root');
+        playerAnim.miniCoverX = ui.px2vp(cover.windowOffset.x);
+        playerAnim.miniCoverY = ui.px2vp(cover.windowOffset.y);
+        playerAnim.miniCoverSize = ui.px2vp(cover.size.width);
+        playerAnim.miniDistanceToTop = playerAnim.miniCoverY;
+        playerAnim.anchorX = ui.px2vp(root.windowOffset.x);
+        playerAnim.anchorY = ui.px2vp(root.windowOffset.y);
+        playerAnim.anchorW = ui.px2vp(root.size.width);
+        playerAnim.anchorH = ui.px2vp(root.size.height);
+      }
+      playerAnim.coverTravel = playerAnim.miniCoverY - playerAnim.bigCoverY;
+    } catch (error) {
+      // 封面组件未挂载（如歌词模式）时保留旧值
+    }
+  }
+
+  /** 展开静止态下窗口尺寸变化：重测几何并把裁剪窗口对齐新窗口，防止后续收起/拖拽用过期坐标 */
+  static refreshIfExpanded(): void {
+    if (!playerAnim.isExpand || playerAnim.isAnimating) {
+      return;
+    }
+    PlayerExpandAnimController.refreshGeometry();
+    playerAnim.clipX = 0;
+    playerAnim.clipY = 0;
+    playerAnim.clipW = playerAnim.screenWidth;
+    playerAnim.clipH = playerAnim.screenHeight;
+    playerAnim.clipR = 0;
   }
 
   /** towardExpand：动画目标方向（看门狗自愈用），不可从 begin/end 推断——收起时值域同样是 0→1 */

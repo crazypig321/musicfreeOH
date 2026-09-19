@@ -15,6 +15,7 @@ import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
 import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
+import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 
@@ -1253,7 +1254,7 @@ export struct SheetDetailPage {
       }
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 }

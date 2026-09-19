@@ -13,6 +13,7 @@ import { ScheduleClose } from '../utils/ScheduleClose';
 import { MediaUtils } from '../utils/MediaUtils';
 import { CoverSearch } from '../utils/CoverSearch';
 import { appState } from '../entryability/AppState';
+import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { DialogManager } from '../utils/DialogUtils';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 
@@ -647,7 +648,7 @@ export struct MusicOptionsSheet {
       })
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -758,7 +759,7 @@ export struct MusicOptionsSheet {
       }
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 }

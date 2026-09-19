@@ -347,7 +347,7 @@ export struct PlaySettingPage {
                     .fontColor([$r('sys.color.icon_tertiary')])
                 }
                 if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.waveform'))
+                  SymbolGlyph($r('sys.symbol.waveform_headphone_slash'))
                     .fontSize(20)
                     .fontColor([$r('sys.color.icon_secondary')])
                 }
@@ -365,7 +365,7 @@ export struct PlaySettingPage {
                     .fontColor([$r('sys.color.icon_tertiary')])
                 }
                 if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.waveform'))
+                  SymbolGlyph($r('sys.symbol.waveform_headphone_slash'))
                     .fontSize(20)
                     .fontColor([$r('sys.color.icon_secondary')])
                 }

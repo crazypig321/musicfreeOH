@@ -20,7 +20,7 @@ import { downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
 import { DialogManager } from '../utils/DialogUtils';
-import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint } from '../utils/BreakpointUtils';
+import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 
 /**
  * 全屏播放页（结构参考官方多设备音乐最佳实践）：
@@ -455,14 +455,21 @@ export struct PlayerPage {
 
   // ==================== 断点适配 ====================
 
-  /** 分栏布局（横屏/矮窗口，或宽度 lg 的宽屏）：左侧封面+控制组件纵向堆叠，右侧歌词常驻，无需封面/歌词切换 */
+  /** 分栏布局（PC/窗口侧边栏模式、横屏/矮窗口，或宽度 lg 的宽屏）：左侧封面+控制组件纵向堆叠，右侧歌词常驻，无需封面/歌词切换 */
   private useSplitLayout(): boolean {
-    return isLandscapeBreakpoint(appState.WidthBp, appState.HeightBp) || appState.WidthBp >= 2;
+    return useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ||
+      isLandscapeBreakpoint(appState.WidthBp, appState.HeightBp) || appState.WidthBp >= 2;
   }
 
-  /** 矮窗口（横屏）下压缩组件尺寸，保证纵向完整放下不叠加 */
-  private isCompactControls(): boolean {
-    return isLandscapeBreakpoint(appState.WidthBp, appState.HeightBp);
+  /** 分栏控件尺寸缩放：随窗口可用高度连续缩放（约 420vp 最紧凑 0.72，约 680vp 以上完整 1），
+   *  避免按断点离散切换导致窗口尺寸变化时组件尺寸瞬间跳变 */
+  private uiScale(): number {
+    const h = (appState.screenHeight > 0 ? appState.screenHeight : playerAnim.screenHeight) -
+      appState.topRect - appState.bottomRect;
+    if (h <= 0) {
+      return 1;
+    }
+    return Math.max(0.72, Math.min(1, (h - 420) / 260));
   }
 
   /** 大屏（lg）限宽居中，避免内容被拉满全屏；其余断点不限 */
@@ -580,13 +587,13 @@ export struct PlayerPage {
       } else {
         this.LyricArea()
       }
-      this.SongInfo(false)
+      this.SongInfo(1)
       if (!this.showLyric) {
         this.CurrentLyricPreview()
       }
-      this.ProgressArea(false)
-      this.ControlsRow(false)
-      this.BottomActions(false)
+      this.ProgressArea(1)
+      this.ControlsRow(1)
+      this.BottomActions(1)
     }
     .width('100%')
     .height('100%')
@@ -605,15 +612,15 @@ export struct PlayerPage {
     Column() {
       this.PlayerTopBar(false)
       Row({ space: 36 }) {
-        // 左侧：封面占剩余高度（自动缩小，杜绝与下方组件叠加）+ 信息 + 进度 + 播控 + 功能键
+        // 左右两列各占 50%：封面（自动缩小，杜绝与下方组件叠加）+ 信息 + 进度 + 播控 + 功能键
         Column() {
           this.SplitCoverSlot()
-          this.SongInfo(this.isCompactControls())
-          this.ProgressArea(this.isCompactControls())
-          this.ControlsRow(this.isCompactControls())
-          this.BottomActions(this.isCompactControls())
+          this.SongInfo(this.uiScale())
+          this.ProgressArea(this.uiScale())
+          this.ControlsRow(this.uiScale())
+          this.BottomActions(this.uiScale())
         }
-        .width(400)
+        .layoutWeight(1)
         .height('100%')
 
         // 右侧：歌词常驻滚动（当前行自动居中）
@@ -899,14 +906,14 @@ export struct PlayerPage {
     .transition(TransitionEffect.OPACITY)
   }
 
-  /** 歌曲信息（compact：矮窗口压缩字号） */
+  /** 歌曲信息（s：分栏缩放系数，竖屏传 1 保持原样式） */
   @Builder
-  SongInfo(compact: boolean) {
+  SongInfo(s: number) {
     // 歌曲信息
     if (this.currentMusic !== null) {
-      Column({ space: compact ? 4 : 6 }) {
+      Column({ space: Math.max(4, Math.round(6 * s)) }) {
         Text(this.currentMusic.title)
-          .fontSize(compact ? 18 : 22)
+          .fontSize(Math.max(18, Math.round(22 * s)))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
@@ -914,7 +921,7 @@ export struct PlayerPage {
           .width('100%')
         Text(this.currentMusic.artist +
           (this.currentMusic.album.length > 0 ? ' · ' + this.currentMusic.album : ''))
-          .fontSize(compact ? 12 : 13)
+          .fontSize(Math.max(12, Math.round(13 * s)))
           .fontColor($r('sys.color.font_tertiary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -966,9 +973,9 @@ export struct PlayerPage {
     .transition(TransitionEffect.OPACITY)
   }
 
-  /** 进度条（compact：矮窗口压缩滑条高度） */
+  /** 进度条（s：分栏缩放系数，竖屏传 1 保持原样式） */
   @Builder
-  ProgressArea(compact: boolean) {
+  ProgressArea(s: number) {
     // 进度条
     Column({ space: 0 }) {
       Slider({
@@ -977,7 +984,7 @@ export struct PlayerPage {
         max: this.sliderMax(),
         style: SliderStyle.NONE
       })
-        .height(compact ? 30 : 40)
+        .height(Math.max(30, Math.round(40 * s)))
         .selectedColor($r('sys.color.icon'))
         .trackColor($r('sys.color.comp_background_tertiary'))
         .blockColor($r('sys.color.icon'))
@@ -1010,46 +1017,46 @@ export struct PlayerPage {
     .margin({ top: this.compactGap(6) })
   }
 
-  /** 播放控制：循环模式 | 上一首 | 播放/暂停 | 下一首 | 播放队列（compact：矮窗口压缩图标） */
+  /** 播放控制：循环模式 | 上一首 | 播放/暂停 | 下一首 | 播放队列（s：分栏缩放系数，竖屏传 1 保持原样式） */
   @Builder
-  ControlsRow(compact: boolean) {
+  ControlsRow(s: number) {
     // 播放控制：循环模式 | 上一首 | 播放/暂停 | 下一首 | 播放队列
     Row() {
       SymbolGlyph(this.repeatIcon())
-        .fontSize(compact ? 20 : 24)
+        .fontSize(Math.max(20, Math.round(24 * s)))
         .fontColor([$r('sys.color.icon_secondary')])
-        .padding(compact ? 2 : 4)
+        .padding(Math.max(2, Math.round(4 * s)))
         .onClick(() => {
           this.toggleRepeatMode();
         })
 
       SymbolGlyph($r('sys.symbol.backward_end_fill'))
-        .fontSize(compact ? 26 : 36)
+        .fontSize(Math.max(26, Math.round(36 * s)))
         .fontColor([$r('sys.color.icon_primary')])
-        .padding(compact ? 2 : 8)
+        .padding(Math.max(2, Math.round(8 * s)))
         .onClick(() => {
           this.skipToPrevious();
         })
 
       SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause_circle_fill') : $r('sys.symbol.play_circle_fill'))
-        .fontSize(compact ? 42 : 58)
+        .fontSize(Math.max(42, Math.round(58 * s)))
         .fontColor([$r('sys.color.icon_primary')])
         .onClick(() => {
           this.togglePlay();
         })
 
       SymbolGlyph($r('sys.symbol.forward_end_fill'))
-        .fontSize(compact ? 26 : 36)
+        .fontSize(Math.max(26, Math.round(36 * s)))
         .fontColor([$r('sys.color.icon_primary')])
-        .padding(compact ? 2 : 8)
+        .padding(Math.max(2, Math.round(8 * s)))
         .onClick(() => {
           this.skipToNext();
         })
 
       SymbolGlyph($r('sys.symbol.music_note_list'))
-        .fontSize(compact ? 20 : 24)
+        .fontSize(Math.max(20, Math.round(24 * s)))
         .fontColor([$r('sys.color.icon_secondary')])
-        .padding(compact ? 2 : 4)
+        .padding(Math.max(2, Math.round(4 * s)))
         .onClick(() => {
           this.showQueue = true;
         })
@@ -1061,33 +1068,33 @@ export struct PlayerPage {
     .margin({ top: this.compactGap(16) })
   }
 
-  /** 底部功能：投播 / 收藏 / 下载 / 评论 / 音质 / 更多（compact：矮窗口压缩图标与标签） */
+  /** 底部功能：投播 / 收藏 / 下载 / 评论 / 音质 / 更多（s：分栏缩放系数，竖屏传 1 保持原样式） */
   @Builder
-  BottomActions(compact: boolean) {
+  BottomActions(s: number) {
     // 底部功能：投播 / 收藏 / 下载 / 评论 / 音质 / 更多
     Row() {
       // 投播：系统 AVCastPicker 组件（点击拉起设备选择面板）
-      Column({ space: compact ? 3 : 5 }) {
+      Column({ space: Math.max(3, Math.round(5 * s)) }) {
         AVCastPicker({
           customPicker: (): void => {
             this.CastPickerIcon();
           }
         })
-          .width(compact ? 20 : 24)
-          .height(compact ? 20 : 24)
+          .width(Math.max(20, Math.round(24 * s)))
+          .height(Math.max(20, Math.round(24 * s)))
         Text('投播')
-          .fontSize(compact ? 9 : 10)
+          .fontSize(Math.max(9, Math.round(10 * s)))
           .fontColor($r('sys.color.font_secondary'))
       }
       .alignItems(HorizontalAlign.Center)
 
-      Column({ space: compact ? 3 : 5 }) {
+      Column({ space: Math.max(3, Math.round(5 * s)) }) {
         SymbolGlyph(this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
-          .fontSize(compact ? 20 : 24)
+          .fontSize(Math.max(20, Math.round(24 * s)))
           .fontColor([this.isFavorited ?
             '#E84026' : $r('sys.color.icon_secondary')])
         Text('收藏')
-          .fontSize(compact ? 9 : 10)
+          .fontSize(Math.max(9, Math.round(10 * s)))
           .fontColor(this.isFavorited ?
             '#E84026' : $r('sys.color.font_secondary'))
       }
@@ -1096,12 +1103,12 @@ export struct PlayerPage {
         this.toggleFavorite();
       })
 
-      Column({ space: compact ? 3 : 5 }) {
+      Column({ space: Math.max(3, Math.round(5 * s)) }) {
         SymbolGlyph($r('sys.symbol.square_and_arrow_down'))
-          .fontSize(compact ? 20 : 24)
+          .fontSize(Math.max(20, Math.round(24 * s)))
           .fontColor([$r('sys.color.icon_secondary')])
         Text('下载')
-          .fontSize(compact ? 9 : 10)
+          .fontSize(Math.max(9, Math.round(10 * s)))
           .fontColor($r('sys.color.font_secondary'))
       }
       .alignItems(HorizontalAlign.Center)
@@ -1109,13 +1116,13 @@ export struct PlayerPage {
         this.downloadCurrent();
       })
 
-      Column({ space: compact ? 3 : 5 }) {
+      Column({ space: Math.max(3, Math.round(5 * s)) }) {
         SymbolGlyph($r('sys.symbol.message'))
-          .fontSize(compact ? 20 : 24)
+          .fontSize(Math.max(20, Math.round(24 * s)))
           .fontColor([this.canComment() ?
             $r('sys.color.icon_secondary') : $r('sys.color.icon_tertiary')])
         Text('评论')
-          .fontSize(compact ? 9 : 10)
+          .fontSize(Math.max(9, Math.round(10 * s)))
           .fontColor(this.canComment() ?
             $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
       }
@@ -1124,12 +1131,12 @@ export struct PlayerPage {
         this.openComments();
       })
 
-      Column({ space: compact ? 3 : 5 }) {
+      Column({ space: Math.max(3, Math.round(5 * s)) }) {
         SymbolGlyph($r('sys.symbol.hi_waveform_2'))
-          .fontSize(compact ? 20 : 24)
+          .fontSize(Math.max(20, Math.round(24 * s)))
           .fontColor([$r('sys.color.icon_secondary')])
         Text('音质')
-          .fontSize(compact ? 9 : 10)
+          .fontSize(Math.max(9, Math.round(10 * s)))
           .fontColor($r('sys.color.font_secondary'))
       }
       .alignItems(HorizontalAlign.Center)
@@ -1153,12 +1160,12 @@ export struct PlayerPage {
       //   this.toggleAudioEffect();
       // })
 
-      Column({ space: compact ? 3 : 5 }) {
+      Column({ space: Math.max(3, Math.round(5 * s)) }) {
         SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-          .fontSize(compact ? 20 : 24)
+          .fontSize(Math.max(20, Math.round(24 * s)))
           .fontColor([$r('sys.color.icon_secondary')])
         Text('更多')
-          .fontSize(compact ? 9 : 10)
+          .fontSize(Math.max(9, Math.round(10 * s)))
           .fontColor($r('sys.color.font_secondary'))
       }
       .alignItems(HorizontalAlign.Center)
@@ -1329,6 +1336,6 @@ export struct PlayerPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 24 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 24 })
   }
 }

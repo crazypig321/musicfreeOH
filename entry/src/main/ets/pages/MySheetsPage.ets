@@ -9,6 +9,7 @@ import { PluginState } from '../plugin/PluginTypes';
 import { MusicItem } from '../common/model/MediaTypes';
 import { SheetItem, SheetInfoResult } from '../common/model/SheetTypes';
 import { appState } from '../entryability/AppState';
+import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { pasteboard } from '@kit.BasicServicesKit';
@@ -877,7 +878,7 @@ export struct MySheetsPage {
         })
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -925,7 +926,7 @@ export struct MySheetsPage {
         })
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -1022,7 +1023,7 @@ export struct MySheetsPage {
       }
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 }

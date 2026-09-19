@@ -3,6 +3,7 @@
  * （WindowBreakpoint：0=sm，1=md，2=lg）统一输出各设备的布局参数
  */
 import { deviceInfo } from '@kit.BasicServicesKit';
+import { appState } from '../entryability/AppState';
 
 /** 推荐歌单网格列数：手机 3 列 / 折叠展开(md) 4 列 / 平板与大屏(lg) 5 列 */
 export function sheetGridColumns(widthBp: number): number {
@@ -34,4 +35,13 @@ export function useSidebarLayout(widthBp: number, windowWidthVp: number, display
   }
   return widthBp >= 1 && windowWidthVp > 0 && displayWidthVp > 0 &&
     displayWidthVp - windowWidthVp > 4;
+}
+
+/**
+ * 半模态内容顶部避让（vp）：
+ * PC/窗口模式下系统关闭按钮悬浮在 sheet 右上角，主体内容需下移避让防止叠加；
+ * 手机底部 sheet 有关闭按钮专属区域，返回 0 保持原样式
+ */
+export function sheetTopAvoidVp(): number {
+  return useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 44 : 0;
 }

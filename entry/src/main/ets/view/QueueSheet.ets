@@ -5,6 +5,7 @@ import { MusicRepeatMode } from '../common/Consts';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
+import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 
 /** 播放中指示器：5 根随机高度跳动的方柱（仅播放中跳动，暂停/停止时静止） */
 @ComponentV2
@@ -369,7 +370,7 @@ export struct QueueSheet {
         }
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 12 })
+      .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp() })
       .backgroundColor($r('sys.color.background_secondary'))
 
       if (this.queueCount === 0) {

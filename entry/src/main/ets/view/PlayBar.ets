@@ -98,12 +98,12 @@ export struct PlayBar {
       const slotW = this.barSlotW > 0 ? this.barSlotW : this.barW;
       const slotH = this.barSlotH > 0 ? this.barSlotH : this.barH;
       const barY = rowY - (slotH - rowHNum) / 2;
-      PlayerExpandAnimController.expand(rowX, coverY, size, rowX, barY, slotW, slotH);
+      PlayerExpandAnimController.expand(rowX, coverY, size, rowX, barY, slotW, slotH, this.myId);
       return;
     }
     // 首页：根左 padding 8，子行在根内垂直居中
     const barY = rowY - (this.barH - rowHNum) / 2;
-    PlayerExpandAnimController.expand(rowX, coverY, size, rowX - 8, barY, this.barW, this.barH);
+    PlayerExpandAnimController.expand(rowX, coverY, size, rowX - 8, barY, this.barW, this.barH, this.myId);
   }
 
   build() {

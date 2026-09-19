@@ -9,6 +9,7 @@ import { SheetItem, SheetInfoResult } from '../common/model/SheetTypes';
 import { appConfig } from '../core/AppConfig';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
+import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { CommonBlur, MenuItemParams, CommonSearch } from '../view/CommonCom';
@@ -1327,7 +1328,7 @@ export struct PluginPage {
         })
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -1396,7 +1397,7 @@ export struct PluginPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -1646,7 +1647,7 @@ export struct PluginPage {
       .backgroundColor($r('sys.color.comp_background_list_card'))
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
     .bindSheet(!!this.showPluginImportSheet, this.PluginImportSheetBuilder(), {
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
@@ -1732,7 +1733,7 @@ export struct PluginPage {
       }
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 }

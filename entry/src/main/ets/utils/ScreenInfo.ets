@@ -2,7 +2,7 @@ import window from '@ohos.window';
 import { display } from '@kit.ArkUI';
 import { ContextHolder } from '../common/ContextHolder';
 import { appState } from '../entryability/AppState';
-import { playerAnim } from '../view/PlayerExpandAnim';
+import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 
 @ObservedV2
 class ScreenInfo{
@@ -39,6 +39,14 @@ class ScreenInfo{
           const rect = data.getWindowProperties().windowRect
           appState.screenWidth = uiContext.px2vp(rect.width)
           appState.screenHeight = uiContext.px2vp(rect.height)
+          // 播放页覆盖层初始基准用窗口尺寸（自由窗口模式下 display 为物理屏，两者不相等）
+          playerAnim.screenWidth = appState.screenWidth
+          playerAnim.screenHeight = appState.screenHeight
+          const initOffset = appState.screenHeight + 100
+          if (playerAnim.pageTranslateY === playerAnim.collapsedOffset) {
+            playerAnim.pageTranslateY = initOffset
+          }
+          playerAnim.collapsedOffset = initOffset
           // 监听屏幕改变
           data.on('windowSizeChange', async (data) => {
             // 获取窗口断点
@@ -55,6 +63,8 @@ class ScreenInfo{
               playerAnim.pageTranslateY = newOffset
             }
             playerAnim.collapsedOffset = newOffset
+            // 展开静止态：重测一镜到底几何并对齐新窗口尺寸，防止收起/拖拽用过期坐标
+            PlayerExpandAnimController.refreshIfExpanded()
             console.info(`#屏幕信息: 横断点：${appState.WidthBp}， 竖断点：${appState.HeightBp}`)
 
           })

@@ -6,6 +6,7 @@ import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { CommonBlur, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { appState } from '../entryability/AppState';
+import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { JsonUtil } from '../common/JsonUtil';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
@@ -835,7 +836,7 @@ export struct SubscriptionPage {
         })
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -977,7 +978,7 @@ export struct SubscriptionPage {
       .backgroundColor($r('sys.color.comp_background_list_card'))
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -1028,7 +1029,7 @@ export struct SubscriptionPage {
         })
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12, bottom: 32 })
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 }
