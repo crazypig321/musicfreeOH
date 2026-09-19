@@ -13,6 +13,8 @@ import { JsonUtil } from '../common/JsonUtil';
 
 /** 搜索结果不足以铺满首屏时自动续拉的阈值 */
 const AUTO_LOAD_MORE_THRESHOLD = 30;
+/** 全部源模式单插件搜索超时（毫秒） */
+const SEARCH_TIMEOUT_MS = 10000;
 
 /** 历史搜索词存储 */
 const HISTORY_STORE = 'storage';
@@ -42,6 +44,11 @@ export struct SearchPage {
   private searchPlugins: Array<Plugin> = [];
   private page: number = 1;
   private isEnd: boolean = false;
+  /** 全部源模式：各插件已拉取的页码与结束标记（下标对应 searchPlugins） */
+  private allPages: Array<number> = [];
+  private allEnds: Array<boolean> = [];
+  /** 全部源模式：当前轮尚未返回的插件数 */
+  private pendingCount: number = 0;
 
   aboutToAppear(): void {
     this.refreshPlugins();
@@ -64,12 +71,12 @@ export struct SearchPage {
   private refreshPlugins(): void {
     const plugins = pluginManager.getSortedSearchablePlugins(SupportMediaType.Music);
     this.searchPlugins = plugins;
-    const names: Array<string> = [];
+    const names: Array<string> = ['全部'];
     for (const p of plugins) {
       names.push(p.name);
     }
     this.pluginNames = names;
-    if (this.selectedPluginIndex >= plugins.length) {
+    if (this.selectedPluginIndex >= names.length) {
       this.selectedPluginIndex = 0;
     }
   }
@@ -82,8 +89,12 @@ export struct SearchPage {
     }
   }
 
+  /** 当前选中插件（选源下标 0 为「全部」，返回 null） */
   private currentPlugin(): Plugin | null {
-    const plugin = this.searchPlugins[this.selectedPluginIndex];
+    if (this.selectedPluginIndex <= 0) {
+      return null;
+    }
+    const plugin = this.searchPlugins[this.selectedPluginIndex - 1];
     return plugin !== undefined ? plugin : null;
   }
 
@@ -99,10 +110,6 @@ export struct SearchPage {
       this.searchStatus = '无可用音乐插件，请先在插件管理中安装';
       return;
     }
-    const plugin = this.currentPlugin();
-    if (plugin === null) {
-      return;
-    }
     this.hasSearched = true;
     this.saveSearchHistory(kw);
     this.searching = true;
@@ -112,6 +119,22 @@ export struct SearchPage {
     this.dataSource.clear();
     this.resultCount = 0;
     this.searchStatus = '搜索中...';
+    if (this.selectedPluginIndex === 0) {
+      // 全部源：重置各插件分页状态后并行搜索
+      this.allPages = [];
+      this.allEnds = [];
+      for (let i = 0; i < this.searchPlugins.length; i++) {
+        this.allPages.push(0);
+        this.allEnds.push(false);
+      }
+      this.fetchAllRound(kw);
+      return;
+    }
+    const plugin = this.currentPlugin();
+    if (plugin === null) {
+      this.searching = false;
+      return;
+    }
     plugin.methods.search(kw, 1, SupportMediaType.Music).then((r: SearchResult): void => {
       this.searching = false;
       this.isEnd = r.isEnd;
@@ -131,7 +154,16 @@ export struct SearchPage {
     if (this.searching || this.loadingMore || this.isEnd) {
       return;
     }
-    if (this.keyword.trim().length === 0 || this.dataSource.totalCount() === 0) {
+    if (this.keyword.trim().length === 0) {
+      return;
+    }
+    if (this.selectedPluginIndex === 0) {
+      // 全部源：向未结束的插件并行拉取下一页
+      this.loadingMore = true;
+      this.fetchAllRound(this.keyword.trim());
+      return;
+    }
+    if (this.dataSource.totalCount() === 0) {
       return;
     }
     const plugin = this.currentPlugin();
@@ -149,6 +181,110 @@ export struct SearchPage {
       this.searchStatus = '共 ' + this.resultCount.toString() + ' 条结果';
     }).catch((_e: Object): void => {
       this.loadingMore = false;
+    });
+  }
+
+  /**
+   * 全部源模式：向所有未结束的插件并行请求其下一页；
+   * 单个插件失败/超时按该源结束处理，不影响其他源；
+   * 每个插件结果到达即增量展示，整轮结束后不足首屏则自动续拉
+   */
+  private fetchAllRound(kw: string): void {
+    const plugins = this.searchPlugins;
+    if (this.allPages.length !== plugins.length) {
+      this.allPages = [];
+      this.allEnds = [];
+      for (let i = 0; i < plugins.length; i++) {
+        this.allPages.push(0);
+        this.allEnds.push(false);
+      }
+    }
+    let pending = 0;
+    for (let i = 0; i < plugins.length; i++) {
+      if (!this.allEnds[i]) {
+        pending++;
+      }
+    }
+    if (pending === 0) {
+      this.searching = false;
+      this.loadingMore = false;
+      this.isEnd = true;
+      return;
+    }
+    this.pendingCount = pending;
+    for (let i = 0; i < plugins.length; i++) {
+      if (this.allEnds[i]) {
+        continue;
+      }
+      const idx = i;
+      const nextPage = this.allPages[idx] + 1;
+      SearchPage.searchWithTimeout(plugins[idx], kw, nextPage, SEARCH_TIMEOUT_MS)
+        .then((r: SearchResult): void => {
+          this.allPages[idx] = nextPage;
+          this.allEnds[idx] = r.isEnd;
+          if (r.musicData.length > 0) {
+            this.dataSource.appendData(r.musicData);
+            this.resultCount = this.dataSource.totalCount();
+            this.searchStatus = '共 ' + this.resultCount.toString() + ' 条结果';
+          }
+          this.afterPluginRound();
+        })
+        .catch((_e: Object): void => {
+          this.allEnds[idx] = true;
+          this.afterPluginRound();
+        });
+    }
+  }
+
+  /** 全部源一轮中单个插件完成：全部完成后收尾并按需自动续拉 */
+  private afterPluginRound(): void {
+    this.pendingCount--;
+    if (this.pendingCount > 0) {
+      return;
+    }
+    this.searching = false;
+    this.loadingMore = false;
+    let allEnded = true;
+    for (const e of this.allEnds) {
+      if (!e) {
+        allEnded = false;
+        break;
+      }
+    }
+    this.isEnd = allEnded;
+    if (this.resultCount === 0) {
+      this.searchStatus = allEnded ? '未找到相关结果' : '搜索中...';
+    }
+    if (!this.isEnd && this.resultCount < AUTO_LOAD_MORE_THRESHOLD) {
+      this.loadMore();
+    }
+  }
+
+  /** 插件搜索超时包装：超时按失败处理，避免单个挂起的源拖住整轮 */
+  private static searchWithTimeout(plugin: Plugin, kw: string, page: number,
+    timeoutMs: number): Promise<SearchResult> {
+    return new Promise<SearchResult>((resolve: (r: SearchResult) => void,
+      reject: (e: Object) => void): void => {
+      let settled = false;
+      const timer = setTimeout((): void => {
+        if (!settled) {
+          settled = true;
+          reject(new Error('搜索超时'));
+        }
+      }, timeoutMs);
+      plugin.methods.search(kw, page, SupportMediaType.Music).then((r: SearchResult): void => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(r);
+        }
+      }).catch((e: Object): void => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(e);
+        }
+      });
     });
   }
 
@@ -427,11 +563,26 @@ export struct SearchPage {
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
-            .fontSize(12)
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Row({ space: 6 }) {
+            Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
+              .fontSize(12)
+              .fontColor($r('sys.color.font_tertiary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
+            if (item.platform.length > 0) {
+              Text(item.platform)
+                .fontSize(10)
+                .fontColor($r('sys.color.font_secondary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .constraintSize({ maxWidth: 84 })
+                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                .borderRadius(8)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+            }
+          }
+          .width('100%')
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)

@@ -1204,7 +1204,6 @@ export struct PluginPage {
     CommonSearch({
       searchValue: this.searchKeyword,
       placeholderValue: '搜索插件名称或作者',
-      isFocusable: true,
       submit: (): void => {
       },
       change: (v: string): void => {
@@ -1213,8 +1212,6 @@ export struct PluginPage {
       didDelete: (): void => {
         this.searchKeyword = '';
       },
-      click: (): void => {
-      }
     })
       .width('100%')
       .padding({ left: 16, right: 16 })

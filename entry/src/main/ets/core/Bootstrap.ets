@@ -184,6 +184,17 @@ export class Bootstrap {
 
   /** 不阻塞启动的收尾逻辑（对应 RN extraMakeup） */
   private static async extraMakeup(): Promise<void> {
+    // 启动后自动播放（置于插件自动更新之前，避免被其网络请求延迟）
+    try {
+      if (appConfig.getAutoPlayWhenAppStart()) {
+        trackPlayer.play().catch((reason: Object) => {
+          Log.warn('自动播放失败: ' + (reason instanceof Error ? reason.message : ''));
+        });
+      }
+    } catch (e) {
+      // 静默失败
+    }
+
     // 插件自动更新（每 24h 一次，静默失败）
     try {
       if (appConfig.getAutoUpdatePlugin()) {
@@ -206,17 +217,6 @@ export class Bootstrap {
             }
           }
         }
-      }
-    } catch (e) {
-      // 静默失败
-    }
-
-    // 启动后自动播放
-    try {
-      if (appConfig.getAutoPlayWhenAppStart()) {
-        trackPlayer.play().catch((reason: Object) => {
-          Log.warn('自动播放失败: ' + (reason instanceof Error ? reason.message : ''));
-        });
       }
     } catch (e) {
       // 静默失败
