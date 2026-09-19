@@ -26,23 +26,24 @@ MusicFreeOH 是开源插件化音乐播放器 [MusicFree](https://github.com/mao
 
 ## 软件截图
 
-![截图1](appImage/screenshot_20260919_082616_com.crazypig321.music.jpg)
-
-![截图2](appImage/screenshot_20260919_082636_com.crazypig321.music.jpg)
-
-![截图3](appImage/screenshot_20260919_082655_com.crazypig321.music.jpg)
-
-![截图4](appImage/screenshot_20260919_082659_com.crazypig321.music.jpg)
-
-![截图5](appImage/screenshot_20260919_082706_com.crazypig321.music.jpg)
-
-![截图6](appImage/screenshot_20260919_082720_com.crazypig321.music.jpg)
-
-![截图7](appImage/screenshot_20260919_082742_com.crazypig321.music.jpg)
-
-![截图8](appImage/screenshot_20260919_082753_com.crazypig321.music.jpg)
-
-![截图10](appImage/screenshot_20260919_082811_com.crazypig321.music.jpg)
+<table>
+  <tr>
+    <td><img src="appImage/screenshot_20260919_082616_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src="appImage/screenshot_20260919_082636_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src="appImage/screenshot_20260919_082655_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src="appImage/screenshot_20260919_082659_com.crazypig321.music.jpg" width="100%"></td>
+  </tr>
+  <tr>
+    <td><img src="appImage/screenshot_20260919_082706_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src="appImage/screenshot_20260919_082720_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src="appImage/screenshot_20260919_082742_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src="appImage/screenshot_20260919_082753_com.crazypig321.music.jpg" width="100%"></td>
+  </tr>
+  <tr>
+    <td><img src="appImage/screenshot_20260919_082811_com.crazypig321.music.jpg" width="100%"></td>
+    <td></td><td></td><td></td>
+  </tr>
+</table>
 
 ## 环境与构建
 
