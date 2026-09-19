@@ -134,7 +134,7 @@ export struct BackupSettingPage {
         List({ scroller: this.scroller, space: 12 }) {
           // 小标题：本地备份与恢复
           ListItem() {
-            Text('本地备份与恢复')
+            Text('本地')
               .fontSize(14)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_secondary'))
@@ -204,7 +204,7 @@ export struct BackupSettingPage {
 
           // 小标题：WebDAV 备份与恢复
           ListItem() {
-            Text('WebDAV 备份与恢复')
+            Text('WebDAV')
               .fontSize(14)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_secondary'))
