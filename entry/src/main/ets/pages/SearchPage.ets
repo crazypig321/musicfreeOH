@@ -1,5 +1,8 @@
 import { MusicItem } from '../common/model/MediaTypes';
-import { SearchResult, SupportMediaType } from '../common/model/SheetTypes';
+import { SearchResult, SupportMediaType, AlbumItem, ArtistItem, SheetItem } from '../common/model/SheetTypes';
+import { ROUTE_SHEET_DETAIL, SheetDetailNavParams } from '../common/model/NavModels';
+import { NavPathUtils } from '../utils/NavPathUtils';
+import { ArtworkCache } from '../utils/ArtworkCache';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { trackPlayer } from '../core/TrackPlayer';
@@ -24,6 +27,12 @@ const MAX_HISTORY_SIZE = 20;
 
 @ComponentV2
 export struct SearchPage {
+  /** 搜索结果分类标签（与 CATEGORY_TYPES 一一对应） */
+  private static readonly CATEGORY_LABELS: Array<string> = ['单曲', '专辑', '歌手', '歌单'];
+  private static readonly CATEGORY_TYPES: Array<SupportMediaType> = [
+    SupportMediaType.Music, SupportMediaType.Album, SupportMediaType.Artist, SupportMediaType.Sheet
+  ];
+
   scroller: Scroller = new Scroller();
   @Param bootReady: boolean = false;
   @Local keyword: string = '';
@@ -37,8 +46,14 @@ export struct SearchPage {
   @Local optionsItem: MusicItem = new MusicItem();
   /** 历史搜索词（最多 20 个，仅搜索前展示） */
   @Local searchHistory: Array<string> = [];
-  /** 是否已执行过搜索（搜索后隐藏历史词） */
+  /** 是否已执行过搜索（搜索后隐藏历史词、显示分类标签） */
   @Local hasSearched: boolean = false;
+  /** 当前结果分类（下标对应 CATEGORY_LABELS / CATEGORY_TYPES） */
+  @Local categoryIndex: number = 0;
+  /** 非单曲分类的搜索结果（单曲沿用 dataSource 懒加载） */
+  @Local albumResults: Array<AlbumItem> = [];
+  @Local artistResults: Array<ArtistItem> = [];
+  @Local sheetResults: Array<SheetItem> = [];
 
   dataSource: MusicDataSource = new MusicDataSource();
   private searchPlugins: Array<Plugin> = [];
@@ -68,8 +83,14 @@ export struct SearchPage {
     }
   }
 
+  /** 当前分类对应的搜索类型 */
+  private currentType(): SupportMediaType {
+    const t = SearchPage.CATEGORY_TYPES[this.categoryIndex];
+    return t !== undefined ? t : SupportMediaType.Music;
+  }
+
   private refreshPlugins(): void {
-    const plugins = pluginManager.getSortedSearchablePlugins(SupportMediaType.Music);
+    const plugins = pluginManager.getSortedSearchablePlugins(this.currentType());
     this.searchPlugins = plugins;
     const names: Array<string> = ['全部'];
     for (const p of plugins) {
@@ -117,6 +138,9 @@ export struct SearchPage {
     this.page = 1;
     this.isEnd = false;
     this.dataSource.clear();
+    this.albumResults = [];
+    this.artistResults = [];
+    this.sheetResults = [];
     this.resultCount = 0;
     this.searchStatus = '搜索中...';
     if (this.selectedPluginIndex === 0) {
@@ -135,11 +159,10 @@ export struct SearchPage {
       this.searching = false;
       return;
     }
-    plugin.methods.search(kw, 1, SupportMediaType.Music).then((r: SearchResult): void => {
+    plugin.methods.search(kw, 1, this.currentType()).then((r: SearchResult): void => {
       this.searching = false;
       this.isEnd = r.isEnd;
-      this.dataSource.appendData(r.musicData);
-      this.resultCount = this.dataSource.totalCount();
+      this.appendSearchResult(r);
       this.searchStatus = this.resultCount === 0 ? '未找到相关结果' : '共 ' + this.resultCount.toString() + ' 条结果';
       if (!this.isEnd && this.resultCount < AUTO_LOAD_MORE_THRESHOLD) {
         this.loadMore();
@@ -148,6 +171,42 @@ export struct SearchPage {
       this.searching = false;
       this.searchStatus = '搜索失败，请重试';
     });
+  }
+
+  /** 按当前分类追加搜索结果并刷新计数/状态文本 */
+  private appendSearchResult(r: SearchResult): void {
+    const type = this.currentType();
+    if (type === SupportMediaType.Music) {
+      this.dataSource.appendData(r.musicData);
+      this.resultCount = this.dataSource.totalCount();
+    } else if (type === SupportMediaType.Album) {
+      this.albumResults = this.albumResults.concat(r.albumData);
+      this.resultCount = this.albumResults.length;
+    } else if (type === SupportMediaType.Artist) {
+      this.artistResults = this.artistResults.concat(r.artistData);
+      this.resultCount = this.artistResults.length;
+    } else {
+      this.sheetResults = this.sheetResults.concat(r.sheetData);
+      this.resultCount = this.sheetResults.length;
+    }
+    if (this.resultCount > 0) {
+      this.searchStatus = '共 ' + this.resultCount.toString() + ' 条结果';
+    }
+  }
+
+  /** 当前分类在该结果中的条数 */
+  private resultDataLength(r: SearchResult): number {
+    const type = this.currentType();
+    if (type === SupportMediaType.Music) {
+      return r.musicData.length;
+    }
+    if (type === SupportMediaType.Album) {
+      return r.albumData.length;
+    }
+    if (type === SupportMediaType.Artist) {
+      return r.artistData.length;
+    }
+    return r.sheetData.length;
   }
 
   private loadMore(): void {
@@ -172,13 +231,11 @@ export struct SearchPage {
     }
     this.loadingMore = true;
     const nextPage = this.page + 1;
-    plugin.methods.search(this.keyword.trim(), nextPage, SupportMediaType.Music).then((r: SearchResult): void => {
+    plugin.methods.search(this.keyword.trim(), nextPage, this.currentType()).then((r: SearchResult): void => {
       this.loadingMore = false;
       this.page = nextPage;
       this.isEnd = r.isEnd;
-      this.dataSource.appendData(r.musicData);
-      this.resultCount = this.dataSource.totalCount();
-      this.searchStatus = '共 ' + this.resultCount.toString() + ' 条结果';
+      this.appendSearchResult(r);
     }).catch((_e: Object): void => {
       this.loadingMore = false;
     });
@@ -218,14 +275,12 @@ export struct SearchPage {
       }
       const idx = i;
       const nextPage = this.allPages[idx] + 1;
-      SearchPage.searchWithTimeout(plugins[idx], kw, nextPage, SEARCH_TIMEOUT_MS)
+      SearchPage.searchWithTimeout(plugins[idx], kw, nextPage, this.currentType(), SEARCH_TIMEOUT_MS)
         .then((r: SearchResult): void => {
           this.allPages[idx] = nextPage;
           this.allEnds[idx] = r.isEnd;
-          if (r.musicData.length > 0) {
-            this.dataSource.appendData(r.musicData);
-            this.resultCount = this.dataSource.totalCount();
-            this.searchStatus = '共 ' + this.resultCount.toString() + ' 条结果';
+          if (this.resultDataLength(r) > 0) {
+            this.appendSearchResult(r);
           }
           this.afterPluginRound();
         })
@@ -261,7 +316,7 @@ export struct SearchPage {
   }
 
   /** 插件搜索超时包装：超时按失败处理，避免单个挂起的源拖住整轮 */
-  private static searchWithTimeout(plugin: Plugin, kw: string, page: number,
+  private static searchWithTimeout(plugin: Plugin, kw: string, page: number, type: SupportMediaType,
     timeoutMs: number): Promise<SearchResult> {
     return new Promise<SearchResult>((resolve: (r: SearchResult) => void,
       reject: (e: Object) => void): void => {
@@ -272,7 +327,7 @@ export struct SearchPage {
           reject(new Error('搜索超时'));
         }
       }, timeoutMs);
-      plugin.methods.search(kw, page, SupportMediaType.Music).then((r: SearchResult): void => {
+      plugin.methods.search(kw, page, type).then((r: SearchResult): void => {
         if (!settled) {
           settled = true;
           clearTimeout(timer);
@@ -298,10 +353,39 @@ export struct SearchPage {
     }
   }
 
+  /** 切换结果分类：有搜索词时按新分类重新搜索 */
+  private onSelectCategory(index: number): void {
+    if (index === this.categoryIndex) {
+      return;
+    }
+    this.categoryIndex = index;
+    if (this.keyword.trim().length > 0 && !this.searching) {
+      this.doSearch();
+    }
+  }
+
+  /** 歌单结果点击：进入歌单详情页 */
+  private openSheetDetail(sheet: SheetItem): void {
+    const current = this.currentPlugin();
+    const pluginName = sheet.platform.length > 0 ? sheet.platform :
+      (current !== null ? current.name : '');
+    if (pluginName.length === 0) {
+      this.showToast('插件不可用');
+      return;
+    }
+    SheetDetailNavParams.pluginName = pluginName;
+    SheetDetailNavParams.sheet = sheet;
+    SheetDetailNavParams.isTopList = false;
+    NavPathUtils.push(ROUTE_SHEET_DETAIL);
+  }
+
   /** 清除键：清空输入与结果，回到搜索前状态（恢复历史词展示） */
   private resetSearch(): void {
     this.keyword = '';
     this.dataSource.clear();
+    this.albumResults = [];
+    this.artistResults = [];
+    this.sheetResults = [];
     this.resultCount = 0;
     this.searchStatus = '';
     this.hasSearched = false;
@@ -378,6 +462,10 @@ export struct SearchPage {
           ListItem() {
             Column() {
               this.PluginSelectorBuilder()
+              // 分类标签条（搜索后出现）
+              if (this.hasSearched) {
+                this.CategoryTabsBuilder()
+              }
               if (this.searchStatus.length > 0) {
                 Text(this.searchStatus)
                   .fontSize(12)
@@ -396,11 +484,35 @@ export struct SearchPage {
             this.HistoryBuilder()
           }
         }
-        LazyForEach(this.dataSource, (item: MusicItem, index: number) => {
-          ListItem() {
-            this.ResultRowBuilder(item, index)
-          }
-        }, (item: MusicItem, _index: number) => item.platform + '_' + item.id)
+        // 单曲结果（懒加载）
+        if (this.categoryIndex === 0) {
+          LazyForEach(this.dataSource, (item: MusicItem, index: number) => {
+            ListItem() {
+              this.ResultRowBuilder(item, index)
+            }
+          }, (item: MusicItem, _index: number) => item.platform + '_' + item.id)
+        } else if (this.categoryIndex === 1) {
+          // 专辑结果
+          ForEach(this.albumResults, (item: AlbumItem, index: number) => {
+            ListItem() {
+              this.AlbumRowBuilder(item, index)
+            }
+          }, (item: AlbumItem, _index: number) => item.platform + '_' + item.id)
+        } else if (this.categoryIndex === 2) {
+          // 歌手结果
+          ForEach(this.artistResults, (item: ArtistItem, index: number) => {
+            ListItem() {
+              this.ArtistRowBuilder(item, index)
+            }
+          }, (item: ArtistItem, _index: number) => item.platform + '_' + item.id)
+        } else {
+          // 歌单结果
+          ForEach(this.sheetResults, (item: SheetItem, index: number) => {
+            ListItem() {
+              this.SheetRowBuilder(item, index)
+            }
+          }, (item: SheetItem, _index: number) => item.platform + '_' + item.id)
+        }
         if (this.loadingMore) {
           ListItem() {
             Row({ space: 8 }) {
@@ -612,5 +724,170 @@ export struct SearchPage {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 结果分类标签条（搜索后出现于插件选择条下方） */
+  @Builder
+  CategoryTabsBuilder() {
+    List({ space: 22 }) {
+      ForEach(SearchPage.CATEGORY_LABELS, (label: string, index: number) => {
+        ListItem() {
+          Column({ space: 4 }) {
+            Text(label)
+              .fontSize(15)
+              .fontWeight(this.categoryIndex === index ? FontWeight.Bold : FontWeight.Normal)
+              .fontColor(this.categoryIndex === index ?
+              $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
+            Divider()
+              .strokeWidth(2)
+              .width(18)
+              .color(this.categoryIndex === index ? appState.accentColor : 'transparent')
+          }
+          .alignItems(HorizontalAlign.Center)
+          .onClick(() => {
+            this.onSelectCategory(index);
+          })
+        }
+      }, (label: string, index: number) => label + '_' + index.toString())
+    }
+    .alignListItem(ListItemAlign.Center)
+    .listDirection(Axis.Horizontal)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+    .width('100%')
+    .margin({ top: 10 })
+  }
+
+  /** 专辑结果行：封面 + 标题/歌手 + 歌曲数 */
+  @Builder
+  AlbumRowBuilder(item: AlbumItem, index: number) {
+    Row({ space: 12 }) {
+      Text((index + 1).toString())
+        .fontSize(14)
+        .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
+        .width(24)
+        .textAlign(TextAlign.Center)
+      Image(ArtworkCache.resolve(item.artwork))
+        .width(48)
+        .height(48)
+        .borderRadius(8)
+        .objectFit(ImageFit.Cover)
+        .alt($r('app.media.altImage'))
+      Column({ space: 2 }) {
+        Text(item.title)
+          .fontSize(15)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(item.artist + (item.date.length > 0 ? ' · ' + item.date : ''))
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      Text(item.worksNum > 0 ? item.worksNum.toString() + '首' : '')
+        .fontSize(12)
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .width('100%')
+    .height(64)
+    .borderRadius(12)
+    .onClick(() => {
+      this.showToast('专辑详情即将上线');
+    })
+  }
+
+  /** 歌手结果行：头像 + 名称 + 作品/粉丝数 */
+  @Builder
+  ArtistRowBuilder(item: ArtistItem, index: number) {
+    Row({ space: 12 }) {
+      Text((index + 1).toString())
+        .fontSize(14)
+        .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
+        .width(24)
+        .textAlign(TextAlign.Center)
+      Image(ArtworkCache.resolve(item.avatar))
+        .width(44)
+        .height(44)
+        .borderRadius(22)
+        .objectFit(ImageFit.Cover)
+        .alt($r('app.media.altImage'))
+      Column({ space: 2 }) {
+        Text(item.name)
+          .fontSize(15)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(SearchPage.formatArtistSub(item))
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .height(60)
+    .borderRadius(12)
+    .onClick(() => {
+      this.showToast('歌手详情即将上线');
+    })
+  }
+
+  /** 歌单结果行：封面 + 标题/作者 + 歌曲数，点击进入歌单详情 */
+  @Builder
+  SheetRowBuilder(item: SheetItem, index: number) {
+    Row({ space: 12 }) {
+      Text((index + 1).toString())
+        .fontSize(14)
+        .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
+        .width(24)
+        .textAlign(TextAlign.Center)
+      Image(ArtworkCache.resolve(item.coverUrl()))
+        .width(48)
+        .height(48)
+        .borderRadius(8)
+        .objectFit(ImageFit.Cover)
+        .alt($r('app.media.altImage'))
+      Column({ space: 2 }) {
+        Text(item.title)
+          .fontSize(15)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(item.artist + (item.worksNum > 0 ? ' · ' + item.worksNum.toString() + '首' : ''))
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(14)
+        .fontColor([$r('sys.color.icon_tertiary')])
+    }
+    .width('100%')
+    .height(64)
+    .borderRadius(12)
+    .onClick(() => {
+      this.openSheetDetail(item);
+    })
+  }
+
+  /** 歌手副文本：作品数 + 粉丝数 */
+  private static formatArtistSub(item: ArtistItem): string {
+    const parts: Array<string> = [];
+    if (item.worksNum > 0) {
+      parts.push(item.worksNum.toString() + '首歌曲');
+    }
+    if (item.fans > 0) {
+      parts.push(item.fans >= 10000 ?
+        (item.fans / 10000).toFixed(1) + '万粉丝' : item.fans.toString() + '粉丝');
+    }
+    return parts.join(' · ');
   }
 }
