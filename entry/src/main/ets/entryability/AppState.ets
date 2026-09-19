@@ -76,6 +76,11 @@ class AppState{
   @Trace screenWidth: number = 0;
   // 窗口高度（vp）
   @Trace screenHeight: number = 0;
+  // 物理屏宽度（vp，启动时采集；与窗口宽度差值判定是否以窗口方式运行）
+  @Trace displayWidth: number = 0;
+
+  // PC 风格侧边栏展开/收起（窗口/PC 布局生效）
+  @Trace sidebarExpanded: boolean = true;
 }
 
 export const appState: AppState = new AppState()

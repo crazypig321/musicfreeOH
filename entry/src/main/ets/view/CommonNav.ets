@@ -14,7 +14,7 @@ import { PlayBar } from "./PlayBar";
 import { themeUtils } from "../utils/ThemeUtils";
 import { playerAnim, PlayerExpandAnimController } from "./PlayerExpandAnim";
 import { appConfig } from "../core/AppConfig";
-import { contentMaxWidthVp } from "../utils/BreakpointUtils";
+import { contentMaxWidthVp, useSidebarLayout } from "../utils/BreakpointUtils";
 
 export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr,
   menus?: Array<HdsNavigationMenuItemOptions>, bottomBuilder?: BottomBuilderParams): TitleBarContentOptions {
@@ -88,7 +88,9 @@ export struct CommonNav{
 
   build() {
     HdsNavDestination() {
-      if (this.isShowPlayBar){
+      // PC 侧边栏布局下不渲染页面级迷你条（Index 全局悬浮 PlayBar 常驻覆盖所有页面）
+      if (this.isShowPlayBar &&
+        !useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth)){
         HdsTabs({ controller: this.tabsController }) {
           TabContent(){
             this.AdaptiveContent()

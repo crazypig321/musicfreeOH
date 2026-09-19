@@ -1,4 +1,5 @@
 import window from '@ohos.window';
+import { display } from '@kit.ArkUI';
 import { ContextHolder } from '../common/ContextHolder';
 import { appState } from '../entryability/AppState';
 import { playerAnim } from '../view/PlayerExpandAnim';
@@ -29,6 +30,9 @@ class ScreenInfo{
         /* 断点获取 */
         windowStage.getMainWindow().then((data: window.Window) => {
           const uiContext = data.getUIContext()
+          // 物理屏宽度（vp）：与窗口宽度差值判定是否以自由窗口方式运行
+          const d = display.getDefaultDisplaySync()
+          appState.displayWidth = uiContext.px2vp(d.width)
           // 获取窗口断点
           appState.WidthBp = uiContext.getWindowWidthBreakpoint()
           appState.HeightBp = uiContext.getWindowHeightBreakpoint()

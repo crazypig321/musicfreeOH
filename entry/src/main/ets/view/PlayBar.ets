@@ -24,6 +24,8 @@ export struct PlayBar {
   /** 播放队列半模态 */
   @Local showQueue: boolean = false;
   @Param isTwoPage: boolean = false
+  /** 悬浮态（PC 侧边栏布局）：按钮常显、封面 44、点击直接进入播放页 */
+  @Param floating: boolean = false
   /** 二级页 tabbar 槽位尺寸（CommonNav 测得；首页实例不使用） */
   @Param barSlotW: number = 0
   @Param barSlotH: number = 0
@@ -50,9 +52,9 @@ export struct PlayBar {
     this.offState();
   }
 
-  /** 封面尺寸：单排 44 / 上下两排略小 30；API<24 恒 44 */
+  /** 封面尺寸：单排 44 / 上下两排略小 30；悬浮态与 API<24 恒 44 */
   private coverSize(): number {
-    if (!IsApiVersion_24()) {
+    if (this.floating || !IsApiVersion_24()) {
       return 44;
     }
     return appState.hdsBarLayoutMode === 0 || this.isTwoPage ? 44 : 30;
@@ -154,8 +156,8 @@ export struct PlayBar {
       .layoutWeight(1)
       .alignItems(VerticalAlign.Center)
       .onClick((event: ClickEvent) => {
-        // API<24：折叠态点击先展开；其余进入播放页
-        if (!IsApiVersion_24() && appState.miniBarStyle === HdsBarStyle.COLLAPSE) {
+        // API<24：折叠态点击先展开；悬浮态直接进入播放页
+        if (!this.floating && !IsApiVersion_24() && appState.miniBarStyle === HdsBarStyle.COLLAPSE) {
           this.getUIContext().animateTo({ duration: 300, curve: Curve.Smooth }, () => {
             appState.miniBarStyle = HdsBarStyle.EXPAND
           })
@@ -164,7 +166,7 @@ export struct PlayBar {
         }
       })
 
-      if ((appState.miniBarStyle === HdsBarStyle.EXPAND) || IsApiVersion_24()) {
+      if (this.floating || (appState.miniBarStyle === HdsBarStyle.EXPAND) || IsApiVersion_24()) {
         SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill'))
           .fontSize(26)
           .fontColor([$r('sys.color.icon_primary')])

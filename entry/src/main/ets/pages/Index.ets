@@ -31,6 +31,8 @@ import { WebDavSettingPage } from './settingSecPage/WebDavSettingPage';
 import { AppearanceSettingPage } from './settingSecPage/AppearanceSettingPage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
+import { SideBar } from '../view/SideBar';
+import { useSidebarLayout } from '../utils/BreakpointUtils';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
@@ -41,6 +43,8 @@ import { CustomContentDialog } from '@kit.ArkUI';
 struct Index {
   private controller: web_webview.WebviewController = new web_webview.WebviewController();
   private tabsController: HdsTabsController = new HdsTabsController();
+  /** PC 侧边栏布局下的主页面容器（barHeight 0 仅保活页面） */
+  private sideTabsController: TabsController = new TabsController();
   @Local bootReady: boolean = false;
 
   aboutToAppear(): void {
@@ -91,78 +95,120 @@ struct Index {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      HdsNavigation(appState.pageInfos) {
-        HdsTabs({ controller: this.tabsController }) {
-          ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
-            TabContent() {
-              if (i === 0) {
-                HomePage({ bootReady: this.bootReady })
-              } else if (i === 1) {
-                MySheetsPage()
-              } else if (i === 2) {
-                PluginPage({ hostTabIndex: appState.currTabsIndex })
-              } else if (i === 3) {
-                SubscriptionPage()
-              } else {
-                SettingsPage()
-              }
-            }
-            .tabBar(this.tabBarOf(item))
-          }, (item: MenuItem, i: number) => 'tab_' + i.toString())
-        }
-        .barOverlap(true)
-        .vertical(false)
-        .scrollable(false)
-        .barPosition(BarPosition.End)
-        // 批量操作模式下隐藏 tab 栏
-        .barHeight(appState.isBatchMode ? 0 : 56)
-        .barFloatingStyle({
-          barBottomMargin: 28,
-          systemMaterialEffect: {
-            materialType: appState.materialType,
-            materialLevel: appState.materialLevel
-          },
-          adaptToHandedness: true,
-          // 批量操作模式下移除迷你栏，避免遮挡批量底栏
-          miniBar: appState.isBatchMode ? undefined : {
-            miniBarBuilder: () => {
-              this.miniBarBuilder()
-            },
-            barLayoutMode: IsApiVersion_24() ? appState.hdsBarLayoutMode : undefined,
-            miniBarStyle: appState.miniBarStyle,
-            onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
-              if (!IsApiVersion_24()) {
-                appState.miniBarStyle = miniBarStyle
-              } else {
-                // API>=24：点击折叠时切换回上下两排
-                if (miniBarStyle === HdsBarStyle.COLLAPSE) {
-                  this.getUIContext().animateTo({ duration: 300, curve: Curve.Smooth }, () => {
-                    appState.hdsBarLayoutMode = 1
-                    appState.miniBarStyle = miniBarStyle
-                  })
+      if (useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth)) {
+        // PC 风格布局：Navigation 置于根部，二级页面（设置子页/搜索/歌单详情等）覆盖整个窗口；
+        // 悬浮 PlayBar 在最上层常驻
+        Stack({ alignContent: Alignment.Bottom }) {
+          HdsNavigation(appState.pageInfos) {
+            Row() {
+              SideBar({
+                expanded: appState.sidebarExpanded,
+                onSelect: (index: number): void => {
+                  this.sideTabsController.changeIndex(index);
+                },
+                onToggle: (): void => {
+                  this.getUIContext().animateTo({ duration: 250, curve: Curve.Smooth }, () => {
+                    appState.sidebarExpanded = !appState.sidebarExpanded;
+                  });
                 }
+              })
+              Column() {
+                Tabs({ controller: this.sideTabsController }) {
+                  this.MainTabContents()
+                }
+                .barHeight(0)
+                .vertical(false)
+                .scrollable(false)
+                .animationDuration(appState.tabSwitchAnim ? 500 : 0)
+                .onChange((index: number) => {
+                  appState.currTabsIndex = index
+                  appState.swipeResetTick = appState.swipeResetTick + 1
+                })
               }
+              .layoutWeight(1)
+              .height('100%')
+            }
+            .width('100%')
+            .height('100%')
+          }
+          .titleMode(HdsNavigationTitleMode.FREE)
+          .mode(NavigationMode.Stack)
+          .navBarWidth('40%')
+          .hideBackButton(true)
+          .hideTitleBar(true)
+          .navDestination(this.pageMap)
+          .width('100%')
+          .height('100%')
+          .backgroundColor($r('sys.color.background_secondary'))
+          .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
+            { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
+
+          // 悬浮迷你播放条：窗口底部居中，二级页面覆盖时仍常驻（批量操作模式下隐藏）
+          if (!appState.isBatchMode) {
+            this.FloatingPlayBar()
+          }
+        }
+        .width('100%')
+        .height('100%')
+      } else {
+        HdsNavigation(appState.pageInfos) {
+          HdsTabs({ controller: this.tabsController }) {
+            this.MainTabContents()
+          }
+          .barOverlap(true)
+          .vertical(false)
+          .scrollable(false)
+          .barPosition(BarPosition.End)
+          // 批量操作模式下隐藏 tab 栏
+          .barHeight(appState.isBatchMode ? 0 : 56)
+          .barFloatingStyle({
+            barBottomMargin: 28,
+            systemMaterialEffect: {
+              materialType: appState.materialType,
+              materialLevel: appState.materialLevel
             },
-          },
-        })
-        .animationDuration(appState.tabSwitchAnim ? 500 : 0)
-        .onSelected((index: number) => {
-          appState.currTabsIndex = index
-          // 切换 tab 时递增计数，触发左滑条目（key 引用 tick）重建复位滑动状态
-          appState.swipeResetTick = appState.swipeResetTick + 1
-        })
+            adaptToHandedness: true,
+            // 批量操作模式下移除迷你栏，避免遮挡批量底栏
+            miniBar: appState.isBatchMode ? undefined : {
+              miniBarBuilder: () => {
+                this.miniBarBuilder()
+              },
+              barLayoutMode: IsApiVersion_24() ? appState.hdsBarLayoutMode : undefined,
+              miniBarStyle: appState.miniBarStyle,
+              onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
+                if (!IsApiVersion_24()) {
+                  appState.miniBarStyle = miniBarStyle
+                } else {
+                  // API>=24：点击折叠时切换回上下两排
+                  if (miniBarStyle === HdsBarStyle.COLLAPSE) {
+                    this.getUIContext().animateTo({ duration: 300, curve: Curve.Smooth }, () => {
+                      appState.hdsBarLayoutMode = 1
+                      appState.miniBarStyle = miniBarStyle
+                    })
+                  }
+                }
+              },
+            },
+          })
+          .animationDuration(appState.tabSwitchAnim ? 500 : 0)
+          .onSelected((index: number) => {
+            appState.currTabsIndex = index
+            // 切换 tab 时递增计数，触发左滑条目（key 引用 tick）重建复位滑动状态
+            appState.swipeResetTick = appState.swipeResetTick + 1
+          })
+        }
+        .titleMode(HdsNavigationTitleMode.FREE)
+        .mode(NavigationMode.Stack)
+        .navBarWidth('40%')
+        .hideBackButton(true)
+        .hideTitleBar(true)
+        .navDestination(this.pageMap)
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('sys.color.background_secondary'))
+        .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
+          { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
       }
-      .titleMode(HdsNavigationTitleMode.FREE)
-      .mode(NavigationMode.Stack)
-      .navBarWidth('40%')
-      .hideBackButton(true)
-      .hideTitleBar(true)
-      .navDestination(this.pageMap)
-      .width('100%')
-      .height('100%')
-      .backgroundColor($r('sys.color.background_secondary'))
-      .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
-        { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
 
       Web({ src: 'resource://rawfile/plugin_host.html?v=4', controller: this.controller })
         .javaScriptAccess(true)
@@ -217,6 +263,45 @@ struct Index {
       return true;
     }
     return false;
+  }
+
+  /** 主页面 TabContent（手机 HdsTabs 与 PC 侧边栏 Tabs 共用，保持页面状态不丢失） */
+  @Builder
+  MainTabContents() {
+    ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
+      TabContent() {
+        if (i === 0) {
+          HomePage({ bootReady: this.bootReady })
+        } else if (i === 1) {
+          MySheetsPage()
+        } else if (i === 2) {
+          PluginPage({ hostTabIndex: appState.currTabsIndex })
+        } else if (i === 3) {
+          SubscriptionPage()
+        } else {
+          SettingsPage()
+        }
+      }
+      .tabBar(this.tabBarOf(item))
+    }, (item: MenuItem, i: number) => 'tab_' + i.toString())
+  }
+
+  /** 悬浮迷你播放条（PC 侧边栏布局）：内容区底部居中 */
+  @Builder
+  FloatingPlayBar() {
+    Column() {
+      PlayBar({ floating: true })
+    }
+    .backdropBlur(60)
+    .padding({ top: 7, bottom: 7 })
+    .width(520)
+    .constraintSize({ maxWidth: '90%' })
+    .borderRadius(100)
+    .borderWidth(1)
+    .borderColor('#99ffffff')
+    .backgroundColor('#80ffffff')
+    .shadow({ radius: 24, color: 'rgba(0,0,0,0.15)', offsetX: 0, offsetY: 4 })
+    .margin({ bottom: appState.bottomRect > 0 ? 16 : 12, left: 16, right: 16 })
   }
 
   @Builder
