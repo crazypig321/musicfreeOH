@@ -71,6 +71,11 @@ class AppState{
   @Trace WidthBp: number = 0;
   // 竖断点
   @Trace HeightBp: number = 0;
+
+  // 窗口宽度（vp，随旋转/分屏/折叠更新）
+  @Trace screenWidth: number = 0;
+  // 窗口高度（vp）
+  @Trace screenHeight: number = 0;
 }
 
 export const appState: AppState = new AppState()

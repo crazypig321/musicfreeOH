@@ -1,6 +1,7 @@
 import window from '@ohos.window';
 import { ContextHolder } from '../common/ContextHolder';
 import { appState } from '../entryability/AppState';
+import { playerAnim } from '../view/PlayerExpandAnim';
 
 @ObservedV2
 class ScreenInfo{
@@ -31,11 +32,25 @@ class ScreenInfo{
           // 获取窗口断点
           appState.WidthBp = uiContext.getWindowWidthBreakpoint()
           appState.HeightBp = uiContext.getWindowHeightBreakpoint()
+          const rect = data.getWindowProperties().windowRect
+          appState.screenWidth = uiContext.px2vp(rect.width)
+          appState.screenHeight = uiContext.px2vp(rect.height)
           // 监听屏幕改变
           data.on('windowSizeChange', async (data) => {
             // 获取窗口断点
             appState.WidthBp = uiContext.getWindowWidthBreakpoint()
             appState.HeightBp = uiContext.getWindowHeightBreakpoint()
+            // 窗口 vp 尺寸（旋转/分屏/折叠时更新，供断点布局计算）
+            appState.screenWidth = uiContext.px2vp(data.width)
+            appState.screenHeight = uiContext.px2vp(data.height)
+            // 播放页覆盖层常驻 Index 顶层：同步屏幕尺寸与收起偏移，避免旋转后收起位置失效
+            playerAnim.screenWidth = appState.screenWidth
+            playerAnim.screenHeight = appState.screenHeight
+            const newOffset = appState.screenHeight + 100
+            if (playerAnim.pageTranslateY === playerAnim.collapsedOffset) {
+              playerAnim.pageTranslateY = newOffset
+            }
+            playerAnim.collapsedOffset = newOffset
             console.info(`#屏幕信息: 横断点：${appState.WidthBp}， 竖断点：${appState.HeightBp}`)
 
           })

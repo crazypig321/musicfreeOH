@@ -11,8 +11,8 @@ import { MenuUtils } from '../utils/MenuUtils';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
+import { sheetGridColumns } from '../utils/BreakpointUtils';
 
-const GRID_COLUMNS = 3;
 const RECOMMEND_MENU_ANCHOR_ID = 'recommend_menu_anchor';
 
 /**
@@ -35,10 +35,22 @@ export struct RecommendSheetsPage {
   private isEnd: boolean = false;
   private reqSeq: number = 0;
 
+  /** 网格列数随宽度断点变化（sm 3 / md 4 / lg 5） */
+  @Computed
+  get gridColumns(): number {
+    return sheetGridColumns(appState.WidthBp);
+  }
+
   /** 歌单变化时同步行数据源（LazyForEach 按需加载行） */
   @Monitor('sheets')
   onSheetsChange(): void {
-    this.rowSource.setRows(RecommendSheetsPage.chunkRows(this.sheets));
+    this.rowSource.setRows(this.chunkRows(this.sheets));
+  }
+
+  /** 断点变化（旋转/折叠/分屏）时按新列数重新切分行 */
+  @Monitor('gridColumns')
+  onGridColumnsChange(): void {
+    this.rowSource.setRows(this.chunkRows(this.sheets));
   }
 
   aboutToAppear(): void {
@@ -197,12 +209,12 @@ export struct RecommendSheetsPage {
   }
 
   /** 歌单按列数切分成行 */
-  private static chunkRows(sheets: Array<SheetItem>): Array<Array<SheetItem>> {
+  private chunkRows(sheets: Array<SheetItem>): Array<Array<SheetItem>> {
     const rows: Array<Array<SheetItem>> = [];
     let row: Array<SheetItem> = [];
     for (const sheet of sheets) {
       row.push(sheet);
-      if (row.length === GRID_COLUMNS) {
+      if (row.length === this.gridColumns) {
         rows.push(row);
         row = [];
       }
@@ -211,6 +223,15 @@ export struct RecommendSheetsPage {
       rows.push(row);
     }
     return rows;
+  }
+
+  /** 空位占位下标（不足整行时补 Blank，保持单元格等宽） */
+  private blankIndexes(count: number): Array<number> {
+    const arr: Array<number> = [];
+    for (let i = 0; i < count; i++) {
+      arr.push(i);
+    }
+    return arr;
   }
 
   build() {
@@ -283,12 +304,9 @@ export struct RecommendSheetsPage {
               }, (sheet: SheetItem, index: number) =>
                 sheet.platform + '_' + sheet.id + '_' + rowIndex.toString() + '_' + index.toString())
               // 不足整行时用 Blank 占位保持等宽
-              if (rowItems.length === 1) {
+              ForEach(this.blankIndexes(this.gridColumns - rowItems.length), (_i: number, bi: number) => {
                 Blank().layoutWeight(1)
-                Blank().layoutWeight(1)
-              } else if (rowItems.length === 2) {
-                Blank().layoutWeight(1)
-              }
+              }, (_i: number, bi: number) => 'blank_' + bi.toString())
             }
             .width('100%')
             .alignItems(VerticalAlign.Top)

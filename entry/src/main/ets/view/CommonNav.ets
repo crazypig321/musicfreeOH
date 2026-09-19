@@ -14,6 +14,7 @@ import { PlayBar } from "./PlayBar";
 import { themeUtils } from "../utils/ThemeUtils";
 import { playerAnim, PlayerExpandAnimController } from "./PlayerExpandAnim";
 import { appConfig } from "../core/AppConfig";
+import { contentMaxWidthVp } from "../utils/BreakpointUtils";
 
 export function titleBarOf(mainTitle: ResourceStr, subTitle?: ResourceStr,
   menus?: Array<HdsNavigationMenuItemOptions>, bottomBuilder?: BottomBuilderParams): TitleBarContentOptions {
@@ -90,7 +91,7 @@ export struct CommonNav{
       if (this.isShowPlayBar){
         HdsTabs({ controller: this.tabsController }) {
           TabContent(){
-            this.content()
+            this.AdaptiveContent()
           }.tabBar(this.playBar())//.align(Alignment.Top)
         }
         .barOverlap(true)
@@ -108,7 +109,7 @@ export struct CommonNav{
          // gradientMask: { maskColor: appConfig.maskColor },
         })
       }else{
-        this.content()
+        this.AdaptiveContent()
       }
     }
     .titleBar({
@@ -174,6 +175,22 @@ export struct CommonNav{
       hideBottomBuilder: this.isSearchBarScroller,
       mode: HideMode.SCROLL_UP_TO
     })
+  }
+
+  /** 自适应内容容器：lg 断点限宽居中，保持手机端视觉宽度；其余断点铺满 */
+  @Builder
+  AdaptiveContent() {
+    Column() {
+      Column() {
+        this.content()
+      }
+      .width('100%')
+      .height('100%')
+      .constraintSize({ maxWidth: contentMaxWidthVp(appState.WidthBp) })
+    }
+    .width('100%')
+    .height('100%')
+    .alignItems(HorizontalAlign.Center)
   }
 
   @Builder
