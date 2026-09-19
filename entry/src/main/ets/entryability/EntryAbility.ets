@@ -10,6 +10,7 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { PlayState } from '../core/PlayerEngine';
 import { screenInfo } from '../utils/ScreenInfo';
 import { themeUtils } from '../utils/ThemeUtils';
+import { WebDav } from '../core/WebDav';
 
 const DOMAIN = 0x0000;
 
@@ -45,6 +46,10 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
+    // 彻底退出前自动备份 WebDAV（开关开启且服务器可达时执行，静默失败）；
+    // onDestroy 是退出（划走任务 / 定时退出 / 关闭窗口）前最后一个可靠回调
+    WebDav.backupOnExit().catch(() => {
+    });
     // 播放中（长时任务续跑、进程存活）不销毁媒体会话，
     // 否则系统播控中心/锁屏播控会随 Ability 销毁一起消失
     if (trackPlayer.playState !== PlayState.Playing) {

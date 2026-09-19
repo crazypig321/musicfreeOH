@@ -48,6 +48,7 @@ export class ConfigKeys {
   static readonly WEBDAV_PATH = 'webdav.path';
   static readonly WEBDAV_USERNAME = 'webdav.username';
   static readonly WEBDAV_PASSWORD = 'webdav.password';
+  static readonly WEBDAV_AUTO_BACKUP_ON_EXIT = 'webdav.autoBackupOnExit';
   static readonly DEBUG_ERROR_LOG = 'debug.errorLog';
   static readonly DEBUG_TRACE_LOG = 'debug.traceLog';
   static readonly DEBUG_DEV_LOG = 'debug.devLog';
@@ -115,6 +116,11 @@ export class AppConfig {
 
   getWebdavPassword(): string {
     return this.getString(ConfigKeys.WEBDAV_PASSWORD, '');
+  }
+
+  /** 退出应用前自动备份到 WebDAV（默认关闭） */
+  getWebdavAutoBackupOnExit(): boolean {
+    return this.getBoolean(ConfigKeys.WEBDAV_AUTO_BACKUP_ON_EXIT, false);
   }
 
   /** 导出全部设置（备份用；排除 WebDAV 账密等敏感项） */

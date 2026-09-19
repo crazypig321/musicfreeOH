@@ -8,7 +8,7 @@ import { ResumeMode } from '../../common/Consts';
 
 /**
  * WebDAV 备份与恢复页面
- * 服务器地址 / 用户名 / 密码（实时保存）+ 备份到 WebDAV / 从 WebDAV 恢复
+ * 服务器地址 / 用户名 / 密码（实时保存）+ 退出时自动备份开关 + 备份到 WebDAV / 从 WebDAV 恢复
  * 备份文件固定为 musicfree-backup.json（覆盖式，保留最新一份）
  */
 @ComponentV2
@@ -18,6 +18,7 @@ export struct WebDavSettingPage {
   @Local path: string = appConfig.getWebdavPath();
   @Local username: string = appConfig.getWebdavUsername();
   @Local password: string = appConfig.getWebdavPassword();
+  @Local autoBackupOnExit: boolean = appConfig.getWebdavAutoBackupOnExit();
   @Local working: boolean = false;
 
   /** 备份文件相对服务器地址的完整路径（随配置实时刷新） */
@@ -238,6 +239,28 @@ export struct WebDavSettingPage {
               .onClick(() => {
                 this.doRestore();
               })
+
+              Divider()
+                .DividerStyle('do')
+
+              // 退出应用前自动备份
+              Row({ space: 12 }) {
+                SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                Text('退出时自动备份')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                Toggle({ type: ToggleType.Switch, isOn: this.autoBackupOnExit })
+                  .selectedColor(appState.accentColor)
+                  .onChange((isOn: boolean) => {
+                    this.autoBackupOnExit = isOn;
+                    appConfig.setConfig(ConfigKeys.WEBDAV_AUTO_BACKUP_ON_EXIT, isOn);
+                  })
+              }
+              .width('100%')
+              .height(52)
             }
             .width('100%')
           }

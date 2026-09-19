@@ -23,6 +23,7 @@ MusicFreeOH 是开源插件化音乐播放器 [MusicFree](https://github.com/mao
 | HDS 组件库（`@kit.UIDesignKit`） | 标题栏 / 底部页签 / 列表卡片等系统级 UI 组件 |
 | WebView（`@ohos.web.webview`） | MusicFree 插件脚本执行引擎 |
 | [@xiaoye/date](https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate) | 日期处理 |
+| [@keke/color-picker](https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker) | 颜色选择器（外观设置主题色取色，API 26 以下替代系统 `HdsColorPicker`） |
 
 ## 软件截图
 

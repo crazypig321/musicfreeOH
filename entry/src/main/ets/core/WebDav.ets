@@ -21,6 +21,8 @@ export class WebDavRestoreResult {
 export class WebDav {
   static readonly BACKUP_FILENAME: string = 'musicfree-backup.json';
   static readonly BACKUP_DIRNAME: string = 'musicfreeOH';
+  /** 退出备份进行中标记（防重复触发） */
+  private static exitBackupRunning: boolean = false;
 
   /** 是否已配置服务器地址 */
   static isConfigured(): boolean {
@@ -105,6 +107,35 @@ export class WebDav {
     for (const seg of segs) {
       cur = cur + seg + '/';
       await HttpClient.request(cur, 'MKCOL', WebDav.authHeaders(), 15000);
+    }
+  }
+
+  /** 服务器连通性探测（OPTIONS）：拿到 HTTP 响应且认证通过（非 401/403）视为可达 */
+  private static async isReachable(): Promise<boolean> {
+    const resp = await HttpClient.request(WebDav.serverUrl(), 'OPTIONS', WebDav.authHeaders(), 8000);
+    if (resp === null) {
+      return false;
+    }
+    return resp.statusCode !== 401 && resp.statusCode !== 403;
+  }
+
+  /** 彻底退出应用前自动备份（Ability onDestroy 触发）：开关开启 + 已配置服务器 + 服务器可达时执行，全程静默失败 */
+  static async backupOnExit(): Promise<void> {
+    if (WebDav.exitBackupRunning) {
+      return;
+    }
+    if (!appConfig.getWebdavAutoBackupOnExit() || !WebDav.isConfigured()) {
+      return;
+    }
+    WebDav.exitBackupRunning = true;
+    try {
+      if (await WebDav.isReachable()) {
+        await WebDav.backup();
+      }
+    } catch (e) {
+      // 退出路径不弹提示，静默失败
+    } finally {
+      WebDav.exitBackupRunning = false;
     }
   }
 
