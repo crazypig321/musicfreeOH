@@ -16,6 +16,8 @@ import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
 import { LocalMusicExclusion } from './LocalMusicExclusion';
 import { MediaExtra, MediaExtraProperties } from './MediaExtra';
 import { pluginManager } from '../plugin/PluginManager';
+import { BackgroundTask } from '../utils/BackgroundTask';
+import { DownloadNotify } from '../utils/DownloadNotify';
 
 /** 下载状态 */
 export enum DownloadStatus {
@@ -98,6 +100,17 @@ export class Downloader {
   private downloadQueue: Array<MusicItem> = [];
   private downloadTasks: Map<string, DownloadTaskInfo> = new Map();
   private downloadingCount: number = 0;
+  /** 本批次统计（通知栏摘要用）：批次 = 队列从空转运行到再次清空 */
+  private batchActive: boolean = false;
+  private batchDone: number = 0;
+  private batchFailed: number = 0;
+
+  /** 队列全部结束：释放数据传输长时任务并弹出结果摘要通知 */
+  private finishBatch(): void {
+    this.batchActive = false;
+    BackgroundTask.stopTransfer();
+    DownloadNotify.showSummary(this.batchDone, this.batchFailed);
+  }
 
   /** 确保公共下载目录就绪后再启动下载队列（目录缺失时由 bootstrap 自动重建） */
   private static async ensureDownloadDirResolved(): Promise<void> {
@@ -138,6 +151,12 @@ export class Downloader {
     if (fileSize >= 0) {
       task.fileSize = fileSize;
     }
+    if (status === DownloadStatus.Downloading && task.fileSize > 0) {
+      // 通知栏进度（节流由 DownloadNotify 控制）
+      const percent = Math.min(100, Math.floor(task.downloadedSize / task.fileSize * 100));
+      const songText = `${task.musicItem.title} - ${task.musicItem.artist}`;
+      DownloadNotify.updateProgress(songText, percent, this.downloadQueue.length);
+    }
     this.emitTaskUpdate(task);
     return task;
   }
@@ -173,11 +192,13 @@ export class Downloader {
 
   private markTaskAsCompleted(musicItem: MusicItem): void {
     this.downloadingCount--;
+    this.batchDone++;
     this.updateTaskStatus(musicItem, DownloadStatus.Completed);
   }
 
   private markTaskAsError(musicItem: MusicItem, reason: string, message: string): void {
     this.downloadingCount--;
+    this.batchFailed++;
     const key = MediaUtils.getMediaUniqueKey(musicItem);
     let task = this.downloadTasks.get(key);
     if (task === undefined) {
@@ -264,6 +285,7 @@ export class Downloader {
 
     if (nextTask === null) {
       if (this.downloadingCount === 0) {
+        this.finishBatch();
         this.ee.emit(DownloaderEvent.DOWNLOAD_QUEUE_COMPLETED, new DownloadQueueCompletedEvent());
       }
       return;
@@ -313,6 +335,7 @@ export class Downloader {
       } else {
         this.markTaskAsError(musicItem, DownloadFailReason.UNKNOWN, message);
       }
+      this.downloadNextPendingTask();
       return;
     }
 
@@ -334,6 +357,7 @@ export class Downloader {
       FileUtils.checkAndCreateDir(FileUtils.getDirectory(targetDownloadPath));
       if (!FileUtils.exists(FileUtils.getDirectory(targetDownloadPath))) {
         this.markTaskAsError(musicItem, DownloadFailReason.NO_WRITE_PERMISSION, '');
+        this.downloadNextPendingTask();
         return;
       }
     }
@@ -428,6 +452,18 @@ export class Downloader {
       return;
     }
 
+    if (!this.batchActive) {
+      this.batchActive = true;
+      this.batchDone = 0;
+      this.batchFailed = 0;
+      DownloadNotify.resetProgress();
+    }
+    // 息屏/后台继续下载：申请数据传输长时任务（幂等），并请求通知授权（首次）
+    DownloadNotify.ensureEnabled();
+    BackgroundTask.startTransfer((notificationId: number): void => {
+      DownloadNotify.setSystemNotificationId(notificationId);
+    });
+
     this.downloadQueue = this.downloadQueue.concat(accepted);
     Downloader.ensureDownloadDirResolved().then(() => {
       this.downloadNextPendingTask();
@@ -449,6 +485,9 @@ export class Downloader {
         }
       }
       this.downloadQueue = newQueue;
+      if (this.downloadQueue.length === 0 && this.downloadingCount === 0) {
+        this.finishBatch();
+      }
       return true;
     }
     return false;

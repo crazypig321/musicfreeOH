@@ -213,7 +213,7 @@ export class TrackPlayer {
     this.ee.emit('play-state-changed', ev);
     if (state === PlayState.Playing) {
       // 播放中申请音频长时任务，避免退后台后被系统挂起
-      BackgroundTask.start();
+      BackgroundTask.startAudio();
       this.startProgressTimer();
     } else {
       this.stopProgressTimer();
@@ -222,7 +222,7 @@ export class TrackPlayer {
       if (state === PlayState.Paused || state === PlayState.Stopped ||
         state === PlayState.Completed || state === PlayState.Error ||
         state === PlayState.Released) {
-        BackgroundTask.stop();
+        BackgroundTask.stopAudio();
       }
     }
   }
