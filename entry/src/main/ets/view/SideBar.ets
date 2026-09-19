@@ -58,16 +58,17 @@ export struct SideBar {
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .layoutWeight(1)
         }
-        SymbolGlyph(this.expanded ? $r('sys.symbol.chevron_left') : $r('sys.symbol.chevron_right'))
-          .fontSize(18)
-          .fontColor([$r('sys.color.icon_secondary')])
-          .width(34)
-          .height(34)
-          .borderRadius(17)
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .onClick(() => {
-            this.onToggle();
-          })
+        Row(){
+          SymbolGlyph(this.expanded ? $r('sys.symbol.chevron_left') : $r('sys.symbol.chevron_right'))
+            .fontSize(18)
+            .fontColor([$r('sys.color.icon_secondary')])
+        }.alignItems(VerticalAlign.Center).justifyContent(FlexAlign.Center)
+        .width(34).height(34)
+        .borderRadius(100)
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .onClick(() => {
+          this.onToggle();
+        })
       }
       .width('100%')
       .height(44)
