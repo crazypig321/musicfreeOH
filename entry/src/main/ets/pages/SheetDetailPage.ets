@@ -671,8 +671,13 @@ export struct SheetDetailPage {
       this.showToast('所选歌曲均已下载或正在下载');
       return;
     }
-    downloader.download(fresh, appConfig.getDefaultDownloadQuality());
-    this.showToast('已加入 ' + fresh.length.toString() + ' 首到下载队列');
+    // 弹窗填写目标子文件夹（留空 = 默认下载目录）
+    DialogManager.downloadFolderValue = '';
+    DialogManager.downloadFolderConfirm = (folder: string): void => {
+      downloader.download(fresh, appConfig.getDefaultDownloadQuality(), folder);
+      this.showToast('已加入 ' + fresh.length.toString() + ' 首到下载队列');
+    };
+    DialogManager.OpenDialog('下载到文件夹');
   }
 
   private showToast(message: string): void {

@@ -631,6 +631,8 @@ export struct HomePage{
             }
             .width('100%')
             .alignItems(VerticalAlign.Top)
+            // 标签切换时渐隐过渡，避免闪烁突兀
+            .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Smooth }))
           }.padding({top: 10, bottom: 10})
         }, (rowItems: Array<SheetItem>, rowIndex: number) => {
           // key 带上行内容，标签切换后即使行数相同也能刷新

@@ -70,6 +70,8 @@ export class DownloadTaskInfo {
   musicItem: MusicItem = new MusicItem();
   /** 下载发起时歌曲所在的用户歌单名（已下载「来源歌单」分组标签用） */
   originSheets: string = '';
+  /** 下载目标子文件夹名（空 = 下载目录根） */
+  folder: string = '';
   /** 下载失败的原因 */
   errorReason: string = '';
 }
@@ -143,6 +145,7 @@ export class Downloader {
       'downloadedSize': task.downloadedSize,
       'errorReason': task.errorReason,
       'originSheets': task.originSheets,
+      'folder': task.folder,
       'musicItem': task.musicItem.toPersistRecord()
     };
     if (task.quality !== undefined) {
@@ -211,6 +214,7 @@ export class Downloader {
     task.downloadedSize = JsonUtil.recNum(rec, 'downloadedSize');
     task.errorReason = JsonUtil.recStr(rec, 'errorReason');
     task.originSheets = JsonUtil.recStr(rec, 'originSheets');
+    task.folder = JsonUtil.recStr(rec, 'folder');
     const quality = JsonUtil.recStr(rec, 'quality');
     if (quality.length > 0) {
       task.quality = qualityFromStr(quality, 'high');
@@ -468,13 +472,14 @@ export class Downloader {
     return 'mp3';
   }
 
-  /** 获取下载路径 */
-  private getDownloadPath(fileName: string): string {
+  /** 获取下载路径（folder 为下载目录下的子文件夹名，空 = 根） */
+  private getDownloadPath(fileName: string, folder: string): string {
     const dlPath = appConfig.getDownloadPath();
-    if (!dlPath.endsWith('/')) {
-      return `${dlPath}/${fileName}`;
+    const base = dlPath.endsWith('/') ? dlPath : dlPath + '/';
+    if (folder.length > 0) {
+      return `${base}${folder}/${fileName}`;
     }
-    return dlPath + fileName;
+    return base + fileName;
   }
 
   /** 获取缓存的下载路径 */
@@ -591,7 +596,7 @@ export class Downloader {
       this.getCacheDownloadPath(nextTask.cacheFilename)
     );
     const targetDownloadPath = FileUtils.addFileScheme(
-      this.getDownloadPath(`${nextTask.filename}.${extension}`)
+      this.getDownloadPath(`${nextTask.filename}.${extension}`, nextTask.folder)
     );
 
     if (!FileUtils.exists(FileUtils.getDirectory(targetDownloadPath))) {
@@ -668,7 +673,7 @@ export class Downloader {
     }
   }
 
-  download(musicItems: MusicItem | Array<MusicItem>, quality?: QualityKey): void {
+  download(musicItems: MusicItem | Array<MusicItem>, quality?: QualityKey, folder?: string): void {
     const network = Network.getInstance();
     if (network.isOffline) {
       const ev = new DownloadErrorEvent();
@@ -685,6 +690,8 @@ export class Downloader {
     }
 
     const items: Array<MusicItem> = Array.isArray(musicItems) ? musicItems : [musicItems];
+    // 目标子文件夹（非法字符转义，与文件名同一套规则；不允许越出下载目录）
+    const targetFolder = folder === undefined ? '' : FileUtils.escapeCharacter(folder.trim());
 
     const accepted: Array<MusicItem> = [];
     for (const m of items) {
@@ -700,6 +707,7 @@ export class Downloader {
       task.filename = Downloader.generateFilename(m);
       task.quality = quality;
       task.originSheets = Downloader.collectOriginSheets(m);
+      task.folder = targetFolder;
       task.musicItem = m;
       this.downloadTasks.set(key, task);
       this.saveTaskRecord(task);

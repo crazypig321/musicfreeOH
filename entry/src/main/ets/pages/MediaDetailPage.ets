@@ -17,6 +17,7 @@ import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
+import { DialogManager } from '../utils/DialogUtils';
 
 /** 一次分页加载结果（专辑/歌手统一封装） */
 class MediaDetailPageResult {
@@ -626,8 +627,13 @@ export struct MediaDetailPage {
       this.showToast('所选歌曲均已下载或正在下载');
       return;
     }
-    downloader.download(fresh, appConfig.getDefaultDownloadQuality());
-    this.showToast('已加入 ' + fresh.length.toString() + ' 首到下载队列');
+    // 弹窗填写目标子文件夹（留空 = 默认下载目录）
+    DialogManager.downloadFolderValue = '';
+    DialogManager.downloadFolderConfirm = (folder: string): void => {
+      downloader.download(fresh, appConfig.getDefaultDownloadQuality(), folder);
+      this.showToast('已加入 ' + fresh.length.toString() + ' 首到下载队列');
+    };
+    DialogManager.OpenDialog('下载到文件夹');
   }
 
   private showToast(message: string): void {

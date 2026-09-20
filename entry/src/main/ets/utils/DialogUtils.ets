@@ -114,6 +114,29 @@ export struct SortJumpDialogContent {
 }
 
 
+/** 「下载/移动到文件夹」弹窗内容：目标文件夹名输入框（下载留空 = 默认目录；移动留空 = 根目录） */
+@ComponentV2
+export struct DownloadFolderDialogContent {
+  build() {
+    TextInput({
+      text: DialogManager.downloadFolderValue,
+      placeholder: DialogManager.dialogChangeKey === '移动到文件夹'
+        ? '目标文件夹名（留空则移到根目录）' : '文件夹名称（留空则下载到默认目录）'
+    })
+      .width('100%')
+      .height(44)
+      .fontSize(14)
+      .fontColor($r('sys.color.font_primary'))
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .borderRadius(10)
+      .onChange((v: string): void => {
+        DialogManager.downloadFolderValue = v;
+      })
+  }
+}
+
+
 /** 「设置缓存」弹窗内容：缓存上限输入框 + 单位选择（并排显示） */
 @ComponentV2
 export struct CacheInputDialogContent {
@@ -329,6 +352,10 @@ export class DialogManager {
   public static sortJumpMax: number = 0;
   /** 「跳转排序」确认回调（target 为 0 基索引，弹窗关闭后自动清空） */
   public static sortJumpConfirm: ((target: number) => void) | null = null;
+  /** 「下载到文件夹」目标文件夹名（打开前赋初值，弹窗内编辑） */
+  public static downloadFolderValue: string = '';
+  /** 「下载到文件夹」确认回调（folder 为输入的文件夹名，弹窗关闭后自动清空） */
+  public static downloadFolderConfirm: ((folder: string) => void) | null = null;
   /** 「选择器」标题 */
   public static pickerTitle: string = '';
   /** 「选择器」选项文本 */
@@ -407,6 +434,10 @@ export class DialogManager {
         return '重命名';
       case '跳转排序':
         return '跳转排序';
+      case '下载到文件夹':
+        return '下载到文件夹';
+      case '移动到文件夹':
+        return '移动到文件夹';
       case '选择器':
         return DialogManager.pickerTitle;
       case '更换音源':
@@ -501,6 +532,42 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '确定',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
+      case '下载到文件夹': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '下载',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
+      case '移动到文件夹': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '移动',
           buttonStyle: ButtonStyleMode.EMPHASIZED,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
@@ -637,6 +704,12 @@ export class DialogManager {
         }
         break;
       }
+      case '下载到文件夹':
+      case '移动到文件夹':
+        if (DialogManager.downloadFolderConfirm !== null) {
+          DialogManager.downloadFolderConfirm(DialogManager.downloadFolderValue.trim());
+        }
+        break;
       case '选择器':
         if (DialogManager.pickerConfirm !== null) {
           DialogManager.pickerConfirm(DialogManager.pickerIndex);
@@ -699,6 +772,11 @@ export class DialogManager {
       DialogManager.sortJumpValue = '';
       DialogManager.sortJumpMax = 0;
       DialogManager.sortJumpConfirm = null;
+    }
+    // 下载/移动到文件夹同理（取消或关闭弹窗不触发动作）
+    if (key === '下载到文件夹' || key === '移动到文件夹') {
+      DialogManager.downloadFolderValue = '';
+      DialogManager.downloadFolderConfirm = null;
     }
     // 选择器同理（取消或关闭弹窗不触发确认回调）
     if (key === '选择器') {

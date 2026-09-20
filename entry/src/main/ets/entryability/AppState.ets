@@ -49,6 +49,8 @@ class AppState{
   @Trace tabSwitchAnim: boolean = true;
   // 智感握姿：握持手（left / right；未开启或未识别时为 right 即常规布局）
   @Trace holdingHand: string = 'right';
+  // 智感握姿开关（持久化设置，启动时由 Bootstrap 恢复，设置页切换时更新）
+  @Trace smartReachEnabled: boolean = false;
 
   // 是否开启模糊
   @Trace isForegroundBlur: boolean = false;

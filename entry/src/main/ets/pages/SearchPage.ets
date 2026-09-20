@@ -757,6 +757,8 @@ export struct SearchPage {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+    // 插件/分类标签切换时渐隐过渡，避免闪烁突兀
+    .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Smooth }))
   }
 
   /** 结果分类标签条（搜索后出现于插件选择条下方）：四项均分一排，中间竖向分割线 */
@@ -834,6 +836,8 @@ export struct SearchPage {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+    // 标签切换时渐隐过渡
+    .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Smooth }))
   }
 
   /** 歌手结果行：头像 + 名称 + 作品/粉丝数 */
@@ -881,6 +885,8 @@ export struct SearchPage {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+    // 标签切换时渐隐过渡
+    .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Smooth }))
   }
 
   /** 歌单结果行：封面 + 标题/作者 + 歌曲数，点击进入歌单详情 */
@@ -931,6 +937,8 @@ export struct SearchPage {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+    // 标签切换时渐隐过渡
+    .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Smooth }))
   }
 
   /** 歌手副文本：作品数 + 粉丝数 */

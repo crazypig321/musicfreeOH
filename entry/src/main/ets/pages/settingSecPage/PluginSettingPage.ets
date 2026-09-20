@@ -85,7 +85,7 @@ export struct PluginSettingPage {
                     })
                 }
                 if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.arrow_counterclockwise'))
+                  SymbolGlyph($r('sys.symbol.switch_reality'))
                     .fontSize(20)
                     .fontColor([$r('sys.color.icon_secondary')])
                 }
@@ -103,7 +103,7 @@ export struct PluginSettingPage {
                     })
                 }
                 if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.arrow_counterclockwise'))
+                  SymbolGlyph($r('sys.symbol.switch_reality'))
                     .fontSize(20)
                     .fontColor([$r('sys.color.icon_secondary')])
                 }

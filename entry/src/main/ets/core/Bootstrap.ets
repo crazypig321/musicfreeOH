@@ -130,7 +130,8 @@ export class Bootstrap {
     appState.accentColor = themeColorOf(appConfig.getAppearanceThemeColor());
     // Tab 切换动画
     appState.tabSwitchAnim = appConfig.getTabSwitchAnim();
-    // 智感握姿订阅
+    // 智感握姿订阅（先恢复开关状态，底部栏 handedness 适配据此渲染）
+    appState.smartReachEnabled = appConfig.getSmartReachEnabled();
     SmartReach.setup();
     // 屏幕方向
     Bootstrap.applyOrientation();

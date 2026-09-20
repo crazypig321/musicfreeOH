@@ -126,15 +126,32 @@ export struct DownloadPage {
     this.taskRows = rows;
   }
 
-  /** 刷新已下载/本地音乐列表（下载模式按当前分组标签过滤） */
+  /** 刷新已下载/本地音乐列表（下载模式按日期/来源歌单过滤，本地模式按所在文件夹过滤） */
   private refreshDownloaded(): void {
     const items = this.activeSheet.getMusicList();
     this.downloadedCount = items.length;
     if (this.isLocalMode) {
-      this.dateTags = ['全部'];
-      this.selectedTag = '全部';
+      // 本地音乐：按文件所在子文件夹分组（标签 = 下载目录下的相对目录名）
+      const folders: Array<string> = [];
+      for (const item of items) {
+        const localPath = MediaUtils.getLocalPath(item);
+        const folder = localPath === null ? '' : DownloadPage.itemLocalFolder(localPath);
+        if (folder.length > 0 && folders.indexOf(folder) === -1) {
+          folders.push(folder);
+        }
+      }
+      this.dateTags = ['全部'].concat(folders);
+      if (this.selectedTag !== '全部' && folders.indexOf(this.selectedTag) === -1) {
+        this.selectedTag = '全部';
+      }
+      const filtered: Array<MusicItem> = [];
+      for (const item of items) {
+        if (this.itemMatchesTag(item)) {
+          filtered.push(item);
+        }
+      }
       this.dataSource.clear();
-      this.dataSource.appendData(items);
+      this.dataSource.appendData(filtered);
       return;
     }
     this.computeDateTags(items);
@@ -197,8 +214,13 @@ export struct DownloadPage {
 
   /** 条目是否匹配当前选中的分组标签 */
   private itemMatchesTag(item: MusicItem): boolean {
-    if (this.isLocalMode || this.selectedTag === '全部') {
+    if (this.selectedTag === '全部') {
       return true;
+    }
+    // 本地模式：按文件所在文件夹分组
+    if (this.isLocalMode) {
+      const localPath = MediaUtils.getLocalPath(item);
+      return localPath !== null && DownloadPage.itemLocalFolder(localPath) === this.selectedTag;
     }
     if (this.selectedTag === '更早') {
       return this.itemDownloadedAt(item) === 0;
@@ -208,6 +230,21 @@ export struct DownloadPage {
       return true;
     }
     return this.itemDownloadOrigin(item) === this.selectedTag;
+  }
+
+  /** 本地文件在下载目录下的相对文件夹名（根目录返回空串） */
+  private static itemLocalFolder(localPath: string): string {
+    const p = FileUtils.normalizePath(localPath);
+    const bases: Array<string> = [PathConst.downloadPath, PathConst.basePath + '/download/'];
+    for (const base of bases) {
+      const b = base.endsWith('/') ? base : base + '/';
+      if (p.startsWith(b)) {
+        const rel = p.substring(b.length);
+        const idx = rel.lastIndexOf('/');
+        return idx === -1 ? '' : rel.substring(0, idx);
+      }
+    }
+    return '';
   }
 
   /** 条目下载完成时间戳（内部序列化记录，无记录返回 0） */
@@ -656,11 +693,15 @@ export struct DownloadPage {
     this.batchSelected = all.length > 0 && this.batchSelected.length === all.length ? [] : all;
   }
 
-  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「搜索封面」） */
+  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「移动」「搜索封面」） */
   private batchTopLabels(): Array<string> {
     const total = this.batchScope === 'task' ? this.selectableTaskCount() : this.dataSource.totalCount();
     const allSelected = total > 0 && this.batchSelected.length === total;
-    const labels: Array<string> = [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单', '搜索歌词'];
+    const labels: Array<string> = [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单'];
+    if (this.isLocalMode) {
+      labels.push('移动');
+    }
+    labels.push('搜索歌词');
     if (this.isLocalMode) {
       labels.push('搜索封面');
     }
@@ -828,6 +869,58 @@ export struct DownloadPage {
       });
     };
     searchNext(0);
+  }
+
+  /** 打开批量「移动到文件夹」弹窗（仅本地模式：输入目标分组/文件夹名，留空移到根目录） */
+  private openBatchMoveDialog(): void {
+    if (!this.isLocalMode) {
+      return;
+    }
+    if (this.selectedItems().length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    DialogManager.downloadFolderValue = '';
+    DialogManager.downloadFolderConfirm = (folder: string): void => {
+      this.doBatchMoveLocal(folder);
+    };
+    DialogManager.OpenDialog('移动到文件夹');
+  }
+
+  /** 批量移动本地音乐到目标文件夹（物理移动文件 + 同步已下载域记录；正在播放的跳过） */
+  private doBatchMoveLocal(folder: string): void {
+    const items = this.selectedItems();
+    if (items.length === 0) {
+      return;
+    }
+    const target = folder.length > 0 ? FileUtils.escapeCharacter(folder) : '';
+    const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
+    const destDir = target.length > 0 ? base + target : base;
+    let ok = 0;
+    let fail = 0;
+    let skipped = 0;
+    for (const it of items) {
+      // 正在播放的歌曲移动文件会中断播放，跳过
+      if (trackPlayer.isCurrentMusic(it)) {
+        skipped++;
+        continue;
+      }
+      const result = localMusicSheet.moveLocalMusic(it, destDir);
+      if (result === 2) {
+        fail++;
+      } else {
+        ok++;
+      }
+    }
+    let message = '已移动 ' + ok.toString() + ' 首';
+    if (fail > 0) {
+      message += '，失败 ' + fail.toString() + ' 首';
+    }
+    if (skipped > 0) {
+      message += '（正在播放的 ' + skipped.toString() + ' 首已跳过）';
+    }
+    this.showToast(message);
+    this.refreshDownloaded();
   }
 
   /** 批量播放：以选中歌曲为播放队列，从第一首开始 */
@@ -1244,8 +1337,9 @@ export struct DownloadPage {
             .width('100%')
             .margin({ top: 12, bottom: 4 })
           }
-          // 已下载分组标签（全部 + 下载日期 + 来源歌单，样式同搜索页插件选择条）
-          if (!this.isLocalMode && this.dateTags.length > 1) {
+          // 分组标签（已下载：全部 + 下载日期 + 来源歌单；本地音乐：全部 + 所在文件夹；
+          // 样式同主页推荐歌单标签条）
+          if (this.dateTags.length > 1) {
             ListItem() {
               List({ space: 8 }) {
                 ForEach(this.dateTags, (tag: string) => {
@@ -1335,9 +1429,9 @@ export struct DownloadPage {
       })
 
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
-        // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词（本地模式追加 搜索封面）；
+        // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词（本地模式追加 移动 / 搜索封面）；
         // 第二行 播放 / 分享 / 移出 / 删除；
-        // 第三行 换源 / 重新下载（仅下载模式存在失败任务时显示）
+        // 第三行 换源 / 重新下载（仅任务区批量模式显示）
         if (appState.isBatchMode) {
           // 渐变模糊高度与底栏内容高度保持一致：
           // 14(顶距) + 22(已选行) + 10 + 36(按钮行1) + 10 + 36(按钮行2) + 12(底距) + 导航栏避让
@@ -1376,15 +1470,18 @@ export struct DownloadPage {
                   .fontColor($r('sys.color.font_primary'))
                   .padding({ left: 2, right: 2 })
                   .onClick(() => {
-                    if (i === 0) {// 全选/取消全选
+                    if (v === '全选' || v === '取消全选') {
                       this.toggleSelectAll();
-                    } else if (i === 1) {// 收藏
+                    } else if (v === '收藏') {
                       this.batchFavorite();
-                    } else if (i === 2) {// 添加到歌单
+                    } else if (v === '添加到歌单') {
                       this.openBatchSheetPicker();
-                    } else if (i === 3) {// 搜索歌词
+                    } else if (v === '移动') {
+                      this.openBatchMoveDialog();
+                    } else if (v === '搜索歌词') {
                       this.batchSearchLyric();
-                    } else {// 搜索封面（仅本地模式）
+                    } else {
+                      // 搜索封面（仅本地模式）
                       this.batchSearchCover();
                     }
                   })

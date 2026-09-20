@@ -37,7 +37,7 @@ import { useSidebarLayout } from '../utils/BreakpointUtils';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
+  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
 
 @Entry
 @ComponentV2
@@ -168,7 +168,8 @@ struct Index {
               materialType: appState.materialType,
               materialLevel: appState.materialLevel
             },
-            adaptToHandedness: true,
+            // 智感握姿：随设置开关 handedness 适配
+            adaptToHandedness: appState.smartReachEnabled,
             // 批量操作模式下移除迷你栏，避免遮挡批量底栏
             miniBar: appState.isBatchMode ? undefined : {
               miniBarBuilder: () => {
@@ -395,6 +396,8 @@ struct Index {
       RenameDialogContent()
     } else if (key === '跳转排序') {
       SortJumpDialogContent()
+    } else if (key === '下载到文件夹' || key === '移动到文件夹') {
+      DownloadFolderDialogContent()
     } else if (key === '选择器') {
       TextPickerDialogContent()
     } else if (key === '更换音源') {

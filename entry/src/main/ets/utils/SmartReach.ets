@@ -38,6 +38,8 @@ export class SmartReach {
 
   /** 设置开关 */
   static setEnabled(enabled: boolean): void {
+    // 同步全局状态（底部栏 handedness 适配等据此渲染）
+    appState.smartReachEnabled = enabled;
     if (enabled) {
       SmartReach.start();
     } else {

@@ -109,6 +109,18 @@ export class LocalMusicSheet {
             it.artwork = mi.artwork;
             changed = true;
           }
+          // 文件被移动后重新扫描：同曲目出现在新路径 → 更新本地路径（两域同步，
+          // 保证文件夹分组标签与播放路径随文件实际位置刷新）
+          const newPath = MediaUtils.getLocalPath(mi);
+          const oldPath = MediaUtils.getLocalPath(it);
+          if (newPath !== null && newPath.length > 0 && newPath !== oldPath &&
+            FileUtils.exists(newPath)) {
+            LocalMusicSheet.setItemLocalPath(it, newPath);
+            changed = true;
+            if (this.peer !== null) {
+              this.peer.patchLocalPath(it, newPath);
+            }
+          }
           break;
         }
       }
@@ -124,6 +136,72 @@ export class LocalMusicSheet {
     this.localSheetItems = newSheet;
     this.notify();
     return Promise.resolve();
+  }
+
+  /** 更新同曲目记录的本地路径（文件被移动后同步另一域记录） */
+  patchLocalPath(musicItem: MusicItem, newLocalPath: string): void {
+    for (const it of this.localSheetItems) {
+      if (MediaUtils.isSameMediaItem(it, musicItem)) {
+        LocalMusicSheet.setItemLocalPath(it, newLocalPath);
+        this.saveLocalSheet();
+        this.notify();
+        return;
+      }
+    }
+  }
+
+  /** 写入条目内部记录的本地路径（file:// 前缀格式与扫描入库一致） */
+  private static setItemLocalPath(item: MusicItem, newLocalPath: string): void {
+    const extras = JsonUtil.cloneRecord(item.extras);
+    const rec = JsonUtil.objToRecord(extras[INTERNAL_SERIALIZE_KEY]);
+    const target: JsonRecord = rec === null ? {} : rec;
+    target['localPath'] = newLocalPath;
+    extras[INTERNAL_SERIALIZE_KEY] = target;
+    item.extras = extras;
+  }
+
+  /**
+   * 移动本地音乐文件到目标目录（物理移动 + 同步本域与另一域记录）。
+   * 返回：0 = 移动成功，1 = 已在目标位置，2 = 失败（目标已存在同名文件/无本地路径等）
+   */
+  moveLocalMusic(musicItem: MusicItem, destDir: string): number {
+    let idx = -1;
+    for (let i = 0; i < this.localSheetItems.length; ++i) {
+      if (MediaUtils.isSameMediaItem(this.localSheetItems[i], musicItem)) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) {
+      return 2;
+    }
+    const item = this.localSheetItems[idx];
+    const localPath = MediaUtils.getLocalPath(item);
+    if (localPath === null || localPath.length === 0) {
+      return 2;
+    }
+    const srcPath = FileUtils.normalizePath(localPath);
+    const fileName = FileUtils.getFileName(srcPath);
+    const dir = destDir.endsWith('/') ? destDir : destDir + '/';
+    const destPath = dir + fileName;
+    if (srcPath === destPath) {
+      return 1;
+    }
+    // 目标已存在同名文件：不覆盖，视为失败
+    if (FileUtils.exists(destPath)) {
+      return 2;
+    }
+    if (!FileUtils.moveFile(srcPath, destPath)) {
+      return 2;
+    }
+    const destSchemePath = FileUtils.addFileScheme(destPath);
+    LocalMusicSheet.setItemLocalPath(item, destSchemePath);
+    this.saveLocalSheet();
+    this.notify();
+    if (this.peer !== null) {
+      this.peer.patchLocalPath(item, destSchemePath);
+    }
+    return 0;
   }
 
   /** file:// 封面路径是否已失效（文件不存在） */
