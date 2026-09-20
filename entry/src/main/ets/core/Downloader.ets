@@ -13,6 +13,7 @@ import { Log } from '../utils/Log';
 import { Delay } from '../utils/Delay';
 import { appConfig } from './AppConfig';
 import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
+import { musicSheet } from './MusicSheet';
 import { LocalMusicExclusion } from './LocalMusicExclusion';
 import { MediaExtra, MediaExtraProperties } from './MediaExtra';
 import { pluginManager } from '../plugin/PluginManager';
@@ -67,6 +68,8 @@ export class DownloadTaskInfo {
   downloadedSize: number = 0;
   /** 音乐信息 */
   musicItem: MusicItem = new MusicItem();
+  /** 下载发起时歌曲所在的用户歌单名（已下载「来源歌单」分组标签用） */
+  originSheets: string = '';
   /** 下载失败的原因 */
   errorReason: string = '';
 }
@@ -139,6 +142,7 @@ export class Downloader {
       'fileSize': task.fileSize,
       'downloadedSize': task.downloadedSize,
       'errorReason': task.errorReason,
+      'originSheets': task.originSheets,
       'musicItem': task.musicItem.toPersistRecord()
     };
     if (task.quality !== undefined) {
@@ -206,6 +210,7 @@ export class Downloader {
     task.fileSize = JsonUtil.recNum(rec, 'fileSize');
     task.downloadedSize = JsonUtil.recNum(rec, 'downloadedSize');
     task.errorReason = JsonUtil.recStr(rec, 'errorReason');
+    task.originSheets = JsonUtil.recStr(rec, 'originSheets');
     const quality = JsonUtil.recStr(rec, 'quality');
     if (quality.length > 0) {
       task.quality = qualityFromStr(quality, 'high');
@@ -331,6 +336,22 @@ export class Downloader {
     const name = `${FileUtils.escapeCharacter(musicItem.platform)}@${FileUtils.escapeCharacter(musicItem.id)}` +
       `@${FileUtils.escapeCharacter(musicItem.title)}@${FileUtils.escapeCharacter(musicItem.artist)}`;
     return name.slice(0, 200);
+  }
+
+  /** 记录下载发起时歌曲所在的用户歌单（已下载「来源歌单」分组标签用） */
+  private static collectOriginSheets(item: MusicItem): string {
+    try {
+      for (const sheet of musicSheet.sheets) {
+        const list = musicSheet.getMusicList(sheet.id);
+        for (const it of list) {
+          if (MediaUtils.isSameMediaItem(it, item)) {
+            return sheet.title;
+          }
+        }
+      }
+    } catch (e) {
+    }
+    return '';
   }
 
   getDownloadQueue(): Array<MusicItem> {
@@ -603,7 +624,12 @@ export class Downloader {
       } else {
         const localItem = musicItem.clone();
         const extras = JsonUtil.cloneRecord(musicItem.extras);
-        const internalRec: JsonRecord = { 'localPath': targetDownloadPath };
+        // 内部记录：本地路径 + 下载完成时间 + 来源歌单（已下载分组标签用）
+        const internalRec: JsonRecord = {
+          'localPath': targetDownloadPath,
+          'downloadedAt': Date.now(),
+          'downloadOrigin': nextTask.originSheets
+        };
         extras[INTERNAL_SERIALIZE_KEY] = internalRec;
         localItem.extras = extras;
         downloadedSheet.addMusic(localItem);
@@ -673,6 +699,7 @@ export class Downloader {
       task.status = DownloadStatus.Pending;
       task.filename = Downloader.generateFilename(m);
       task.quality = quality;
+      task.originSheets = Downloader.collectOriginSheets(m);
       task.musicItem = m;
       this.downloadTasks.set(key, task);
       this.saveTaskRecord(task);
