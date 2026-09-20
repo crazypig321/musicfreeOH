@@ -148,6 +148,17 @@ export class FileUtils {
     }
   }
 
+  /** 重命名目录（moveFileSync 不支持目录，需用 moveDirSync；目标路径必须不存在） */
+  static renameDir(from: string, to: string): boolean {
+    try {
+      fs.moveDirSync(FileUtils.normalizePath(from), FileUtils.normalizePath(to));
+      return true;
+    } catch (e) {
+      Log.error('重命名目录失败: ' + from + ' -> ' + to);
+      return false;
+    }
+  }
+
   static unlink(path: string): boolean {
     try {
       const p = FileUtils.normalizePath(path);

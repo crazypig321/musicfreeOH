@@ -998,7 +998,7 @@ export struct MediaDetailPage {
         }
 
         // 一键加入歌单（同歌单详情页导入按钮）
-        SymbolGlyph($r('sys.symbol.folder_badge_plus'))
+        SymbolGlyph($r('sys.symbol.music_note_list_square'))
           .fontSize(20)
           .fontColor([$r('sys.color.icon_secondary')])
           .onClick(() => {

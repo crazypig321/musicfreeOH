@@ -20,7 +20,7 @@ import { pluginManager } from '../plugin/PluginManager';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
-import { SymbolGlyphModifier } from '@kit.ArkUI';
+import { LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { SUPPORT_LOCAL_MEDIA_TYPE, INTERNAL_SERIALIZE_KEY } from '../common/Consts';
 import { JsonUtil } from '../common/JsonUtil';
 import { PathConst } from '../common/PathConst';
@@ -43,6 +43,7 @@ import { DialogManager } from '../utils/DialogUtils';
 export struct DownloadPage {
   /** 本地音乐模式（本地音乐页复用本组件，保证两页 UI 永久一致） */
   @Param isLocalMode: boolean = false;
+  scrollerLocal: Scroller = new Scroller();
   scroller: Scroller = new Scroller();
   /** 下载任务行（队列快照，进度事件驱动刷新） */
   @Local taskRows: Array<DownloadTaskInfo> = [];
@@ -132,13 +133,21 @@ export struct DownloadPage {
     const items = this.activeSheet.getMusicList();
     this.downloadedCount = items.length;
     if (this.isLocalMode) {
-      // 本地音乐：按文件所在子文件夹分组（标签 = 下载目录下的相对目录名）
+      // 本地音乐：按文件所在子文件夹分组（标签 = 下载目录下的相对目录名）；
+      // 合并磁盘上实际存在的子目录（含空文件夹，新建标签后无需移动歌曲即可见）
+      const base = PathConst.downloadPath.endsWith('/') ?
+        PathConst.downloadPath : PathConst.downloadPath + '/';
       const folders: Array<string> = [];
       for (const item of items) {
         const localPath = MediaUtils.getLocalPath(item);
         const folder = localPath === null ? '' : DownloadPage.itemLocalFolder(localPath);
         if (folder.length > 0 && folders.indexOf(folder) === -1) {
           folders.push(folder);
+        }
+      }
+      for (const name of FileUtils.listDir(base)) {
+        if (FileUtils.isDirectory(base + name) && folders.indexOf(name) === -1) {
+          folders.push(name);
         }
       }
       this.dateTags = ['全部'].concat(folders);
@@ -509,7 +518,7 @@ export struct DownloadPage {
     if (this.isLocalMode) {
       menus.push({
         content: {
-          icon: $r('sys.symbol.folder'),
+          icon: $r('sys.symbol.plus_square_on_square'),
           label: '导入本地音频',
           action: (): void => {
             this.pickLocalAudio();
@@ -908,6 +917,8 @@ export struct DownloadPage {
       return;
     }
     this.showToast('标签「' + escaped + '」已创建');
+    // 新建的是空文件夹，无歌曲记录变化，手动刷新标签列表
+    this.refreshDownloaded();
   }
 
   /** 标签长按/右键菜单：编辑（重命名文件夹）/ 删除（歌曲移回根目录后删空文件夹） */
@@ -929,6 +940,10 @@ export struct DownloadPage {
           this.confirmDeleteTag(tag);
         })
     }
+    .menuItemDivider({ color: $r("sys.color.comp_divider"),
+      strokeWidth: LengthMetrics.vp(0.5),
+      startMargin: LengthMetrics.vp(2),
+      endMargin: LengthMetrics.vp(2)})
   }
 
   /** 编辑标签：弹窗输入新名称（预填旧名），确认后重命名对应文件夹并同步两域记录 */
@@ -967,7 +982,7 @@ export struct DownloadPage {
       this.showToast('标签「' + escaped + '」已存在');
       return;
     }
-    if (!FileUtils.moveFile(oldDir, newDir)) {
+    if (!FileUtils.renameDir(oldDir, newDir)) {
       this.showToast('重命名失败');
       return;
     }
@@ -1436,6 +1451,7 @@ export struct DownloadPage {
         this.titleMenus()),
       isShowPlayBar: appState.isBatchMode ? false : true,
       doubleTapToTop: true,
+      scroller: this.isLocalMode ? this.scrollerLocal : this.scroller,
       backPressed: (): boolean => {
         // 批量操作模式下返回键先退出批量模式
         if (appState.isBatchMode) {
@@ -1446,7 +1462,7 @@ export struct DownloadPage {
       }
     }) {
       Stack({ alignContent: Alignment.Top }) {
-        List({ scroller: this.scroller }) {
+        List({ scroller: this.isLocalMode ? this.scrollerLocal : this.scroller }) {
         // 下载任务分组（仅下载模式）
         if (!this.isLocalMode && this.taskRows.length > 0) {
           ListItem() {
@@ -2259,6 +2275,12 @@ export struct DownloadPage {
             }
           }, (sheet: SheetItem, index: number) => sheet.id + '_' + index.toString())
         }
+        .divider({
+          strokeWidth: 0.5,
+          color: $r('sys.color.comp_divider'),
+          startMargin: 0,
+          endMargin: 0
+        })
         .width('100%')
         .margin({ top: 4 })
         .nestedScroll({

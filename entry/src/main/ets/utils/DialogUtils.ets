@@ -161,34 +161,30 @@ export struct DownloadFolderDialogContent {
           this.inputValue = v;
           DialogManager.downloadFolderValue = v;
         })
-      // 已有文件夹选择列表（点击填入输入框并高亮；横向滚动，样式同页面标签条）
+      // 已有文件夹选择列表（点击填入输入框并高亮；Flex 换行自适应高度，样式同页面标签条）
       if (this.existFolders.length > 0) {
         Text('或选择已有文件夹')
           .fontSize(12)
           .fontColor($r('sys.color.font_tertiary'))
           .width('100%')
-        List({ space: 8 }) {
+        Flex({ wrap: FlexWrap.Wrap }) {
           ForEach(this.existFolders, (folder: string) => {
-            ListItem() {
-              Text(folder)
-                .fontSize(13)
-                .maxLines(1)
-                .fontColor(this.inputValue === folder ?
-                $r('sys.color.font_on') : $r('sys.color.font_secondary'))
-                .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-                .borderRadius(16)
-                .backgroundColor(this.inputValue === folder ?
-                $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
-                .onClick(() => {
-                  this.inputValue = folder;
-                  DialogManager.downloadFolderValue = folder;
-                })
-            }
+            Text(folder)
+              .fontSize(13)
+              .maxLines(1)
+              .fontColor(this.inputValue === folder ?
+              $r('sys.color.font_on') : $r('sys.color.font_secondary'))
+              .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+              .borderRadius(16)
+              .backgroundColor(this.inputValue === folder ?
+              $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
+              .margin({ right: 8, bottom: 8 })
+              .onClick(() => {
+                this.inputValue = folder;
+                DialogManager.downloadFolderValue = folder;
+              })
           }, (folder: string) => folder + (this.inputValue === folder ? '_on' : '_off'))
         }
-        .listDirection(Axis.Horizontal)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
         .width('100%')
       }
     }

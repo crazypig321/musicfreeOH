@@ -107,6 +107,7 @@ export struct HomePage{
       titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle'), this.titleMenus(), { builder: (): void => { this.search() } }),
       isHideBackButton: true,
       doubleTapToTop: true,
+      scroller: this.scroller
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

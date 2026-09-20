@@ -1004,7 +1004,7 @@ export struct SheetDetailPage {
 
         // 本地歌单（我的歌单进入）不显示导入按钮
         if (!this.isLocalSheet) {
-          SymbolGlyph($r('sys.symbol.folder_badge_plus'))
+          SymbolGlyph($r('sys.symbol.music_note_list_square'))
             .fontSize(20)
             .fontColor([$r('sys.color.icon_secondary')])
             .onClick(() => {

@@ -747,29 +747,22 @@ export struct MusicOptionsSheet {
           .fontColor($r('sys.color.font_primary'))
           .width('100%')
           .margin({ top: 4, bottom: 4 })
-        List() {
-          ListItem() {
-            Row({ space: 12 }) {
-              Column() {
-                SymbolGlyph($r('sys.symbol.plus'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-              }
-              .width(40)
-              .height(40)
-              .borderRadius(10)
-              .backgroundColor($r('sys.color.comp_background_tertiary'))
-              .justifyContent(FlexAlign.Center)
-              Text('新建歌单')
-                .fontSize(15)
-                .fontColor($r('sys.color.font_primary'))
-            }
-            .width('100%')
-            .height(52)
+        // 小标题「我的歌单」，右侧新建歌单图标
+        Row() {
+          Text('我的歌单')
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .layoutWeight(1)
+          SymbolGlyph($r('sys.symbol.plus'))
+            .fontSize(18)
+            .fontColor([$r('sys.color.icon_secondary')])
             .onClick(() => {
               this.pickerInCreateMode = true;
             })
-          }
+        }
+        .width('100%')
+        .margin({ top: 8, bottom: 4 })
+        List() {
           ForEach(this.getUserSheets(), (sheet: SheetItem, index: number) => {
             ListItem() {
               Row({ space: 12 }) {
@@ -791,6 +784,12 @@ export struct MusicOptionsSheet {
             }
           }, (sheet: SheetItem, index: number) => sheet.id + '_' + index.toString())
         }
+        .divider({
+          strokeWidth: 0.5,
+          color: $r('sys.color.comp_divider'),
+          startMargin: 0,
+          endMargin: 0
+        })
         .width('100%')
         .margin({ top: 4 })
         .nestedScroll({

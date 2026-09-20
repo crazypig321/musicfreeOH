@@ -66,6 +66,9 @@ export struct AboutPage {
               Text('当前版本 ' + AppMeta.appVersion)
                 .fontSize(12)
                 .fontColor($r('sys.color.font_tertiary'))
+              Text('移植自猫头猫的开源项目 MusicFree')
+                .fontSize(11)
+                .fontColor($r('sys.color.font_tertiary'))
             }
             .width('100%')
             .margin({ top: 24, bottom: 8 })
