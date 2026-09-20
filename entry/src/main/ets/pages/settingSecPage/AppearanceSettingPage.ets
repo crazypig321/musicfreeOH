@@ -224,7 +224,8 @@ export struct AppearanceSettingPage {
   private applyOrientation(value: string): void {
     appConfig.setConfig(ConfigKeys.APPEARANCE_ORIENTATION, value);
     window.getLastWindow(ContextHolder.get()).then((win: window.Window): Promise<void> => {
-      let orientation = window.Orientation.UNSPECIFIED;
+      // AUTO_ROTATION_RESTRICTED：跟随传感器旋转，且受系统控制中心「自动旋转」开关控制
+      let orientation = window.Orientation.AUTO_ROTATION_RESTRICTED;
       if (value === 'portrait') {
         orientation = window.Orientation.PORTRAIT;
       } else if (value === 'landscape') {
