@@ -141,12 +141,13 @@ export class Bootstrap {
   private static applyOrientation(): void {
     const o = appConfig.getAppearanceOrientation();
     window.getLastWindow(ContextHolder.get()).then((win: window.Window): Promise<void> => {
-      let orientation = window.Orientation.UNSPECIFIED;
+      let orientation = window.Orientation.AUTO_ROTATION_RESTRICTED;
       if (o === 'portrait') {
         orientation = window.Orientation.PORTRAIT;
       } else if (o === 'landscape') {
         orientation = window.Orientation.LANDSCAPE;
       }
+      // AUTO_ROTATION_RESTRICTED：跟随传感器旋转，且受系统控制中心「自动旋转」开关控制
       return win.setPreferredOrientation(orientation);
     }).catch((): void => {
       // 静默失败

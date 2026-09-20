@@ -1850,6 +1850,8 @@ export struct DownloadPage {
     }
     .width('100%')
     .id('dlrow-' + DownloadPage.itemKey(item))
+    // 分组标签切换时渐隐过渡，避免闪烁突兀
+    .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Smooth }))
     .onAppear(() => {
       this.itemRowIds.set(DownloadPage.itemKey(item), 'dlrow-' + DownloadPage.itemKey(item));
     })
