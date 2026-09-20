@@ -13,6 +13,12 @@ import { Log } from '../utils/Log';
  * 失败（路径在下载设置页可见），不再静默落沙箱
  */
 export class PathConst {
+  /**
+   * 下载目录下保留的备份文件夹名（订阅源导出/插件导出的 json/js 文件），
+   * 不作为本地音乐标签显示，也不出现在移动/下载的文件夹选择列表中
+   */
+  static readonly RESERVED_DOWNLOAD_FOLDERS: Array<string> = ['订阅源', '插件'];
+
   static basePath: string = '';
   static pluginPath: string = '';
   static logPath: string = '';

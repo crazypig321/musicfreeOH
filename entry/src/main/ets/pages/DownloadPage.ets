@@ -141,12 +141,14 @@ export struct DownloadPage {
       for (const item of items) {
         const localPath = MediaUtils.getLocalPath(item);
         const folder = localPath === null ? '' : DownloadPage.itemLocalFolder(localPath);
-        if (folder.length > 0 && folders.indexOf(folder) === -1) {
+        if (folder.length > 0 && folders.indexOf(folder) === -1 &&
+          PathConst.RESERVED_DOWNLOAD_FOLDERS.indexOf(folder) === -1) {
           folders.push(folder);
         }
       }
       for (const name of FileUtils.listDir(base)) {
-        if (FileUtils.isDirectory(base + name) && folders.indexOf(name) === -1) {
+        if (FileUtils.isDirectory(base + name) && folders.indexOf(name) === -1 &&
+          PathConst.RESERVED_DOWNLOAD_FOLDERS.indexOf(name) === -1) {
           folders.push(name);
         }
       }
@@ -904,6 +906,10 @@ export struct DownloadPage {
       this.showToast('标签名不能为空');
       return;
     }
+    if (PathConst.RESERVED_DOWNLOAD_FOLDERS.indexOf(escaped) !== -1) {
+      this.showToast('该名称为系统保留文件夹');
+      return;
+    }
     const base = PathConst.downloadPath.endsWith('/') ?
       PathConst.downloadPath : PathConst.downloadPath + '/';
     const dir = base + escaped;
@@ -955,6 +961,28 @@ export struct DownloadPage {
     DialogManager.OpenDialog('编辑标签');
   }
 
+  /** 两域记录合并去重（本地音乐 + 已下载，同一首只保留一份）：标签重命名/删除需同时处理两域文件 */
+  private allLocalRecords(): Array<MusicItem> {
+    const result: Array<MusicItem> = [];
+    const pushAll = (list: Array<MusicItem>): void => {
+      for (const it of list) {
+        let exists = false;
+        for (const r of result) {
+          if (MediaUtils.isSameMediaItem(r, it)) {
+            exists = true;
+            break;
+          }
+        }
+        if (!exists) {
+          result.push(it);
+        }
+      }
+    };
+    pushAll(localMusicSheet.getMusicList());
+    pushAll(downloadedSheet.getMusicList());
+    return result;
+  }
+
   /** 重命名标签文件夹：物理重命名 + 同步本地音乐/已下载两域记录的本地路径 */
   private doRenameTag(oldName: string, newName: string): void {
     const trimmed = newName.trim();
@@ -965,6 +993,10 @@ export struct DownloadPage {
     const escaped = FileUtils.escapeCharacter(trimmed);
     if (escaped.length === 0) {
       this.showToast('标签名不能为空');
+      return;
+    }
+    if (PathConst.RESERVED_DOWNLOAD_FOLDERS.indexOf(escaped) !== -1) {
+      this.showToast('该名称为系统保留文件夹');
       return;
     }
     if (escaped === oldName) {
@@ -986,9 +1018,9 @@ export struct DownloadPage {
       this.showToast('重命名失败');
       return;
     }
-    // 同步该文件夹下所有歌曲的本地路径（本地音乐 + 已下载两域）
+    // 同步该文件夹下所有歌曲的本地路径（本地音乐 + 已下载两域，含仅存在于已下载域的记录）
     let updated = 0;
-    const items = localMusicSheet.musicList.slice();
+    const items = this.allLocalRecords();
     for (const it of items) {
       const lp = MediaUtils.getLocalPath(it);
       if (lp !== null && DownloadPage.itemLocalFolder(lp) === oldName) {
@@ -1001,6 +1033,7 @@ export struct DownloadPage {
     }
     this.selectedTag = escaped;
     this.showToast('已重命名为「' + escaped + '」，更新 ' + updated.toString() + ' 首歌曲');
+    this.refreshDownloaded();
   }
 
   /** 删除标签（弹窗确认）：其中的本地音乐移回下载根目录，再删除空文件夹 */
@@ -1022,7 +1055,8 @@ export struct DownloadPage {
     let ok = 0;
     let fail = 0;
     let skipped = 0;
-    const items = localMusicSheet.musicList.slice();
+    // 两域记录合并处理：文件夹里可能是已下载歌曲（仅在已下载域有记录）
+    const items = this.allLocalRecords();
     for (const it of items) {
       const lp = MediaUtils.getLocalPath(it);
       if (lp === null || DownloadPage.itemLocalFolder(lp) !== tag) {
@@ -1062,7 +1096,9 @@ export struct DownloadPage {
       message += '；文件夹不为空，未删除';
     }
     this.showToast(message);
+    // 回到「全部」标签并刷新列表与标签条
     this.selectedTag = '全部';
+    this.refreshDownloaded();
   }
 
   /** 打开批量「移动到文件夹」弹窗（仅本地模式：输入目标分组/文件夹名，留空移到根目录） */
@@ -1088,6 +1124,10 @@ export struct DownloadPage {
       return;
     }
     const target = folder.length > 0 ? FileUtils.escapeCharacter(folder) : '';
+    if (PathConst.RESERVED_DOWNLOAD_FOLDERS.indexOf(target) !== -1) {
+      this.showToast('该名称为系统保留文件夹');
+      return;
+    }
     const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
     const destDir = target.length > 0 ? base + target : base;
     let ok = 0;

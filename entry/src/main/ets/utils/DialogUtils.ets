@@ -135,7 +135,8 @@ export struct DownloadFolderDialogContent {
       PathConst.downloadPath : PathConst.downloadPath + '/';
     const names = FileUtils.listDir(base);
     for (const n of names) {
-      if (FileUtils.isDirectory(base + n)) {
+      if (FileUtils.isDirectory(base + n) &&
+        PathConst.RESERVED_DOWNLOAD_FOLDERS.indexOf(n) === -1) {
         this.existFolders.push(n);
       }
     }
