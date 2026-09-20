@@ -1605,7 +1605,6 @@ export struct DownloadPage {
           }, (task: DownloadTaskInfo, _index: number) =>
             task.musicItem.platform + '_' + task.musicItem.id + '_' +
             task.status.toString() + '_' + task.downloadedSize.toString() +
-            (appState.isBatchMode ? '_' + this.batchScope : '') +
             (appState.isBatchMode && this.isTaskSelected(task) ? '_sel' : ''))
         }
 
@@ -1692,7 +1691,6 @@ export struct DownloadPage {
               this.DownloadedRowBuilder(item, index)
             }
           }, (item: MusicItem, _index: number) => item.platform + '_' + item.id + '_' + item.artwork +
-            (appState.isBatchMode ? '_' + this.batchScope : '') +
             (appState.isBatchMode && this.isSelected(item) ? '_sel' : ''))
           // 搜索无命中空态
           if (this.searchKeyword.trim().length > 0 && this.dataSource.totalCount() === 0) {
