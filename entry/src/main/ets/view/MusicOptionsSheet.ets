@@ -53,12 +53,13 @@ struct QuickActionItem {
   }
 }
 
-/** 信息展示行（来源/ID/歌手/专辑） */
+/** 信息展示行（ID/歌手/专辑：点击复制右侧文本） */
 @ComponentV2
 struct DetailRowItem {
   @Require @Param icon: Resource;
   @Require @Param label: string;
   @Require @Param value: string;
+  @Event onTap: () => void = (): void => {};
 
   build() {
     Row({ space: 12 }) {
@@ -75,9 +76,18 @@ struct DetailRowItem {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .constraintSize({ maxWidth: '60%' })
+      // 复制提示图标（无内容时隐藏）
+      if (this.value.length > 0) {
+        SymbolGlyph($r('sys.symbol.doc_filled_on_doc'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
     }
     .width('100%')
     .height(48)
+    .onClick(() => {
+      this.onTap();
+    })
   }
 }
 
@@ -149,6 +159,23 @@ export struct MusicOptionsSheet {
       this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
     } catch (error) {
       // TODO: Implement error handling.
+    }
+  }
+
+  /** 复制文本到剪贴板（详情行 ID/歌手/专辑） */
+  private copyText(text: string, label: string): void {
+    if (text.length === 0) {
+      return;
+    }
+    try {
+      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
+      pasteboard.getSystemPasteboard().setData(data).then((): void => {
+        this.showToast('已复制' + label);
+      }).catch((_e: Object): void => {
+        this.showToast('复制失败');
+      });
+    } catch (error) {
+      this.showToast('复制失败');
     }
   }
 
@@ -541,21 +568,30 @@ export struct MusicOptionsSheet {
           DetailRowItem({
             icon: $r('sys.symbol.hash'),
             label: 'ID',
-            value: this.optionsItem.id
+            value: this.optionsItem.id,
+            onTap: (): void => {
+              this.copyText(this.optionsItem.id, 'ID');
+            }
           })
         }
         ListItem() {
           DetailRowItem({
             icon: $r('sys.symbol.person'),
             label: '歌手',
-            value: this.optionsItem.artist
+            value: this.optionsItem.artist,
+            onTap: (): void => {
+              this.copyText(this.optionsItem.artist, '歌手');
+            }
           })
         }
         ListItem() {
           DetailRowItem({
             icon: $r('sys.symbol.opticaldisc'),
             label: '专辑',
-            value: this.optionsItem.album
+            value: this.optionsItem.album,
+            onTap: (): void => {
+              this.copyText(this.optionsItem.album, '专辑');
+            }
           })
         }
         // 本地/已下载音乐已在设备上，不提供下载入口

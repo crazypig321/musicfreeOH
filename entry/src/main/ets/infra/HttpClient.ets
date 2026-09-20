@@ -70,7 +70,12 @@ export class HttpClient {
       const req = new rcp.Request(url, 'GET', reqHeaders, undefined, undefined, undefined, config);
       const resp = await HttpClient.getSession().fetch(req);
       if (resp.statusCode >= 200 && resp.statusCode < 300 && resp.body !== undefined) {
-        return new Uint8Array(resp.body);
+        // 拷贝出独立缓冲：resp.body 可能被网络栈复用，直接返回视图会与后续响应
+        // 共享底层内存，并发下载时导致内容串流（如封面缓存与歌曲不匹配）
+        const view = new Uint8Array(resp.body);
+        const owned = new Uint8Array(view.byteLength);
+        owned.set(view);
+        return owned;
       }
       return null;
     } catch (e) {

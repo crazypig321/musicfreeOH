@@ -1,6 +1,6 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
-import { CommonBlur, MenuItemParams } from '../view/CommonCom';
+import { CommonBlur, CommonSearch, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
 import { pluginManager } from '../plugin/PluginManager';
@@ -68,6 +68,23 @@ export struct MySheetsPage {
   @Local importing: boolean = false;
   /** 说明文本刷新标记：懒加载插件挂载完成后 +1 触发重绘 */
   @Local importHintRev: number = 0;
+  /** 标题栏搜索框：开启后按关键词过滤歌单条目（点搜索/回车才应用关键词） */
+  @Local showSearchBox: boolean = false;
+  @Local searchKeyword: string = '';
+  /** 搜索框实时输入内容（未提交，不参与过滤） */
+  @Local searchInput: string = '';
+  /** 当前所处 tab 序号（由 Index 传入，切走时收起搜索框） */
+  @Param hostTabIndex: number = 1;
+
+  /** 切换到其他 tab 时收起搜索框并清空关键词 */
+  @Monitor('hostTabIndex')
+  onTabIndexChanged(): void {
+    if (this.hostTabIndex !== 1 && this.showSearchBox) {
+      this.showSearchBox = false;
+      this.searchKeyword = '';
+      this.searchInput = '';
+    }
+  }
 
   aboutToAppear(): void {
     this.refreshSheets();
@@ -113,6 +130,46 @@ export struct MySheetsPage {
     return date.length > 0 ? countText + ' · ' + date : countText;
   }
 
+  /** 按关键词过滤歌单条目（名称/简介，不区分大小写；空关键词返回全部） */
+  private displayRows(): Array<SheetRow> {
+    const kw = this.searchKeyword.trim().toLowerCase();
+    if (kw.length === 0) {
+      return this.sheetRows;
+    }
+    const rows: Array<SheetRow> = [];
+    for (const row of this.sheetRows) {
+      if (row.title.toLowerCase().indexOf(kw) >= 0 ||
+        row.description.toLowerCase().indexOf(kw) >= 0) {
+        rows.push(row);
+      }
+    }
+    return rows;
+  }
+
+  /** 标题副文本：搜索中显示命中数量 */
+  private subTitleText(): string {
+    if (this.searchKeyword.trim().length > 0) {
+      return '找到 ' + this.displayRows().length.toString() + ' 歌单';
+    }
+    return '共 ' + this.sheetRows.length.toString() + ' 歌单';
+  }
+
+  /** 展开/收起标题栏搜索框（展开时列表回顶；收起时清空关键词恢复全部） */
+  private toggleSearchBox(): void {
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      this.showSearchBox = !this.showSearchBox;
+    });
+
+    if (!this.showSearchBox) {
+      this.searchKeyword = '';
+      this.searchInput = '';
+      return;
+    }
+    if (this.scroller.currentOffset().yOffset !== 0) {
+      this.scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 66 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
+    }
+  }
+
   private showToast(message: string): void {
     try {
       this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
@@ -121,7 +178,7 @@ export struct MySheetsPage {
     }
   }
 
-  /** titleBar 菜单按钮（添加菜单 + 批量操作） */
+  /** titleBar 菜单按钮（添加菜单 + 搜索 + 批量操作） */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const add: HdsNavigationMenuItemOptions = {
       content: {
@@ -129,6 +186,15 @@ export struct MySheetsPage {
         label: '添加',
         action: (): void => {
           this.openAddMenu();
+        }
+      }
+    };
+    const search: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.magnifyingglass'),
+        label: '搜索',
+        action: (): void => {
+          this.toggleSearchBox();
         }
       }
     };
@@ -141,7 +207,7 @@ export struct MySheetsPage {
         }
       }
     };
-    return [add, batch];
+    return [add, search, batch];
   }
 
   private runMenuAction(action: () => void): void {
@@ -611,15 +677,17 @@ export struct MySheetsPage {
   build() {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_my_sheets'),
-        '共 ' + this.sheetRows.length.toString() + ' 歌单', this.titleMenus()),
+        this.subTitleText(), this.titleMenus(),
+        (this.showSearchBox && this.hostTabIndex === 1) ?
+          { builder: (): void => { this.SearchBuilder() } } : undefined),
       isHideBackButton: true,
       scroller: this.scroller,
       doubleTapToTop: true,
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 16 }) {
-          if (this.sheetRows.length > 0) {
-            ForEach(this.sheetRows, (row: SheetRow, index: number) => {
+          if (this.displayRows().length > 0) {
+            ForEach(this.displayRows(), (row: SheetRow, index: number) => {
               HdsListItem({
                 customItemBuilder: (): void => {
                   this.SheetRowBuilder(row);
@@ -632,7 +700,7 @@ export struct MySheetsPage {
               '_' + appState.swipeResetTick.toString())
           } else {
             ListItem() {
-              Text('暂无歌单，点击右上角「添加」新建或导入歌单')
+              Text(this.sheetRows.length > 0 ? '未找到匹配的歌单' : '暂无歌单，点击右上角「添加」新建或导入歌单')
                 .fontSize(13)
                 .fontColor($r('sys.color.font_tertiary'))
                 .width('100%')
@@ -641,7 +709,7 @@ export struct MySheetsPage {
             }
           }
         }
-        .ListStyle()
+        .ListStyle(this.showSearchBox ? 56 : 0)
         .onScrollFrameBegin((offset: number) => {
           BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
           return { offsetRemain: offset }
@@ -832,6 +900,31 @@ export struct MySheetsPage {
     .borderRadius(16)
     .padding(12)
     .backgroundColor($r('sys.color.comp_background_list_card'))
+  }
+
+  /**
+   * 搜索框（固定于标题栏下方，不随列表滚动消失；切到其他 tab 自动收起；
+   * 输入不即时过滤，点搜索按钮/软键盘回车后才应用关键词）
+   */
+  @Builder
+  SearchBuilder() {
+    CommonSearch({
+      searchValue: this.searchInput,
+      placeholderValue: '搜索歌单名称或简介',
+      submit: (): void => {
+        this.searchKeyword = this.searchInput.trim();
+      },
+      change: (v: string): void => {
+        this.searchInput = v;
+      },
+      didDelete: (): void => {
+        this.searchInput = '';
+        this.searchKeyword = '';
+      },
+    })
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+      .transition(TransitionEffect.move(TransitionEdge.TOP))
   }
 
   /** 新建歌单半模态：名称（必填）+ 简介（可选） */
@@ -1029,12 +1122,13 @@ export struct MySheetsPage {
 }
 
 @Extend(List)
-function ListStyle(){
+function ListStyle(extraTop: number){
   .width('100%')
   .height('100%')
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
-  .contentStartOffset(appState.topRect + 66)
+  // 搜索框展开时为固定搜索框让位
+  .contentStartOffset(appState.topRect + 66 + extraTop)
   // 批量模式/上下两排时底栏更高，末尾内容需多留滚动空间
   .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 :
     (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60)))

@@ -29,16 +29,16 @@ MusicFreeOH 是开源插件化音乐播放器 [MusicFree](https://github.com/mao
 
 <table>
   <tr>
-    <td><img src="appImage/screenshot_20260919_082616_com.crazypig321.music.jpg" width="100%"></td>
-    <td><img src="appImage/screenshot_20260919_082636_com.crazypig321.music.jpg" width="100%"></td>
-    <td><img src="appImage/screenshot_20260919_082655_com.crazypig321.music.jpg" width="100%"></td>
-    <td><img src="appImage/screenshot_20260919_082659_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src=".appImage/screenshot_20260919_082616_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src=".appImage/screenshot_20260919_082636_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src=".appImage/screenshot_20260919_082655_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src=".appImage/screenshot_20260919_082659_com.crazypig321.music.jpg" width="100%"></td>
   </tr>
   <tr>
-    <td><img src="appImage/screenshot_20260919_082706_com.crazypig321.music.jpg" width="100%"></td>
-    <td><img src="appImage/screenshot_20260919_082720_com.crazypig321.music.jpg" width="100%"></td>
-    <td><img src="appImage/screenshot_20260919_082811_com.crazypig321.music.jpg" width="100%"></td>
-    <td><img src="appImage/screenshot_20260919_082753_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src=".appImage/screenshot_20260919_082706_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src=".appImage/screenshot_20260919_082720_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src=".appImage/screenshot_20260919_082811_com.crazypig321.music.jpg" width="100%"></td>
+    <td><img src=".appImage/screenshot_20260919_082753_com.crazypig321.music.jpg" width="100%"></td>
   </tr>
 </table>
 
@@ -56,7 +56,7 @@ hvigorw assembleHap
 
 ## 免责声明
 
-本软件仅供交流与学习使用，是一款开源、免费的本地音乐播放工具。软件本身不内置、不存储、不提供任何音频资源，也不提供任何受版权保护的音乐内容。所有音源均来自第三方插件，插件由第三方开发者维护，其内容的合法性、准确性与版权状况由相应提供方负责，与本软件无关。
+本软件仅供交流与学习使用，是一款开源、免费的本地音乐播放工具，请勿相信付费渠道资源。软件本身不内置、不提供任何音频资源，也不提供任何受版权保护的音乐内容。所有音源均来自第三方插件，插件由第三方开发者维护，其内容的合法性、准确性与版权状况由相应提供方负责，与本软件无关。
 
 请遵守您所在地区的法律法规，合理、适度地使用本软件。因下载或使用本软件而产生的任何直接或间接责任，均由使用者自行承担。
 

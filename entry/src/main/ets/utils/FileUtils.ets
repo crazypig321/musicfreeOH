@@ -100,7 +100,14 @@ export class FileUtils {
       FileUtils.checkAndCreateDir(dir);
       const file = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
       try {
-        fs.writeSync(file.fd, data.buffer);
+        // 视图非整块缓冲时先拷贝，避免 writeSync 写入底层缓冲之外的残留字节
+        let bytes = data;
+        if (data.byteOffset !== 0 || data.byteLength !== data.buffer.byteLength) {
+          const copy = new Uint8Array(data.byteLength);
+          copy.set(data);
+          bytes = copy;
+        }
+        fs.writeSync(file.fd, bytes.buffer, { length: bytes.byteLength });
       } finally {
         fs.closeSync(file);
       }
@@ -147,6 +154,16 @@ export class FileUtils {
       if (fs.accessSync(p)) {
         fs.unlinkSync(p);
       }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** 删除空目录（目录非空或不存在返回 false；不删除目录内的任何文件） */
+  static removeDirIfEmpty(path: string): boolean {
+    try {
+      fs.rmdirSync(FileUtils.normalizePath(path));
       return true;
     } catch (e) {
       return false;

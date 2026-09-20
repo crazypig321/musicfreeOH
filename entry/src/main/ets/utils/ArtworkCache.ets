@@ -81,14 +81,20 @@ export class ArtworkCache {
     });
   }
 
-  /** 下载字节 → 按内容 MD5 命名落盘（重复内容不重复写）→ 更新 URL 索引 */
+  /** 下载字节 → 校验图片魔数 → 按内容 MD5 命名落盘（重复内容不重复写）→ 更新 URL 索引 */
   private static async fetchAndStore(url: string): Promise<Uint8Array | null> {
     const buf = await HttpClient.downloadBuffer(url);
     if (buf === null) {
       return null;
     }
+    // 校验字节确为图片（服务端偶发返回错误页/占位图时拒绝入缓存，
+    // 避免「封面与歌曲不匹配」被内容寻址缓存固化）
+    const ext = ArtworkCache.sniffExt(buf);
+    if (ext === null) {
+      return null;
+    }
     const hash = await CryptoUtil.md5Bytes(buf);
-    const fileName = hash + '.' + ArtworkCache.sniffExt(buf);
+    const fileName = hash + '.' + ext;
     const path = PathConst.artworkCachePath + fileName;
     if (!FileUtils.exists(path)) {
       FileUtils.writeFileBytes(path, buf);
@@ -198,8 +204,14 @@ export class ArtworkCache {
     return 'jpg';
   }
 
-  /** 按文件头嗅探图片扩展名，未知回退 jpg */
-  private static sniffExt(buf: Uint8Array): string {
+  /** 按文件头嗅探图片扩展名；非图片字节（错误页/占位内容）返回 null 拒绝入缓存 */
+  private static sniffExt(buf: Uint8Array): string | null {
+    if (buf.length >= 3) {
+      // JPEG
+      if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+        return 'jpg';
+      }
+    }
     if (buf.length >= 12) {
       if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
         return 'png';
@@ -215,7 +227,7 @@ export class ArtworkCache {
         return 'webp';
       }
     }
-    return 'jpg';
+    return null;
   }
 
   private static readFileBytes(path: string): Uint8Array | null {

@@ -275,7 +275,7 @@ struct Index {
         if (i === 0) {
           HomePage({ bootReady: this.bootReady })
         } else if (i === 1) {
-          MySheetsPage()
+          MySheetsPage({ hostTabIndex: appState.currTabsIndex })
         } else if (i === 2) {
           PluginPage({ hostTabIndex: appState.currTabsIndex })
         } else if (i === 3) {
@@ -396,7 +396,8 @@ struct Index {
       RenameDialogContent()
     } else if (key === '跳转排序') {
       SortJumpDialogContent()
-    } else if (key === '下载到文件夹' || key === '移动到文件夹') {
+    } else if (key === '下载到文件夹' || key === '移动到文件夹' ||
+      key === '添加标签' || key === '编辑标签') {
       DownloadFolderDialogContent()
     } else if (key === '选择器') {
       TextPickerDialogContent()

@@ -20,6 +20,7 @@ import { pluginManager } from '../plugin/PluginManager';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
+import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { SUPPORT_LOCAL_MEDIA_TYPE, INTERNAL_SERIALIZE_KEY } from '../common/Consts';
 import { JsonUtil } from '../common/JsonUtil';
 import { PathConst } from '../common/PathConst';
@@ -871,6 +872,184 @@ export struct DownloadPage {
     searchNext(0);
   }
 
+  /** 打开「添加标签」弹窗（仅本地模式：输入标签名，在下载目录下创建同名子文件夹） */
+  private openAddTagDialog(): void {
+    if (!this.isLocalMode) {
+      return;
+    }
+    DialogManager.downloadFolderValue = '';
+    DialogManager.downloadFolderConfirm = (name: string): void => {
+      this.doAddTag(name);
+    };
+    DialogManager.OpenDialog('添加标签');
+  }
+
+  /** 创建标签：下载目录下创建同名子文件夹（供批量移动选择） */
+  private doAddTag(name: string): void {
+    if (name.length === 0) {
+      this.showToast('标签名不能为空');
+      return;
+    }
+    const escaped = FileUtils.escapeCharacter(name);
+    if (escaped.length === 0) {
+      this.showToast('标签名不能为空');
+      return;
+    }
+    const base = PathConst.downloadPath.endsWith('/') ?
+      PathConst.downloadPath : PathConst.downloadPath + '/';
+    const dir = base + escaped;
+    if (FileUtils.isDirectory(dir)) {
+      this.showToast('标签已存在');
+      return;
+    }
+    FileUtils.checkAndCreateDir(dir);
+    if (!FileUtils.isDirectory(dir)) {
+      this.showToast('标签创建失败');
+      return;
+    }
+    this.showToast('标签「' + escaped + '」已创建');
+  }
+
+  /** 标签长按/右键菜单：编辑（重命名文件夹）/ 删除（歌曲移回根目录后删空文件夹） */
+  @Builder
+  TagContextMenuBuilder(tag: string) {
+    Menu() {
+      MenuItem({
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil')),
+        content: '编辑'
+      })
+        .onClick(() => {
+          this.editTag(tag);
+        })
+      MenuItem({
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.trash')),
+        content: '删除'
+      })
+        .onClick(() => {
+          this.confirmDeleteTag(tag);
+        })
+    }
+  }
+
+  /** 编辑标签：弹窗输入新名称（预填旧名），确认后重命名对应文件夹并同步两域记录 */
+  private editTag(tag: string): void {
+    DialogManager.downloadFolderValue = tag;
+    DialogManager.downloadFolderConfirm = (newName: string): void => {
+      this.doRenameTag(tag, newName);
+    };
+    DialogManager.OpenDialog('编辑标签');
+  }
+
+  /** 重命名标签文件夹：物理重命名 + 同步本地音乐/已下载两域记录的本地路径 */
+  private doRenameTag(oldName: string, newName: string): void {
+    const trimmed = newName.trim();
+    if (trimmed.length === 0) {
+      this.showToast('标签名不能为空');
+      return;
+    }
+    const escaped = FileUtils.escapeCharacter(trimmed);
+    if (escaped.length === 0) {
+      this.showToast('标签名不能为空');
+      return;
+    }
+    if (escaped === oldName) {
+      return;
+    }
+    const base = PathConst.downloadPath.endsWith('/') ?
+      PathConst.downloadPath : PathConst.downloadPath + '/';
+    const oldDir = base + oldName;
+    const newDir = base + escaped;
+    if (!FileUtils.isDirectory(oldDir)) {
+      this.showToast('文件夹不存在');
+      return;
+    }
+    if (FileUtils.exists(newDir)) {
+      this.showToast('标签「' + escaped + '」已存在');
+      return;
+    }
+    if (!FileUtils.moveFile(oldDir, newDir)) {
+      this.showToast('重命名失败');
+      return;
+    }
+    // 同步该文件夹下所有歌曲的本地路径（本地音乐 + 已下载两域）
+    let updated = 0;
+    const items = localMusicSheet.musicList.slice();
+    for (const it of items) {
+      const lp = MediaUtils.getLocalPath(it);
+      if (lp !== null && DownloadPage.itemLocalFolder(lp) === oldName) {
+        const fileName = FileUtils.getFileName(FileUtils.normalizePath(lp));
+        const schemePath = FileUtils.addFileScheme(newDir + '/' + fileName);
+        localMusicSheet.patchLocalPath(it, schemePath);
+        downloadedSheet.patchLocalPath(it, schemePath);
+        updated++;
+      }
+    }
+    this.selectedTag = escaped;
+    this.showToast('已重命名为「' + escaped + '」，更新 ' + updated.toString() + ' 首歌曲');
+  }
+
+  /** 删除标签（弹窗确认）：其中的本地音乐移回下载根目录，再删除空文件夹 */
+  private confirmDeleteTag(tag: string): void {
+    DialogManager.ConfirmDelete('删除标签「' + tag + '」后，其中的本地音乐将移回根目录', (): void => {
+      this.doDeleteTag(tag);
+    });
+  }
+
+  /** 删除标签：逐首移回根目录（不覆盖同名文件、跳过正在播放）→ 删除空文件夹 */
+  private doDeleteTag(tag: string): void {
+    const base = PathConst.downloadPath.endsWith('/') ?
+      PathConst.downloadPath : PathConst.downloadPath + '/';
+    const dir = base + tag;
+    if (!FileUtils.isDirectory(dir)) {
+      this.showToast('文件夹不存在');
+      return;
+    }
+    let ok = 0;
+    let fail = 0;
+    let skipped = 0;
+    const items = localMusicSheet.musicList.slice();
+    for (const it of items) {
+      const lp = MediaUtils.getLocalPath(it);
+      if (lp === null || DownloadPage.itemLocalFolder(lp) !== tag) {
+        continue;
+      }
+      // 正在播放的歌曲移动文件会中断播放，跳过
+      if (trackPlayer.isCurrentMusic(it)) {
+        skipped++;
+        continue;
+      }
+      const src = FileUtils.normalizePath(lp);
+      const dest = base + FileUtils.getFileName(src);
+      // 根目录存在同名文件：不覆盖，视为失败
+      if (FileUtils.exists(dest)) {
+        fail++;
+        continue;
+      }
+      if (!FileUtils.moveFile(src, dest)) {
+        fail++;
+        continue;
+      }
+      const schemePath = FileUtils.addFileScheme(dest);
+      localMusicSheet.patchLocalPath(it, schemePath);
+      downloadedSheet.patchLocalPath(it, schemePath);
+      ok++;
+    }
+    // 文件夹内仍有文件（播放中/失败/非音频）时不删除
+    const removed = FileUtils.removeDirIfEmpty(dir);
+    let message = '已将 ' + ok.toString() + ' 首移回根目录';
+    if (fail > 0) {
+      message += '，' + fail.toString() + ' 首失败（根目录存在同名文件）';
+    }
+    if (skipped > 0) {
+      message += '，正在播放的 ' + skipped.toString() + ' 首已跳过';
+    }
+    if (!removed) {
+      message += '；文件夹不为空，未删除';
+    }
+    this.showToast(message);
+    this.selectedTag = '全部';
+  }
+
   /** 打开批量「移动到文件夹」弹窗（仅本地模式：输入目标分组/文件夹名，留空移到根目录） */
   private openBatchMoveDialog(): void {
     if (!this.isLocalMode) {
@@ -1325,6 +1504,15 @@ export struct DownloadPage {
                 .fontColor($r('sys.color.font_secondary'))
               Blank()
               if (!appState.isBatchMode) {
+                // 本地音乐：添加标签（在下载目录下创建子文件夹，作为移动分组的目标）
+                if (this.isLocalMode) {
+                  SymbolGlyph($r('sys.symbol.folder_badge_plus'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                    .onClick(() => {
+                      this.openAddTagDialog();
+                    })
+                }
                 // 已下载/本地音乐区批量操作
                 SymbolGlyph($r('sys.symbol.list_checkmask'))
                   .fontSize(20)
@@ -1344,18 +1532,36 @@ export struct DownloadPage {
               List({ space: 8 }) {
                 ForEach(this.dateTags, (tag: string) => {
                   ListItem() {
-                    Text(tag)
-                      .fontSize(13)
-                      .maxLines(1)
-                      .fontColor(this.selectedTag === tag ?
-                      $r('sys.color.font_on') : $r('sys.color.font_secondary'))
-                      .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-                      .borderRadius(16)
-                      .backgroundColor(this.selectedTag === tag ?
-                      $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
-                      .onClick(() => {
-                        this.selectTag(tag);
-                      })
+                    // 本地音乐文件夹标签：长按/右键呼出 编辑/删除 菜单
+                    if (this.isLocalMode && tag !== '全部') {
+                      Text(tag)
+                        .fontSize(13)
+                        .maxLines(1)
+                        .fontColor(this.selectedTag === tag ?
+                        $r('sys.color.font_on') : $r('sys.color.font_secondary'))
+                        .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                        .borderRadius(16)
+                        .backgroundColor(this.selectedTag === tag ?
+                        $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
+                        .onClick(() => {
+                          this.selectTag(tag);
+                        })
+                        .bindContextMenu(this.TagContextMenuBuilder(tag), ResponseType.LongPress)
+                        .bindContextMenu(this.TagContextMenuBuilder(tag), ResponseType.RightClick)
+                    } else {
+                      Text(tag)
+                        .fontSize(13)
+                        .maxLines(1)
+                        .fontColor(this.selectedTag === tag ?
+                        $r('sys.color.font_on') : $r('sys.color.font_secondary'))
+                        .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                        .borderRadius(16)
+                        .backgroundColor(this.selectedTag === tag ?
+                        $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
+                        .onClick(() => {
+                          this.selectTag(tag);
+                        })
+                    }
                   }
                 }, (tag: string) => tag + (this.selectedTag === tag ? '_on' : '_off'))
               }

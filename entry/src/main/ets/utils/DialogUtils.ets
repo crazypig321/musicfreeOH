@@ -4,6 +4,8 @@ import { ButtonOptions } from "@kit.ArkUI";
 import { MarkdownView } from "../view/MarkdownView";
 import { MusicItem } from "../common/model/MediaTypes";
 import { trackPlayer } from "../core/TrackPlayer";
+import { PathConst } from "../common/PathConst";
+import { FileUtils } from "./FileUtils";
 
 
 /** 插件用户变量字段（弹窗内编辑） */
@@ -114,25 +116,84 @@ export struct SortJumpDialogContent {
 }
 
 
-/** 「下载/移动到文件夹」弹窗内容：目标文件夹名输入框（下载留空 = 默认目录；移动留空 = 根目录） */
+/**
+ * 「下载/移动到文件夹/添加标签/编辑标签」弹窗内容：目标文件夹名输入框 + 已有文件夹选择列表
+ * 下载留空 = 默认目录；移动留空 = 根目录；点选已有文件夹自动填入输入框
+ */
 @ComponentV2
 export struct DownloadFolderDialogContent {
+  /** 输入框内容（本地状态驱动选中态高亮；确认时已同步到 DialogManager.downloadFolderValue） */
+  @Local inputValue: string = DialogManager.downloadFolderValue;
+  /** 下载目录下已有的子文件夹（弹窗打开时扫描；添加/编辑标签场景不显示列表） */
+  @Local existFolders: Array<string> = [];
+
+  aboutToAppear(): void {
+    if (DialogManager.dialogChangeKey === '添加标签' || DialogManager.dialogChangeKey === '编辑标签') {
+      return;
+    }
+    const base = PathConst.downloadPath.endsWith('/') ?
+      PathConst.downloadPath : PathConst.downloadPath + '/';
+    const names = FileUtils.listDir(base);
+    for (const n of names) {
+      if (FileUtils.isDirectory(base + n)) {
+        this.existFolders.push(n);
+      }
+    }
+  }
+
   build() {
-    TextInput({
-      text: DialogManager.downloadFolderValue,
-      placeholder: DialogManager.dialogChangeKey === '移动到文件夹'
-        ? '目标文件夹名（留空则移到根目录）' : '文件夹名称（留空则下载到默认目录）'
-    })
-      .width('100%')
-      .height(44)
-      .fontSize(14)
-      .fontColor($r('sys.color.font_primary'))
-      .placeholderColor($r('sys.color.font_tertiary'))
-      .backgroundColor($r('sys.color.comp_background_tertiary'))
-      .borderRadius(10)
-      .onChange((v: string): void => {
-        DialogManager.downloadFolderValue = v;
+    Column({ space: 12 }) {
+      TextInput({
+        text: this.inputValue,
+        placeholder: DialogManager.dialogChangeKey === '移动到文件夹'
+          ? '目标文件夹名（留空则移到根目录）'
+          : (DialogManager.dialogChangeKey === '添加标签' ? '标签名称' : (
+            DialogManager.dialogChangeKey === '编辑标签' ? '新标签名称' : '文件夹名称（留空则下载到默认目录）'))
       })
+        .width('100%')
+        .height(44)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(10)
+        .onChange((v: string): void => {
+          this.inputValue = v;
+          DialogManager.downloadFolderValue = v;
+        })
+      // 已有文件夹选择列表（点击填入输入框并高亮；横向滚动，样式同页面标签条）
+      if (this.existFolders.length > 0) {
+        Text('或选择已有文件夹')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+        List({ space: 8 }) {
+          ForEach(this.existFolders, (folder: string) => {
+            ListItem() {
+              Text(folder)
+                .fontSize(13)
+                .maxLines(1)
+                .fontColor(this.inputValue === folder ?
+                $r('sys.color.font_on') : $r('sys.color.font_secondary'))
+                .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                .borderRadius(16)
+                .backgroundColor(this.inputValue === folder ?
+                $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
+                .onClick(() => {
+                  this.inputValue = folder;
+                  DialogManager.downloadFolderValue = folder;
+                })
+            }
+          }, (folder: string) => folder + (this.inputValue === folder ? '_on' : '_off'))
+        }
+        .listDirection(Axis.Horizontal)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 }
 
@@ -438,6 +499,10 @@ export class DialogManager {
         return '下载到文件夹';
       case '移动到文件夹':
         return '移动到文件夹';
+      case '添加标签':
+        return '添加标签';
+      case '编辑标签':
+        return '编辑标签';
       case '选择器':
         return DialogManager.pickerTitle;
       case '更换音源':
@@ -576,6 +641,42 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '添加标签': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '创建',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
+      case '编辑标签': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '保存',
+          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
       case '选择器': {
         const cancel: ButtonOptions = {
           value: '取消',
@@ -706,6 +807,8 @@ export class DialogManager {
       }
       case '下载到文件夹':
       case '移动到文件夹':
+      case '添加标签':
+      case '编辑标签':
         if (DialogManager.downloadFolderConfirm !== null) {
           DialogManager.downloadFolderConfirm(DialogManager.downloadFolderValue.trim());
         }
@@ -773,8 +876,9 @@ export class DialogManager {
       DialogManager.sortJumpMax = 0;
       DialogManager.sortJumpConfirm = null;
     }
-    // 下载/移动到文件夹同理（取消或关闭弹窗不触发动作）
-    if (key === '下载到文件夹' || key === '移动到文件夹') {
+    // 下载/移动到文件夹、添加/编辑标签同理（取消或关闭弹窗不触发动作）
+    if (key === '下载到文件夹' || key === '移动到文件夹' ||
+      key === '添加标签' || key === '编辑标签') {
       DialogManager.downloadFolderValue = '';
       DialogManager.downloadFolderConfirm = null;
     }
@@ -836,7 +940,7 @@ export class DialogManager {
 export struct DisclaimerDialogContent {
   build() {
     Column() {
-      Text('本软件仅供交流与学习使用，是一款开源、免费的本地音乐播放工具，请勿相信付费传播渠道。')
+      Text('本软件仅供交流与学习使用，是一款开源、免费的本地音乐播放工具，请勿相信付费传播渠道。软件本身不内置、不提供任何音频资源。所有音源均来自第三方插件，插件由第三方开发者维护，其内容的合法性、准确性与版权状况由相应提供方负责，与本软件无关。')
         .fontSize(14)
         .fontColor($r('sys.color.font_primary'))
         .lineHeight(22)

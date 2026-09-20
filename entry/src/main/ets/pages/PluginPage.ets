@@ -66,9 +66,11 @@ export struct PluginPage {
   /** 说明文本刷新标记：懒加载插件挂载完成后 +1 触发重绘 */
   @Local pluginImportHintRev: number = 0;
   @Local batchSelected: Array<string> = [];
-  /** 标题栏搜索框：开启后按关键词过滤插件条目 */
+  /** 标题栏搜索框：开启后按关键词过滤插件条目（点搜索/回车才应用关键词） */
   @Local showSearchBox: boolean = false;
   @Local searchKeyword: string = '';
+  /** 搜索框实时输入内容（未提交，不参与过滤） */
+  @Local searchInput: string = '';
   /** 当前所处 tab 序号（由 Index 传入，切走时收起搜索框） */
   @Param hostTabIndex: number = 2;
   private detailHash: string = '';
@@ -81,6 +83,7 @@ export struct PluginPage {
     if (this.hostTabIndex !== 2 && this.showSearchBox) {
       this.showSearchBox = false;
       this.searchKeyword = '';
+      this.searchInput = '';
     }
   }
 
@@ -155,6 +158,7 @@ export struct PluginPage {
 
     if (!this.showSearchBox) {
       this.searchKeyword = '';
+      this.searchInput = '';
       return;
     }
     if (this.scroller.currentOffset().yOffset !== 0) {
@@ -1201,16 +1205,19 @@ export struct PluginPage {
    */
   @Builder
   SearchBuilder(){
-    // 搜索框（固定于标题栏下方，不随列表滚动消失；切到其他 tab 自动收起）
+    // 搜索框（固定于标题栏下方，不随列表滚动消失；切到其他 tab 自动收起；
+    // 输入不即时过滤，点搜索按钮/软键盘回车后才应用关键词）
     CommonSearch({
-      searchValue: this.searchKeyword,
+      searchValue: this.searchInput,
       placeholderValue: '搜索插件名称或作者',
       submit: (): void => {
+        this.searchKeyword = this.searchInput.trim();
       },
       change: (v: string): void => {
-        this.searchKeyword = v;
+        this.searchInput = v;
       },
       didDelete: (): void => {
+        this.searchInput = '';
         this.searchKeyword = '';
       },
     })

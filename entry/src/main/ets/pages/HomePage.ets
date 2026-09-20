@@ -106,6 +106,7 @@ export struct HomePage{
     CommonNav({
       titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle'), this.titleMenus(), { builder: (): void => { this.search() } }),
       isHideBackButton: true,
+      doubleTapToTop: true,
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {
