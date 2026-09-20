@@ -1,5 +1,6 @@
 import { SymbolGlyphModifier, LengthMetrics } from "@kit.ArkUI"
 import { SheetItem } from "../common/model/SheetTypes"
+import { appState } from "../entryability/AppState";
 
 /**
  * 公共菜单项参数（配合 MenuUtils.Open 使用）
@@ -70,7 +71,7 @@ export struct CommonSearch{
         style: CancelButtonStyle.INPUT,
         icon: new SymbolGlyphModifier($r('sys.symbol.xmark')).fontColor([$r('sys.color.font_tertiary')])
       })
-      .searchButton($r('app.string.search_title'))
+      .searchButton($r('app.string.search_title'), {fontColor: appState.accentColor})
       .placeholderColor($r('sys.color.font_tertiary'))
       .placeholderFont({ size: 14, weight: 400 })
       .textFont({ size: 14, weight: 400 })
