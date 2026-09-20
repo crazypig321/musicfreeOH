@@ -829,7 +829,7 @@ export struct SearchPage {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 84 })
+          .margin({ left: 96 })
       }
     }
     .width('100%')
@@ -876,7 +876,7 @@ export struct SearchPage {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 80 })
+          .margin({ left: 92 })
       }
     }
     .width('100%')
@@ -926,7 +926,7 @@ export struct SearchPage {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 84 })
+          .margin({ left: 96 })
       }
     }
     .width('100%')
