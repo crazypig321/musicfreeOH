@@ -7,7 +7,7 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { appConfig } from '../core/AppConfig';
 import { Network } from '../infra/Network';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
-import { CommonBlur } from '../view/CommonCom';
+import { CommonBlur, CommonSearch } from '../view/CommonCom';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
@@ -69,6 +69,11 @@ export struct DownloadPage {
   @Local dateTags: Array<string> = ['全部'];
   /** 当前选中的分组标签 */
   @Local selectedTag: string = '全部';
+  /** 标题栏搜索框：开启后按关键词过滤列表（点搜索/回车才应用关键词） */
+  @Local showSearchBox: boolean = false;
+  @Local searchKeyword: string = '';
+  /** 搜索框实时输入内容（未提交，不参与过滤） */
+  @Local searchInput: string = '';
   /** 滑动勾选：手势起点坐标（windowX/windowY，vp） */
   private slideStartX: number = 0;
   private slideStartY: number = 0;
@@ -158,7 +163,7 @@ export struct DownloadPage {
       }
       const filtered: Array<MusicItem> = [];
       for (const item of items) {
-        if (this.itemMatchesTag(item)) {
+        if (this.itemMatchesTag(item) && this.itemMatchesKeyword(item)) {
           filtered.push(item);
         }
       }
@@ -169,7 +174,7 @@ export struct DownloadPage {
     this.computeDateTags(items);
     const filtered: Array<MusicItem> = [];
     for (const item of items) {
-      if (this.itemMatchesTag(item)) {
+      if (this.itemMatchesTag(item) && this.itemMatchesKeyword(item)) {
         filtered.push(item);
       }
     }
@@ -222,6 +227,17 @@ export struct DownloadPage {
     if (this.selectedTag !== '全部' && tags.indexOf(this.selectedTag) === -1) {
       this.selectedTag = '全部';
     }
+  }
+
+  /** 搜索关键词匹配（歌名/歌手/专辑，不区分大小写；空关键词返回全部） */
+  private itemMatchesKeyword(item: MusicItem): boolean {
+    const kw = this.searchKeyword.trim().toLowerCase();
+    if (kw.length === 0) {
+      return true;
+    }
+    return item.title.toLowerCase().indexOf(kw) >= 0 ||
+      item.artist.toLowerCase().indexOf(kw) >= 0 ||
+      item.album.toLowerCase().indexOf(kw) >= 0;
   }
 
   /** 条目是否匹配当前选中的分组标签 */
@@ -287,6 +303,32 @@ export struct DownloadPage {
       this.exitBatchMode();
     }
     this.refreshDownloaded();
+  }
+
+  /** 标题副文本：搜索中显示命中数量 */
+  private subTitleText(): string {
+    if (this.searchKeyword.trim().length > 0) {
+      return '找到 ' + this.dataSource.totalCount().toString() + ' 首';
+    }
+    return '共 ' + this.downloadedCount.toString() + ' 首';
+  }
+
+  /** 展开/收起标题栏搜索框（展开时列表回顶；收起时清空关键词恢复全部） */
+  private toggleSearchBox(): void {
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      this.showSearchBox = !this.showSearchBox;
+    });
+
+    if (!this.showSearchBox) {
+      this.searchKeyword = '';
+      this.searchInput = '';
+      this.refreshDownloaded();
+      return;
+    }
+    const scroller = this.isLocalMode ? this.scrollerLocal : this.scroller;
+    if (scroller.currentOffset().yOffset !== 0) {
+      scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 55 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
+    }
   }
 
   // ---------- 本地模式：导入本地音频 / 刷新扫描 ----------
@@ -514,7 +556,7 @@ export struct DownloadPage {
 
   // ---------- 批量多选模式 ----------
 
-  /** titleBar 菜单按钮：本地模式含 导入本地音频/刷新（批量操作入口在各分组标题右侧） */
+  /** titleBar 菜单按钮：本地模式含 导入本地音频/刷新，两模式均含搜索（批量操作入口在各分组标题右侧） */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const menus: Array<HdsNavigationMenuItemOptions> = [];
     if (this.isLocalMode) {
@@ -537,6 +579,15 @@ export struct DownloadPage {
         }
       });
     }
+    menus.push({
+      content: {
+        icon: $r('sys.symbol.magnifyingglass'),
+        label: '搜索',
+        action: (): void => {
+          this.toggleSearchBox();
+        }
+      }
+    });
     return menus;
   }
 
@@ -1487,8 +1538,11 @@ export struct DownloadPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf(this.isLocalMode ? '本地音乐' : $r('app.string.tab_download'), undefined,
-        this.titleMenus()),
+      titleBarOp: titleBarOf(this.isLocalMode ? '本地音乐' : $r('app.string.tab_download'),
+        this.subTitleText(),
+        this.titleMenus(),
+        this.showSearchBox ?
+          { builder: (): void => { this.SearchBuilder() } } : undefined),
       isShowPlayBar: appState.isBatchMode ? false : true,
       doubleTapToTop: true,
       scroller: this.isLocalMode ? this.scrollerLocal : this.scroller,
@@ -1496,6 +1550,11 @@ export struct DownloadPage {
         // 批量操作模式下返回键先退出批量模式
         if (appState.isBatchMode) {
           this.exitBatchMode();
+          return true;
+        }
+        // 搜索框展开时返回键先收起搜索框并清空关键词
+        if (this.showSearchBox) {
+          this.toggleSearchBox();
           return true;
         }
         return false;
@@ -1635,6 +1694,17 @@ export struct DownloadPage {
           }, (item: MusicItem, _index: number) => item.platform + '_' + item.id + '_' + item.artwork +
             (appState.isBatchMode ? '_' + this.batchScope : '') +
             (appState.isBatchMode && this.isSelected(item) ? '_sel' : ''))
+          // 搜索无命中空态
+          if (this.searchKeyword.trim().length > 0 && this.dataSource.totalCount() === 0) {
+            ListItem() {
+              Text(this.isLocalMode ? '未找到匹配的本地音乐' : '未找到匹配的歌曲')
+                .fontSize(13)
+                .fontColor($r('sys.color.font_tertiary'))
+                .width('100%')
+                .textAlign(TextAlign.Center)
+                .margin({ top: 32 })
+            }
+          }
         }
 
         // 空态
@@ -1674,7 +1744,7 @@ export struct DownloadPage {
       .onTouch((event: TouchEvent) => {
         this.onListTouch(event);
       })
-      .contentStartOffset(appState.topRect + 55)
+      .contentStartOffset(appState.topRect + 55 + (this.showSearchBox ? 56 : 0))
       .contentEndOffset(appState.bottomRect +
         (appState.isBatchMode ? 216 + (this.batchFailedRowVisible() ? 46 : 0) : 60))
       .padding({ left: 16, right: 16 })
@@ -2273,6 +2343,33 @@ export struct DownloadPage {
     .width('100%')
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
+  }
+
+  /**
+   * 搜索框（固定于标题栏下方，不随列表滚动消失；输入不即时过滤，
+   * 点搜索按钮/软键盘回车后才应用关键词）
+   */
+  @Builder
+  SearchBuilder() {
+    CommonSearch({
+      searchValue: this.searchInput,
+      placeholderValue: '搜索歌曲名、歌手或专辑',
+      submit: (): void => {
+        this.searchKeyword = this.searchInput.trim();
+        this.refreshDownloaded();
+      },
+      change: (v: string): void => {
+        this.searchInput = v;
+      },
+      didDelete: (): void => {
+        this.searchInput = '';
+        this.searchKeyword = '';
+        this.refreshDownloaded();
+      },
+    })
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+      .transition(TransitionEffect.move(TransitionEdge.TOP))
   }
 
   /** 批量「添加到歌单」歌单选择半模态（列表样式同单项操作的二级面板） */
