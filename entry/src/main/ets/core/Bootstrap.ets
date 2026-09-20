@@ -1,6 +1,5 @@
 import { FileUtils } from '../utils/FileUtils';
 import { PathConst } from '../common/PathConst';
-import { Log } from '../utils/Log';
 import { KVStore } from '../infra/KVStore';
 import { PersistStatus } from './PersistStatus';
 import { appConfig } from './AppConfig';
@@ -186,16 +185,8 @@ export class Bootstrap {
 
   /** 不阻塞启动的收尾逻辑（对应 RN extraMakeup） */
   private static async extraMakeup(): Promise<void> {
-    // 启动后自动播放（置于插件自动更新之前，避免被其网络请求延迟）
-    try {
-      if (appConfig.getAutoPlayWhenAppStart()) {
-        trackPlayer.play().catch((reason: Object) => {
-          Log.warn('自动播放失败: ' + (reason instanceof Error ? reason.message : ''));
-        });
-      }
-    } catch (e) {
-      // 静默失败
-    }
+    // 启动自动续播已在 setupTrackPlayer 的恢复链内完成（seek 到上次进度后再播放），
+    // 此处不再调用 play()，避免与恢复链并发重新拉源导致进度被重置
 
     // 插件自动更新（每 24h 一次，静默失败）
     try {

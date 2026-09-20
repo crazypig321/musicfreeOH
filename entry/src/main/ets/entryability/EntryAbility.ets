@@ -49,6 +49,8 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
+    // 销毁前落盘播放进度，保证下次启动可续播到上次位置
+    trackPlayer.saveProgress();
     // 彻底退出前自动备份 WebDAV（开关开启且服务器可达时执行，静默失败）；
     // onDestroy 是退出（划走任务 / 定时退出 / 关闭窗口）前最后一个可靠回调
     WebDav.backupOnExit().catch(() => {
@@ -97,5 +99,7 @@ export default class EntryAbility extends UIAbility {
   onBackground(): void {
     // Ability has back to background
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
+    // 退后台时落盘播放进度（应用可能随时被系统回收）
+    trackPlayer.saveProgress();
   }
 }

@@ -66,6 +66,8 @@ export class CellularForbiddenEvent {
  */
 export class TrackPlayer {
   private static readonly HALF_MAX_PLAYLIST_SIZE = 5000;
+  /** 播放中进度落盘节流间隔（ms） */
+  private static readonly PROGRESS_PERSIST_INTERVAL_MS = 10000;
   private ee: EventEmitter = new EventEmitter();
 
   private currentMusicItem: MusicItem | null = null;
@@ -82,6 +84,8 @@ export class TrackPlayer {
   /** 防止连续播放失败时重复跳曲 */
   private handlingPlayFail: boolean = false;
   private progressTimer: number = -1;
+  /** 上次进度落盘时间（节流用） */
+  private lastProgressPersistAt: number = 0;
 
   constructor() {
   }
@@ -159,6 +163,12 @@ export class TrackPlayer {
                 if (progress > 0) {
                   this.seekTo(progress);
                 }
+                // 启动自动续播：进度恢复完成后再播放（提前 play 会重新拉源并重置进度）
+                if (appConfig.getAutoPlayWhenAppStart() && this.isCurrentMusic(track)) {
+                  Log.debug('启动自动续播');
+                  this.play().catch(() => {
+                  });
+                }
               }).catch(() => {
                 this.initRestoring = false;
               });
@@ -217,6 +227,10 @@ export class TrackPlayer {
       this.startProgressTimer();
     } else {
       this.stopProgressTimer();
+      // 暂停/播完时立即落盘进度，保证应用被杀后重启可续播
+      if (state === PlayState.Paused || state === PlayState.Completed) {
+        this.saveProgress();
+      }
       // 暂停/停止/出错/释放时取消长时任务；
       // 换曲期间的 completed→idle→playing 不经过这些状态，任务不会抖动
       if (state === PlayState.Paused || state === PlayState.Stopped ||
@@ -233,6 +247,7 @@ export class TrackPlayer {
     }
     this.progressTimer = setInterval(() => {
       this.emitProgress();
+      this.persistProgressIfNeeded();
     }, 500);
   }
 
@@ -248,6 +263,29 @@ export class TrackPlayer {
     ev.position = playerEngine.position;
     ev.duration = playerEngine.duration;
     this.ee.emit('progress-changed', ev);
+  }
+
+  /** 播放中周期性落盘进度（节流，避免高频写 preferences） */
+  private persistProgressIfNeeded(): void {
+    const now = Date.now();
+    if (now - this.lastProgressPersistAt < TrackPlayer.PROGRESS_PERSIST_INTERVAL_MS) {
+      return;
+    }
+    this.lastProgressPersistAt = now;
+    this.saveProgress();
+  }
+
+  /** 持久化当前播放进度（供定时器/暂停/退后台/销毁时调用） */
+  saveProgress(): void {
+    if (this.currentMusicItem === null) {
+      return;
+    }
+    const st = playerEngine.state;
+    if (st !== PlayState.Prepared && st !== PlayState.Playing &&
+      st !== PlayState.Paused && st !== PlayState.Completed) {
+      return;
+    }
+    PersistStatus.setProgress(playerEngine.position);
   }
 
   // ---------------- 播放队列 ----------------
