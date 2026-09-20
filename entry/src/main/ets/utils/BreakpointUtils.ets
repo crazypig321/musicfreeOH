@@ -26,12 +26,16 @@ export function isLandscapeLayout(widthBp: number, heightBp: number): boolean {
 /**
  * 是否为 PC 风格侧边栏布局：
  * - 2in1/PC 设备恒为侧边栏布局
- * - 其余设备仅在以窗口方式运行时启用（窗口宽度小于物理屏宽且不小于 md）；
- *   手机横屏/平板全屏等全屏断点不启用
+ * - 手机设备（phone）不启用：分屏/自由窗口下仍保持手机布局
+ * - 其余设备（平板等）仅在以窗口方式运行时启用（窗口宽度小于物理屏宽且不小于 md）；
+ *   全屏断点不启用
  */
 export function useSidebarLayout(widthBp: number, windowWidthVp: number, displayWidthVp: number): boolean {
   if (deviceInfo.deviceType === '2in1') {
     return true;
+  }
+  if (deviceInfo.deviceType === 'phone') {
+    return false;
   }
   return widthBp >= 1 && windowWidthVp > 0 && displayWidthVp > 0 &&
     displayWidthVp - windowWidthVp > 4;

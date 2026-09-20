@@ -9,17 +9,42 @@ export enum NetworkState {
   Cellular = 'Cellular',
 }
 
+/** 网络状态变化监听 */
+export type NetworkStateListener = (state: NetworkState) => void;
+
 export class Network {
   private static instance: Network | null = null;
 
   private _state: NetworkState = NetworkState.Offline;
   private conn: connection.NetConnection | null = null;
+  /** 状态变化监听（下载队列自动续跑等） */
+  private listeners: Array<NetworkStateListener> = [];
 
   static getInstance(): Network {
     if (Network.instance === null) {
       Network.instance = new Network();
     }
     return Network.instance;
+  }
+
+  /** 注册网络状态变化监听 */
+  onStateChanged(cb: NetworkStateListener): void {
+    this.listeners.push(cb);
+  }
+
+  private setState(state: NetworkState): void {
+    if (this._state === state) {
+      return;
+    }
+    this._state = state;
+    const snapshot = this.listeners.slice();
+    for (const cb of snapshot) {
+      try {
+        cb(state);
+      } catch (e) {
+        // 单个监听异常不影响其余
+      }
+    }
   }
 
   /** 初始化并监听网络变化（Bootstrap 调用） */
@@ -32,10 +57,10 @@ export class Network {
       this.refreshState();
     });
     this.conn.on('netUnavailable', () => {
-      this._state = NetworkState.Offline;
+      this.setState(NetworkState.Offline);
     });
     this.conn.on('netCapabilitiesChange', (data: connection.NetCapabilityInfo) => {
-      this._state = this.mapCapabilities(data.netCap.bearerTypes);
+      this.setState(this.mapCapabilities(data.netCap.bearerTypes));
     });
     try {
       this.conn.register(() => {
@@ -49,11 +74,11 @@ export class Network {
   private refreshState(): void {
     connection.getDefaultNet().then((netHandle: connection.NetHandle) => {
       connection.getNetCapabilities(netHandle).then((caps: connection.NetCapabilities) => {
-        this._state = this.mapCapabilities(caps.bearerTypes);
+        this.setState(this.mapCapabilities(caps.bearerTypes));
       }).catch(() => {
       });
     }).catch(() => {
-      this._state = NetworkState.Offline;
+      this.setState(NetworkState.Offline);
     });
   }
 

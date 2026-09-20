@@ -11,6 +11,7 @@ import { PlayState } from '../core/PlayerEngine';
 import { screenInfo } from '../utils/ScreenInfo';
 import { themeUtils } from '../utils/ThemeUtils';
 import { WebDav } from '../core/WebDav';
+import { downloader } from '../core/Downloader';
 
 const DOMAIN = 0x0000;
 
@@ -34,6 +35,8 @@ export default class EntryAbility extends UIAbility {
     FileUtils.checkAndCreateDir(PathConst.logPath);
     // 网络状态监听
     Network.getInstance().setup();
+    // 恢复上次未完成/失败的下载任务：失败任务原样恢复，中断任务网络可用时自动断点续传
+    downloader.restorePersistedTasks();
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {

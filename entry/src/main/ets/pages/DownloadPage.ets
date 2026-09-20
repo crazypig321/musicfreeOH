@@ -4,6 +4,8 @@ import { downloadedSheet, localMusicSheet, LocalMusicSheet } from '../core/Local
 import { LocalMusicExclusion } from '../core/LocalMusicExclusion';
 import { musicSheet } from '../core/MusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
+import { appConfig } from '../core/AppConfig';
+import { Network } from '../infra/Network';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { CommonBlur } from '../view/CommonCom';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
@@ -51,6 +53,10 @@ export struct DownloadPage {
   @Local scanning: boolean = false;
   /** 批量「添加到歌单」歌单选择半模态 */
   @Local showBatchSheetPicker: boolean = false;
+  /** 批量换源进行中（下载失败任务） */
+  @Local batchChanging: boolean = false;
+  /** 批量换源进度文案 */
+  @Local batchChangeProgress: string = '';
 
   /** 已下载/本地音乐列表懒加载数据源（复用搜索页的数据源） */
   dataSource: MusicDataSource = new MusicDataSource();
@@ -259,6 +265,10 @@ export struct DownloadPage {
     if (task.status === DownloadStatus.Completed) {
       return '下载完成';
     }
+    // 换源后的失败任务：reason 已清空，提示可重新下载
+    if (task.status === DownloadStatus.Error && task.errorReason.length === 0) {
+      return '已换源，可重新下载';
+    }
     return '下载失败：' + DownloadPage.failReasonText(task.errorReason);
   }
 
@@ -352,7 +362,7 @@ export struct DownloadPage {
         }
       });
     }
-    if (this.downloadedCount > 0) {
+    if (this.downloadedCount > 0 || this.failedTaskCount() > 0) {
       menus.push({
         content: {
           icon: $r('sys.symbol.list_checkmask'),
@@ -386,6 +396,90 @@ export struct DownloadPage {
     return item.platform + '_' + item.id;
   }
 
+  /** 下载失败任务数（批量操作入口/按钮行显隐用） */
+  private failedTaskCount(): number {
+    let count = 0;
+    for (const task of this.taskRows) {
+      if (task.status === DownloadStatus.Error) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /** 批量模式：失败任务是否被勾选 */
+  private isTaskSelected(task: DownloadTaskInfo): boolean {
+    return this.batchSelected.indexOf(DownloadPage.itemKey(task.musicItem)) !== -1;
+  }
+
+  /** 批量模式：切换失败任务勾选状态 */
+  private toggleTaskSelect(task: DownloadTaskInfo): void {
+    const key = DownloadPage.itemKey(task.musicItem);
+    const next = this.batchSelected.slice();
+    const idx = next.indexOf(key);
+    if (idx === -1) {
+      next.push(key);
+    } else {
+      next.splice(idx, 1);
+    }
+    this.batchSelected = next;
+  }
+
+  /** 勾选中的失败任务（按任务区顺序） */
+  private selectedTasks(): Array<DownloadTaskInfo> {
+    const result: Array<DownloadTaskInfo> = [];
+    for (const task of this.taskRows) {
+      if (task.status === DownloadStatus.Error && this.isTaskSelected(task)) {
+        result.push(task);
+      }
+    }
+    return result;
+  }
+
+  /** 勾选中的全部歌曲（失败任务 + 已下载条目，按页面顺序） */
+  private selectedAllMusic(): Array<MusicItem> {
+    const result: Array<MusicItem> = [];
+    for (const task of this.selectedTasks()) {
+      result.push(task.musicItem);
+    }
+    for (const item of this.dataSource.getItems()) {
+      if (this.isSelected(item)) {
+        result.push(item);
+      }
+    }
+    return result;
+  }
+
+  /** 从勾选集合中移除指定 key（任务取消/重新入队后清理残留勾选） */
+  private removeSelectedKeys(keys: Array<string>): void {
+    if (keys.length === 0) {
+      return;
+    }
+    const next: Array<string> = [];
+    for (const k of this.batchSelected) {
+      if (keys.indexOf(k) === -1) {
+        next.push(k);
+      }
+    }
+    this.batchSelected = next;
+  }
+
+  /** 勾选集合中替换 key（失败任务换源后保持勾选状态） */
+  private replaceSelectedKey(oldKey: string, newKey: string): void {
+    const idx = this.batchSelected.indexOf(oldKey);
+    if (idx === -1) {
+      return;
+    }
+    const next = this.batchSelected.slice();
+    next[idx] = newKey;
+    this.batchSelected = next;
+  }
+
+  /** 批量底栏第三行（换源/重新下载）是否显示：仅下载模式存在失败任务时 */
+  private batchFailedRowVisible(): boolean {
+    return !this.isLocalMode && this.failedTaskCount() > 0;
+  }
+
   /** 行是否被勾选 */
   private isSelected(item: MusicItem): boolean {
     return this.batchSelected.indexOf(DownloadPage.itemKey(item)) !== -1;
@@ -404,9 +498,16 @@ export struct DownloadPage {
     this.batchSelected = next;
   }
 
-  /** 全选/取消全选 */
+  /** 全选/取消全选（失败任务 + 已下载条目统一勾选） */
   private toggleSelectAll(): void {
     const all: Array<string> = [];
+    if (!this.isLocalMode) {
+      for (const task of this.taskRows) {
+        if (task.status === DownloadStatus.Error) {
+          all.push(DownloadPage.itemKey(task.musicItem));
+        }
+      }
+    }
     for (const item of this.dataSource.getItems()) {
       all.push(DownloadPage.itemKey(item));
     }
@@ -416,7 +517,7 @@ export struct DownloadPage {
 
   /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「搜索封面」） */
   private batchTopLabels(): Array<string> {
-    const total = this.dataSource.totalCount();
+    const total = this.dataSource.totalCount() + (this.isLocalMode ? 0 : this.failedTaskCount());
     const allSelected = total > 0 && this.batchSelected.length === total;
     const labels: Array<string> = [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单', '搜索歌词'];
     if (this.isLocalMode) {
@@ -462,7 +563,7 @@ export struct DownloadPage {
 
   /** 批量收藏：加入「我的收藏」 */
   private batchFavorite(): void {
-    const items = this.selectedItems();
+    const items = this.selectedAllMusic();
     if (items.length === 0) {
       this.showToast('请先勾选歌曲');
       return;
@@ -493,7 +594,7 @@ export struct DownloadPage {
 
   /** 打开批量「添加到歌单」选择器 */
   private openBatchSheetPicker(): void {
-    if (this.selectedItems().length === 0) {
+    if (this.selectedAllMusic().length === 0) {
       this.showToast('请先勾选歌曲');
       return;
     }
@@ -502,7 +603,7 @@ export struct DownloadPage {
 
   /** 批量添加到指定歌单 */
   private batchAddToSheet(sheet: SheetItem): void {
-    const items = this.selectedItems();
+    const items = this.selectedAllMusic();
     this.showBatchSheetPicker = false;
     if (items.length === 0) {
       this.showToast('请先勾选歌曲');
@@ -522,7 +623,7 @@ export struct DownloadPage {
 
   /** 批量搜索歌词：逐首按来源插件搜索并缓存 */
   private batchSearchLyric(): void {
-    const items = this.selectedItems();
+    const items = this.selectedAllMusic();
     if (items.length === 0) {
       this.showToast('请先勾选歌曲');
       return;
@@ -590,7 +691,7 @@ export struct DownloadPage {
 
   /** 批量播放：以选中歌曲为播放队列，从第一首开始 */
   private batchPlay(): void {
-    const items = this.selectedItems();
+    const items = this.selectedAllMusic();
     if (items.length === 0) {
       this.showToast('请先勾选歌曲');
       return;
@@ -603,7 +704,7 @@ export struct DownloadPage {
 
   /** 批量分享：复制选中歌曲信息 */
   private batchShare(): void {
-    const items = this.selectedItems();
+    const items = this.selectedAllMusic();
     if (items.length === 0) {
       this.showToast('请先勾选歌曲');
       return;
@@ -620,43 +721,163 @@ export struct DownloadPage {
     });
   }
 
-  /** 批量移出列表 / 删除歌曲文件；删除文件时弹窗确认（取消不删除）；
+  /** 批量移出列表 / 删除歌曲文件（勾选的失败任务一并取消）；删除文件时弹窗确认（取消不删除）；
    * 本地模式移出时写入排除名单防止扫描复活 */
   private batchRemove(withFile: boolean): Promise<void> {
+    const tasks = this.selectedTasks();
     const items = this.selectedItems();
-    if (items.length === 0) {
+    if (tasks.length === 0 && items.length === 0) {
       this.showToast('请先勾选歌曲');
       return Promise.resolve();
     }
-    if (withFile) {
+    if (withFile && items.length > 0) {
       DialogManager.ConfirmDelete('确定删除选中的 ' + items.length.toString() + ' 首歌曲及本地文件吗？', (): void => {
-        this.doBatchRemove(items, true);
+        this.doBatchRemove(tasks, items, true);
       });
       return Promise.resolve();
     }
-    return this.doBatchRemove(items, false);
+    this.doBatchRemove(tasks, items, false);
+    return Promise.resolve();
   }
 
-  /** 确认后执行批量移出/删除 */
-  private doBatchRemove(items: Array<MusicItem>, withFile: boolean): Promise<void> {
+  /** 确认后执行批量移出/删除：失败任务取消下载，已下载条目走歌单移除 */
+  private doBatchRemove(tasks: Array<DownloadTaskInfo>, items: Array<MusicItem>, withFile: boolean): void {
+    let taskCount = 0;
+    const keys: Array<string> = [];
+    for (const task of tasks) {
+      keys.push(DownloadPage.itemKey(task.musicItem));
+      if (downloader.remove(task.musicItem)) {
+        taskCount++;
+      }
+    }
+    if (keys.length > 0) {
+      this.removeSelectedKeys(keys);
+    }
+    this.refreshTasks();
     if (this.isLocalMode && !withFile) {
       for (const it of items) {
         LocalMusicExclusion.excludeItem(it);
       }
     }
-    const tasks: Array<Promise<void>> = [];
+    const removals: Array<Promise<void>> = [];
     for (const it of items) {
-      tasks.push(this.activeSheet.removeMusic(it, withFile));
+      removals.push(this.activeSheet.removeMusic(it, withFile));
     }
-    return Promise.all(tasks).then((): void => {
+    Promise.all(removals).then((): void => {
       this.exitBatchMode();
-      if (withFile) {
-        this.showToast('已删除 ' + items.length.toString() + ' 首歌曲与本地文件');
-      } else {
-        this.showToast('已移出 ' + items.length.toString() + ' 首歌曲' +
-          (this.isLocalMode ? '，文件保留但不再自动导入' : ''));
+      let message = '';
+      if (items.length > 0) {
+        if (withFile) {
+          message = '已删除 ' + items.length.toString() + ' 首歌曲与本地文件';
+        } else {
+          message = '已移出 ' + items.length.toString() + ' 首歌曲' +
+            (this.isLocalMode ? '，文件保留但不再自动导入' : '');
+        }
       }
+      if (taskCount > 0) {
+        message += (message.length > 0 ? '，' : '') + '已取消 ' + taskCount.toString() + ' 个下载任务';
+      }
+      this.showToast(message);
     });
+  }
+
+  /** 批量换源（下载失败任务，回调参考歌单详情页）：逐首搜索其它插件的同一首歌，
+   * 自动选第一个命中的候选，替换下载任务/播放队列/歌单中的条目；
+   * 已下载条目不支持换源（本地文件） */
+  private async batchChangeSource(): Promise<void> {
+    if (this.batchChanging) {
+      this.showToast('正在换源中，请稍候');
+      return;
+    }
+    const tasks = this.selectedTasks();
+    const downloadedSelected = this.selectedItems().length;
+    if (tasks.length === 0) {
+      this.showToast(downloadedSelected > 0 ? '本地文件不支持换源' : '请先勾选歌曲');
+      return;
+    }
+    // 正在播放的歌曲不支持批量换源（请单独换源）
+    const targets: Array<DownloadTaskInfo> = [];
+    let playingSkipped = 0;
+    for (const task of tasks) {
+      if (trackPlayer.isCurrentMusic(task.musicItem)) {
+        playingSkipped++;
+        continue;
+      }
+      targets.push(task);
+    }
+    if (targets.length === 0) {
+      this.showToast('正在播放的歌曲请单独换源');
+      return;
+    }
+    this.batchChanging = true;
+    let success = 0;
+    let failed = 0;
+    for (let i = 0; i < targets.length; ++i) {
+      const task = targets[i];
+      this.batchChangeProgress = '换源中 ' + (i + 1).toString() + '/' + targets.length.toString();
+      const oldItem = task.musicItem;
+      try {
+        const candidates = await trackPlayer.searchAlternateSources(oldItem);
+        const best = candidates.length > 0 ? candidates[0] : null;
+        if (best !== null) {
+          const replaced = downloader.replaceTask(oldItem, best);
+          const inQueue = trackPlayer.replaceInQueue(oldItem, best);
+          const saved = musicSheet.replaceMusicEverywhere(oldItem, best);
+          if (replaced || inQueue || saved > 0) {
+            success++;
+            this.replaceSelectedKey(DownloadPage.itemKey(oldItem), DownloadPage.itemKey(best));
+          } else {
+            failed++;
+          }
+        } else {
+          failed++;
+        }
+      } catch (_e) {
+        failed++;
+      }
+    }
+    this.batchChanging = false;
+    this.batchChangeProgress = '';
+    let message = '换源完成：成功 ' + success.toString() + ' 首';
+    if (failed > 0) {
+      message += '，失败 ' + failed.toString() + ' 首';
+    }
+    if (playingSkipped > 0) {
+      message += '（正在播放的 ' + playingSkipped.toString() + ' 首请单独换源）';
+    }
+    this.showToast(message);
+    this.refreshTasks();
+  }
+
+  /** 批量重新下载（下载失败任务）：任务重置为待下载并保留半成品缓存断点续传；
+   * 网络不满足下载条件时不动原任务，避免失败记录丢失 */
+  private batchRedownload(): void {
+    const tasks = this.selectedTasks();
+    if (tasks.length === 0) {
+      this.showToast(this.selectedItems().length > 0 ? '已下载的歌曲无需重新下载' : '请先勾选下载失败的任务');
+      return;
+    }
+    const network = Network.getInstance();
+    if (network.isOffline) {
+      this.showToast('当前无网络');
+      return;
+    }
+    if (network.isCellular && !appConfig.getUseCellularNetworkDownload()) {
+      this.showToast('移动网络下禁止下载');
+      return;
+    }
+    let count = 0;
+    for (const task of tasks) {
+      if (downloader.retry(task.musicItem)) {
+        count++;
+      }
+    }
+    if (count === 0) {
+      this.showToast('重新下载失败');
+      return;
+    }
+    this.showToast('已重新下载 ' + count.toString() + ' 首');
+    this.refreshTasks();
   }
 
   private static formatDuration(sec: number): string {
@@ -701,7 +922,8 @@ export struct DownloadPage {
             }
           }, (task: DownloadTaskInfo, _index: number) =>
             task.musicItem.platform + '_' + task.musicItem.id + '_' +
-            task.status.toString() + '_' + task.downloadedSize.toString())
+            task.status.toString() + '_' + task.downloadedSize.toString() +
+            (appState.isBatchMode && this.isTaskSelected(task) ? '_sel' : ''))
         }
 
         // 列表分组
@@ -757,7 +979,8 @@ export struct DownloadPage {
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .contentStartOffset(appState.topRect + 55)
-      .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 216 : 60))
+      .contentEndOffset(appState.bottomRect +
+        (appState.isBatchMode ? 216 + (this.batchFailedRowVisible() ? 46 : 0) : 60))
       .padding({ left: 16, right: 16 })
       .bindSheet(!this.isLocalMode && !!this.showOptions, this.OptionsSheetBuilder(), {
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
@@ -773,17 +996,21 @@ export struct DownloadPage {
 
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
         // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词（本地模式追加 搜索封面）；
-        // 第二行 播放 / 分享 / 移出 / 删除
+        // 第二行 播放 / 分享 / 移出 / 删除；
+        // 第三行 换源 / 重新下载（仅下载模式存在失败任务时显示）
         if (appState.isBatchMode) {
           // 渐变模糊高度与底栏内容高度保持一致：
           // 14(顶距) + 22(已选行) + 10 + 36(按钮行1) + 10 + 36(按钮行2) + 12(底距) + 导航栏避让
-          CommonBlur({ heightValue: appState.bottomRect + 140 }).position({ bottom: 0 })
+          // 存在失败任务时追加 10 + 36(按钮行3)
+          CommonBlur({ heightValue: appState.bottomRect + 140 +
+            (this.batchFailedRowVisible() ? 46 : 0) }).position({ bottom: 0 })
             .transition(TransitionEffect.OPACITY)
 
 
           Column({ space: 10 }) {
             Row() {
-              Text('已选 ' + this.batchSelected.length.toString() + ' 首歌曲')
+              Text(this.batchChanging ? this.batchChangeProgress :
+                '已选 ' + this.batchSelected.length.toString() + ' 首歌曲')
                 .fontSize(13)
                 .fontColor($r('sys.color.font_secondary'))
               Blank()
@@ -848,6 +1075,35 @@ export struct DownloadPage {
               }, (v: string, i: number) => v + '_' + i.toString())
             }
             .width('100%')
+
+            // 第三行：换源 / 重新下载（下载失败任务批量操作）
+            if (this.batchFailedRowVisible()) {
+              Row({ space: 8 }) {
+                Button('换源')
+                  .layoutWeight(1)
+                  .height(36)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .borderRadius(10)
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    this.batchChangeSource();
+                  })
+                Button('重新下载')
+                  .layoutWeight(1)
+                  .height(36)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .borderRadius(10)
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    this.batchRedownload();
+                  })
+              }
+              .width('100%')
+            }
           }
           .width('100%')
           .position({ bottom: 0 })
@@ -888,11 +1144,19 @@ export struct DownloadPage {
     }
   }
 
-  /** 下载任务行：状态图标 + 标题/状态文本 + 进度条 + 取消 */
+  /** 下载任务行：状态图标 + 标题/状态文本 + 进度条 + 取消；
+   * 批量模式下失败任务显示勾选圈，点击勾选、长按进入批量模式 */
   @Builder
   TaskRowBuilder(task: DownloadTaskInfo, index: number) {
     Column() {
       Row({ space: 12 }) {
+        // 批量模式：失败任务勾选圈
+        if (appState.isBatchMode && task.status === DownloadStatus.Error) {
+          SymbolGlyph(this.isTaskSelected(task) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+            .fontSize(24)
+            .fontColor([this.isTaskSelected(task) ? appState.accentColor : $r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
+        }
         Column() {
           if (task.status === DownloadStatus.Preparing || task.status === DownloadStatus.Downloading) {
             LoadingProgress()
@@ -938,15 +1202,34 @@ export struct DownloadPage {
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(18)
-          .fontColor([$r('sys.color.icon_secondary')])
-          .onClick(() => {
-            this.removeTask(task);
-          })
+        // 批量模式下失败任务行点击即勾选，隐藏取消按钮
+        if (!(appState.isBatchMode && task.status === DownloadStatus.Error)) {
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(18)
+            .fontColor([$r('sys.color.icon_secondary')])
+            .onClick(() => {
+              this.removeTask(task);
+            })
+        }
       }
       .width('100%')
       .padding({ top: 10, bottom: 10 })
+      .gesture(
+        LongPressGesture({ repeat: false, duration: 500 })
+          .onAction((_event: GestureEvent) => {
+            // 长按失败任务进入批量模式并勾选当前条目
+            if (appState.isBatchMode || task.status !== DownloadStatus.Error) {
+              return;
+            }
+            this.enterBatchMode();
+            this.toggleTaskSelect(task);
+          })
+      )
+      .onClick(() => {
+        if (appState.isBatchMode && task.status === DownloadStatus.Error) {
+          this.toggleTaskSelect(task);
+        }
+      })
 
       // 条目间分割线
       if (index < this.taskRows.length - 1) {

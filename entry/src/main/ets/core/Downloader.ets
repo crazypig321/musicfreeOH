@@ -2,13 +2,13 @@ import { EventEmitter, EventListenerFn } from '../common/EventBus';
 import { INTERNAL_SERIALIZE_KEY, SUPPORT_LOCAL_MEDIA_TYPE } from '../common/Consts';
 import { PathConst } from '../common/PathConst';
 import { JsonUtil, JsonRecord } from '../common/JsonUtil';
-import { MusicItem, MediaSource, QualityKey } from '../common/model/MediaTypes';
+import { MusicItem, MediaSource, QualityKey, qualityFromStr } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { FileUtils } from '../utils/FileUtils';
-import { CryptoUtil } from '../utils/CryptoUtil';
 import { Qualities } from '../utils/Qualities';
-import { Network } from '../infra/Network';
+import { Network, NetworkState } from '../infra/Network';
 import { HttpClient } from '../infra/HttpClient';
+import { KVStore } from '../infra/KVStore';
 import { Log } from '../utils/Log';
 import { Delay } from '../utils/Delay';
 import { appConfig } from './AppConfig';
@@ -57,6 +57,8 @@ export class DownloadTaskInfo {
   status: DownloadStatus = DownloadStatus.Pending;
   /** 目标文件名 */
   filename: string = '';
+  /** 断点续传缓存文件名（downloadCachePath 下，platform@id.ext 固定命名） */
+  cacheFilename: string = '';
   /** 下载音质 */
   quality?: QualityKey;
   /** 文件大小 */
@@ -112,6 +114,214 @@ export class Downloader {
     DownloadNotify.showSummary(this.batchDone, this.batchFailed);
   }
 
+  // ---------- 任务持久化（KVStore 'Downloader'：重启后恢复失败/未完成任务并断点续传） ----------
+
+  private static readonly STORE_NAME = 'Downloader';
+  private static readonly QUEUE_KEY = 'queue';
+  private static readonly TASK_KEY_PREFIX = 'task.';
+  /** 进度落盘节流定时器（进度高频变化，节流避免频繁写 preferences） */
+  private persistProgressTimer: number = -1;
+
+  private taskStore(): KVStore {
+    return KVStore.getOrCreate(Downloader.STORE_NAME);
+  }
+
+  private taskRecordKey(key: string): string {
+    return Downloader.TASK_KEY_PREFIX + key;
+  }
+
+  /** 落盘单个任务记录 */
+  private saveTaskRecord(task: DownloadTaskInfo): void {
+    const rec: JsonRecord = {
+      'status': task.status,
+      'filename': task.filename,
+      'cacheFilename': task.cacheFilename,
+      'fileSize': task.fileSize,
+      'downloadedSize': task.downloadedSize,
+      'errorReason': task.errorReason,
+      'musicItem': task.musicItem.toPersistRecord()
+    };
+    if (task.quality !== undefined) {
+      rec['quality'] = task.quality;
+    }
+    this.taskStore().set(this.taskRecordKey(MediaUtils.getMediaUniqueKey(task.musicItem)),
+      JsonUtil.safeStringify(rec));
+  }
+
+  /** 删除任务记录 */
+  private deleteTaskRecord(key: string): void {
+    this.taskStore().delete(this.taskRecordKey(key));
+  }
+
+  /** 落盘队列顺序（恢复时保持原有排序） */
+  private saveQueueOrder(): void {
+    const keys: Array<string> = [];
+    for (const item of this.downloadQueue) {
+      keys.push(MediaUtils.getMediaUniqueKey(item));
+    }
+    this.taskStore().set(Downloader.QUEUE_KEY, JsonUtil.safeStringify(keys));
+  }
+
+  /** 节流落盘进行中任务的进度（重启后 UI 可显示上次进度；续传基线以实际文件大小为准） */
+  private schedulePersistProgress(): void {
+    if (this.persistProgressTimer !== -1) {
+      return;
+    }
+    this.persistProgressTimer = setTimeout(() => {
+      this.persistProgressTimer = -1;
+      for (const task of this.downloadTasks.values()) {
+        if (task.status === DownloadStatus.Pending || task.status === DownloadStatus.Preparing ||
+          task.status === DownloadStatus.Downloading) {
+          this.saveTaskRecord(task);
+        }
+      }
+    }, 1000);
+  }
+
+  /** 解析任务记录 */
+  private static parseTaskRecord(raw: string): DownloadTaskInfo | null {
+    const rec = JsonUtil.parseRecord(raw);
+    if (rec === null) {
+      return null;
+    }
+    const itemRec = JsonUtil.recRecord(rec, 'musicItem');
+    if (itemRec === null) {
+      return null;
+    }
+    const musicItem = MusicItem.fromRecord(itemRec);
+    if (musicItem.platform.length === 0 || musicItem.id.length === 0) {
+      return null;
+    }
+    const task = new DownloadTaskInfo();
+    task.musicItem = musicItem;
+    const status = JsonUtil.recNum(rec, 'status', -1);
+    if (status === DownloadStatus.Pending || status === DownloadStatus.Preparing ||
+      status === DownloadStatus.Downloading || status === DownloadStatus.Error) {
+      task.status = status;
+    } else {
+      return null;
+    }
+    task.filename = JsonUtil.recStr(rec, 'filename');
+    task.cacheFilename = JsonUtil.recStr(rec, 'cacheFilename');
+    task.fileSize = JsonUtil.recNum(rec, 'fileSize');
+    task.downloadedSize = JsonUtil.recNum(rec, 'downloadedSize');
+    task.errorReason = JsonUtil.recStr(rec, 'errorReason');
+    const quality = JsonUtil.recStr(rec, 'quality');
+    if (quality.length > 0) {
+      task.quality = qualityFromStr(quality, 'high');
+    }
+    return task;
+  }
+
+  /** 清理任务的续传缓存半成品 */
+  private removeTaskCache(task: DownloadTaskInfo): void {
+    if (task.cacheFilename.length > 0) {
+      FileUtils.unlink(this.getCacheDownloadPath(task.cacheFilename));
+    }
+  }
+
+  /**
+   * 启动时恢复持久化的下载任务（EntryAbility onCreate 调用）：
+   * 失败任务原样恢复（可批量换源/重新下载），中断/等待中的任务恢复为待下载，
+   * 网络可用时自动续跑（断点续传），流量受限时待网络恢复后续跑
+   */
+  restorePersistedTasks(): void {
+    const store = this.taskStore();
+    // 任务记录
+    const records: Map<string, DownloadTaskInfo> = new Map();
+    for (const k of store.getAllKeys()) {
+      if (k.indexOf(Downloader.TASK_KEY_PREFIX) !== 0) {
+        continue;
+      }
+      const task = Downloader.parseTaskRecord(store.get(k));
+      if (task !== null) {
+        records.set(k.substring(Downloader.TASK_KEY_PREFIX.length), task);
+      }
+    }
+    if (records.size === 0) {
+      return;
+    }
+    // 按持久化的队列顺序恢复，顺序之外的残留记录追加在末尾
+    const ordered: Array<string> = [];
+    const orderRaw = JsonUtil.parseStringArray(store.get(Downloader.QUEUE_KEY));
+    if (orderRaw !== null) {
+      for (const key of orderRaw) {
+        if (records.has(key)) {
+          ordered.push(key);
+          records.delete(key);
+        }
+      }
+    }
+    const restKeys: Array<string> = [];
+    records.forEach((_task: DownloadTaskInfo, key: string) => {
+      restKeys.push(key);
+    });
+    for (const key of restKeys) {
+      ordered.push(key);
+      records.delete(key);
+    }
+    let resumable = 0;
+    for (const key of ordered) {
+      const task = this.downloadTasks.has(key) ? null : Downloader.parseTaskRecord(store.get(this.taskRecordKey(key)));
+      if (task === null || this.downloadTasks.has(key)) {
+        continue;
+      }
+      if (task.status !== DownloadStatus.Error) {
+        // 中断/等待中的任务恢复为待下载（半成品缓存保留，下载时断点续传）
+        task.status = DownloadStatus.Pending;
+        resumable++;
+      }
+      this.downloadTasks.set(key, task);
+      this.downloadQueue.push(task.musicItem);
+    }
+    Log.info('恢复下载任务: ' + this.downloadQueue.length.toString() + ' 个（可续跑 ' + resumable.toString() + '）');
+    this.saveQueueOrder();
+    if (resumable > 0) {
+      // 网络可用立即续跑；受限时等网络状态变化（如连上 Wi-Fi）自动续跑
+      Network.getInstance().onStateChanged((_state: NetworkState) => {
+        this.tryResumeQueue();
+      });
+      this.tryResumeQueue();
+    }
+  }
+
+  /** 网络可用时自动续跑待下载任务（离线/流量受限不动，等下次网络变化） */
+  private tryResumeQueue(): void {
+    if (this.downloadingCount > 0) {
+      return;
+    }
+    let hasPending = false;
+    for (const task of this.downloadTasks.values()) {
+      if (task.status === DownloadStatus.Pending) {
+        hasPending = true;
+        break;
+      }
+    }
+    if (!hasPending) {
+      return;
+    }
+    const net = Network.getInstance();
+    if (net.isOffline) {
+      return;
+    }
+    if (net.isCellular && !appConfig.getUseCellularNetworkDownload()) {
+      return;
+    }
+    if (!this.batchActive) {
+      this.batchActive = true;
+      this.batchDone = 0;
+      this.batchFailed = 0;
+      DownloadNotify.resetProgress();
+    }
+    DownloadNotify.ensureEnabled();
+    BackgroundTask.startTransfer((notificationId: number): void => {
+      DownloadNotify.setSystemNotificationId(notificationId);
+    });
+    Downloader.ensureDownloadDirResolved().then(() => {
+      this.downloadNextPendingTask();
+    });
+  }
+
   /** 确保公共下载目录就绪后再启动下载队列（目录缺失时由 bootstrap 自动重建） */
   private static async ensureDownloadDirResolved(): Promise<void> {
     await PathConst.bootstrapPublicDownloadDir();
@@ -156,6 +366,8 @@ export class Downloader {
       const percent = Math.min(100, Math.floor(task.downloadedSize / task.fileSize * 100));
       const songText = `${task.musicItem.title} - ${task.musicItem.artist}`;
       DownloadNotify.updateProgress(songText, percent, this.downloadQueue.length);
+      // 进度节流落盘（重启后可见上次进度）
+      this.schedulePersistProgress();
     }
     this.emitTaskUpdate(task);
     return task;
@@ -169,7 +381,8 @@ export class Downloader {
 
   private markTaskAsStarted(musicItem: MusicItem): void {
     this.downloadingCount++;
-    this.updateTaskStatus(musicItem, DownloadStatus.Preparing);
+    const task = this.updateTaskStatus(musicItem, DownloadStatus.Preparing);
+    this.saveTaskRecord(task);
   }
 
   /** 上一个任务的实际启动时刻（任务间隔节流用） */
@@ -208,6 +421,7 @@ export class Downloader {
     }
     task.status = DownloadStatus.Error;
     task.errorReason = reason;
+    this.saveTaskRecord(task);
     this.emitTaskUpdate(task);
     const ev = new DownloadTaskErrorEvent();
     ev.reason = reason;
@@ -346,8 +560,14 @@ export class Downloader {
       extension = 'mp3';
     }
 
+    // 断点续传：缓存文件固定命名（platform@id.ext），重试/重启后继续同一半成品
+    if (nextTask.cacheFilename.length === 0) {
+      nextTask.cacheFilename =
+        `${FileUtils.escapeCharacter(musicItem.platform)}@${FileUtils.escapeCharacter(musicItem.id)}.${extension}`;
+      this.saveTaskRecord(nextTask);
+    }
     const cacheDownloadPath = FileUtils.addFileScheme(
-      this.getCacheDownloadPath(`${CryptoUtil.nanoid()}.${extension}`)
+      this.getCacheDownloadPath(nextTask.cacheFilename)
     );
     const targetDownloadPath = FileUtils.addFileScheme(
       this.getDownloadPath(`${nextTask.filename}.${extension}`)
@@ -362,13 +582,22 @@ export class Downloader {
       }
     }
 
+    // 半成品缓存有效时断点续传（带上次已知总大小校验内容一致性）
+    let resumeFrom = 0;
+    const partialSize = FileUtils.fileSize(FileUtils.normalizePath(cacheDownloadPath));
+    if (partialSize > 0 && nextTask.fileSize > 0 && partialSize < nextTask.fileSize) {
+      resumeFrom = partialSize;
+      Log.info('断点续传: ' + musicItem.title + ' 从 ' + partialSize.toString() + ' 字节继续');
+    }
     const ok = await HttpClient.downloadToFile(url, cacheDownloadPath, headers,
       (downloadedSize: number, totalSize: number): void => {
         this.updateDownloadTask(musicItem, DownloadStatus.Downloading, downloadedSize, totalSize);
-      });
+      }, resumeFrom, nextTask.fileSize);
 
     if (ok) {
       const copied = FileUtils.copyFile(cacheDownloadPath, targetDownloadPath);
+      // 下载完成清理半成品缓存（失败时保留待续传）
+      FileUtils.unlink(cacheDownloadPath);
       if (!copied) {
         this.markTaskAsError(musicItem, DownloadFailReason.NO_WRITE_PERMISSION, '');
       } else {
@@ -395,13 +624,13 @@ export class Downloader {
       this.markTaskAsError(musicItem, DownloadFailReason.UNKNOWN, '');
     }
 
-    FileUtils.unlink(cacheDownloadPath);
     this.downloadNextPendingTask();
 
     const key = MediaUtils.getMediaUniqueKey(musicItem);
     const task = this.downloadTasks.get(key);
     if (task !== undefined && task.status === DownloadStatus.Completed) {
       this.downloadTasks.delete(key);
+      this.deleteTaskRecord(key);
       const newQueue: Array<MusicItem> = [];
       for (const item of this.downloadQueue) {
         if (!MediaUtils.isSameMediaItem(item, musicItem)) {
@@ -409,6 +638,7 @@ export class Downloader {
         }
       }
       this.downloadQueue = newQueue;
+      this.saveQueueOrder();
     }
   }
 
@@ -445,6 +675,7 @@ export class Downloader {
       task.quality = quality;
       task.musicItem = m;
       this.downloadTasks.set(key, task);
+      this.saveTaskRecord(task);
       accepted.push(m);
     }
 
@@ -465,9 +696,62 @@ export class Downloader {
     });
 
     this.downloadQueue = this.downloadQueue.concat(accepted);
+    this.saveQueueOrder();
     Downloader.ensureDownloadDirResolved().then(() => {
       this.downloadNextPendingTask();
     });
+  }
+
+  /** 替换失败任务的音源（换源用）：更新任务与队列中的条目，保留失败状态等待重新下载；
+   *  音源已变化，作废旧半成品缓存（无法断点续传） */
+  replaceTask(oldItem: MusicItem, newItem: MusicItem): boolean {
+    const oldKey = MediaUtils.getMediaUniqueKey(oldItem);
+    const task = this.downloadTasks.get(oldKey);
+    if (task === undefined || task.status !== DownloadStatus.Error) {
+      return false;
+    }
+    const newKey = MediaUtils.getMediaUniqueKey(newItem);
+    if (newKey !== oldKey && this.downloadTasks.has(newKey)) {
+      return false;
+    }
+    this.downloadTasks.delete(oldKey);
+    this.deleteTaskRecord(oldKey);
+    this.removeTaskCache(task);
+    task.musicItem = newItem;
+    task.filename = Downloader.generateFilename(newItem);
+    task.cacheFilename = '';
+    task.errorReason = '';
+    task.downloadedSize = 0;
+    task.fileSize = 0;
+    this.downloadTasks.set(newKey, task);
+    this.saveTaskRecord(task);
+    const newQueue: Array<MusicItem> = [];
+    for (const item of this.downloadQueue) {
+      if (MediaUtils.isSameMediaItem(item, oldItem)) {
+        newQueue.push(newItem);
+      } else {
+        newQueue.push(item);
+      }
+    }
+    this.downloadQueue = newQueue;
+    this.saveQueueOrder();
+    this.emitTaskUpdate(task);
+    return true;
+  }
+
+  /** 重新下载失败任务：保留半成品缓存断点续传，任务重置为待下载并尝试续跑 */
+  retry(musicItem: MusicItem): boolean {
+    const key = MediaUtils.getMediaUniqueKey(musicItem);
+    const task = this.downloadTasks.get(key);
+    if (task === undefined || task.status !== DownloadStatus.Error) {
+      return false;
+    }
+    task.status = DownloadStatus.Pending;
+    task.errorReason = '';
+    this.saveTaskRecord(task);
+    this.emitTaskUpdate(task);
+    this.tryResumeQueue();
+    return true;
   }
 
   remove(musicItem: MusicItem): boolean {
@@ -478,6 +762,8 @@ export class Downloader {
     }
     if (task.status === DownloadStatus.Pending || task.status === DownloadStatus.Error) {
       this.downloadTasks.delete(key);
+      this.deleteTaskRecord(key);
+      this.removeTaskCache(task);
       const newQueue: Array<MusicItem> = [];
       for (const item of this.downloadQueue) {
         if (!MediaUtils.isSameMediaItem(item, musicItem)) {
@@ -485,6 +771,7 @@ export class Downloader {
         }
       }
       this.downloadQueue = newQueue;
+      this.saveQueueOrder();
       if (this.downloadQueue.length === 0 && this.downloadingCount === 0) {
         this.finishBatch();
       }

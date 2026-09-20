@@ -115,40 +115,121 @@ export class HttpClient {
   /**
    * 流式下载到文件（大文件：音乐下载）
    * @param onProgress (已下载字节数, 总字节数)；总字节数在响应头到达前为 0
+   * @param resumeFrom 断点续传：磁盘上半成品的字节数，>0 时发送 Range 请求并从末尾追加写入；
+   *   服务器不支持续传（返回非 206）或资源总大小与 expectedTotal 不符时自动清空从头下载
+   * @param expectedTotal 上次已知的资源总字节数（校验续传内容一致性，<=0 不校验）
    */
   static async downloadToFile(url: string, toPath: string, headers?: Record<string, string>,
-    onProgress?: (downloadedSize: number, totalSize: number) => void): Promise<boolean> {
+    onProgress?: (downloadedSize: number, totalSize: number) => void,
+    resumeFrom?: number, expectedTotal?: number): Promise<boolean> {
+    const target = toPath.startsWith('file://') ? toPath.substring('file://'.length) : toPath;
+    const dir = target.lastIndexOf('/') === -1 ? target : target.substring(0, target.lastIndexOf('/'));
     let file: fs.File | null = null;
-    let downloaded = 0;
+    // 续传基线：以磁盘上实际半成品大小为准（与 resumeFrom 取小，防止文件被外部改动）
+    let base = 0;
+    if (resumeFrom !== undefined && resumeFrom > 0) {
+      try {
+        if (fs.accessSync(target)) {
+          base = Math.min(resumeFrom, fs.statSync(target).size);
+        }
+      } catch (e) {
+        base = 0;
+      }
+    }
+    let written = base;
     let total = 0;
     let failed = false;
+    // 续传时需等状态码确认（206）后才能写盘；此前到达的数据先缓冲
+    let headerChecked = base === 0;
+    const pendingChunks: Array<ArrayBuffer> = [];
+    const writeChunk = (data: ArrayBuffer): void => {
+      if (file !== null) {
+        fs.writeSync(file.fd, data, { offset: written });
+      }
+      written += data.byteLength;
+      if (onProgress !== undefined) {
+        onProgress(written, total);
+      }
+    };
     try {
-      const target = toPath.startsWith('file://') ? toPath.substring('file://'.length) : toPath;
-      const dir = target.lastIndexOf('/') === -1 ? target : target.substring(0, target.lastIndexOf('/'));
       if (!fs.accessSync(dir)) {
         fs.mkdirSync(dir, true);
       }
-      file = fs.openSync(target, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      file = base > 0 ? fs.openSync(target, fs.OpenMode.READ_WRITE) :
+        fs.openSync(target, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
       const reqHeaders: rcp.RequestHeaders = {};
       if (headers !== undefined) {
         for (const k of Object.keys(headers)) {
           reqHeaders[k] = headers[k];
         }
       }
+      if (base > 0) {
+        reqHeaders['Range'] = `bytes=${base}-`;
+      }
       const events: rcp.HttpEventsHandler = {
-        onDataReceive: (data: ArrayBuffer): void => {
-          downloaded += data.byteLength;
-          if (file !== null) {
-            fs.writeSync(file.fd, data);
+        onStatusCodeReceive: (code: number): void => {
+          if (base > 0 && code !== 206) {
+            // 服务器忽略 Range：清空半成品从头下载
+            base = 0;
+            written = 0;
+            try {
+              fs.truncateSync(target, 0);
+            } catch (e) {
+            }
           }
-          if (onProgress !== undefined) {
-            onProgress(downloaded, total);
+          headerChecked = true;
+          for (const chunk of pendingChunks) {
+            writeChunk(chunk);
+          }
+          pendingChunks.length = 0;
+        },
+        onHeaderReceive: (respHeaders: rcp.ResponseHeaders): void => {
+          if (base <= 0) {
+            return;
+          }
+          // 206：从 Content-Range 解析资源总大小，与上次已知大小不符视为资源已变化，作废续传
+          const contentRange = respHeaders['content-range'];
+          const rangeText = typeof contentRange === 'string' ? contentRange : '';
+          const slashIdx = rangeText.lastIndexOf('/');
+          if (slashIdx !== -1) {
+            const parsed = Number(rangeText.substring(slashIdx + 1).trim());
+            if (Number.isFinite(parsed) && parsed > 0) {
+              if (expectedTotal !== undefined && expectedTotal > 0 && parsed !== expectedTotal) {
+                base = 0;
+                written = 0;
+                try {
+                  fs.truncateSync(target, 0);
+                } catch (e) {
+                }
+              } else {
+                total = parsed;
+                if (onProgress !== undefined) {
+                  onProgress(written, total);
+                }
+              }
+            }
           }
         },
-        onDownloadProgress: (totalSize: number, transferredSize: number): void => {
-          total = totalSize;
-          if (onProgress !== undefined) {
-            onProgress(transferredSize, totalSize);
+        onDataReceive: (data: ArrayBuffer): void => {
+          if (!headerChecked) {
+            pendingChunks.push(data);
+            return;
+          }
+          writeChunk(data);
+        },
+        onDataEnd: (): void => {
+          // 始终未收到状态码的异常响应：半成品原样保留，视为失败
+          if (!headerChecked) {
+            failed = true;
+          }
+        },
+        onDownloadProgress: (totalSize: number, _transferredSize: number): void => {
+          if (total === 0 && totalSize > 0) {
+            // 未取到 Content-Range 时按本次响应推算总大小（续传时需叠加基线）
+            total = base + totalSize;
+            if (onProgress !== undefined) {
+              onProgress(written, total);
+            }
           }
         }
       };
@@ -167,7 +248,10 @@ export class HttpClient {
     }
     if (failed) {
       try {
-        fs.unlinkSync(toPath.startsWith('file://') ? toPath.substring('file://'.length) : toPath);
+        // 从头下载失败清理残留；续传失败保留半成品待下次重试
+        if (base === 0) {
+          fs.unlinkSync(target);
+        }
       } catch (e) {
         // 清理失败忽略
       }
