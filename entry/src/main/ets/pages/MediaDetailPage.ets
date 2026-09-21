@@ -680,7 +680,7 @@ export struct MediaDetailPage {
       titleBarOp: titleBarOf(this.isAlbum ? '专辑详情' : '歌手详情'),
       scroller: this.scroller,
       doubleTapToTop: true,
-      isShowPlayBar: appState.isBatchMode ? false : true,
+      isShowPlayBar: true,
       backPressed: (): boolean => {
         // 批量操作模式下返回键先退出批量模式
         if (appState.isBatchMode) {

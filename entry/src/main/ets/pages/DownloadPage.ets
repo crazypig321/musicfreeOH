@@ -1543,7 +1543,7 @@ export struct DownloadPage {
         this.titleMenus(),
         this.showSearchBox ?
           { builder: (): void => { this.SearchBuilder() } } : undefined),
-      isShowPlayBar: appState.isBatchMode ? false : true,
+      isShowPlayBar: true,
       doubleTapToTop: true,
       scroller: this.isLocalMode ? this.scrollerLocal : this.scroller,
       backPressed: (): boolean => {

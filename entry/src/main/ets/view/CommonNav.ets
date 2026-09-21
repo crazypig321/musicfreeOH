@@ -100,6 +100,9 @@ export struct CommonNav{
         .vertical(false)
         .scrollable(false)
         .barPosition(BarPosition.End)
+        // 批量操作模式下收起悬浮迷你条（悬浮样式默认高度 56vp；保持结构不变，
+        // 避免 if/else 分支切换整树重建导致列表滚动位置丢失）
+        .barHeight(appState.isBatchMode ? 0 : 56)
         .barFloatingStyle({
           barWidth: { smallWidth: 330, mediumWidth: 480, largeWidth: 560 },
           barBottomMargin: 28,
@@ -195,8 +198,11 @@ export struct CommonNav{
   playBar(){
     // 测量容器：填充 HdsTabs tabbar 槽位，捕获真实槽位尺寸传给 PlayBar 做一镜到底锚点
     Column() {
-      PlayBar({ isTwoPage: true, barSlotW: this.tabBarSlotW, barSlotH: this.tabBarSlotH })
-        .offset({ x: -5 })
+      // 批量操作模式下移除迷你条内容（barHeight 收起后槽位为 0，避免内容溢出绘制）
+      if (!appState.isBatchMode) {
+        PlayBar({ isTwoPage: true, barSlotW: this.tabBarSlotW, barSlotH: this.tabBarSlotH })
+          .offset({ x: -5 })
+      }
     }
     .width('100%')
     .height('100%')
