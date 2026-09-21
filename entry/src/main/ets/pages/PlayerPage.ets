@@ -1,7 +1,7 @@
 import { pasteboard } from '@kit.BasicServicesKit';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { AVCastPicker } from '@kit.AVSessionKit';
-import { MusicItem, QualityKey, QUALITY_KEYS } from '../common/model/MediaTypes';
+import { MusicItem, QualityKey, QUALITY_KEYS, LyricSource } from '../common/model/MediaTypes';
 import { CommentItem, CommentsResult } from '../common/model/SheetTypes';
 import { CommentDataSource } from '../common/model/CommentDataSource';
 import { PlayState, playerEngine } from '../core/PlayerEngine';
@@ -11,16 +11,36 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { lyricManager, LyricState } from '../core/LyricManager';
 import { ParsedLrcItem } from '../utils/LyricParser';
 import { MediaUtils } from '../utils/MediaUtils';
+import { MediaExtra } from '../core/MediaExtra';
 import { appState } from '../entryability/AppState';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { QueueSheet } from '../view/QueueSheet';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { pluginManager } from '../plugin/PluginManager';
 import { downloader } from '../core/Downloader';
-import { appConfig } from '../core/AppConfig';
+import { appConfig, ConfigKeys } from '../core/AppConfig';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
 import { DialogManager } from '../utils/DialogUtils';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
+
+/** 歌词字体大小档位标签与缩放（下标对应 appConfig lyric.fontSize） */
+const LYRIC_FONT_LABELS: Array<string> = ['小', '标准', '大', '特大'];
+const LYRIC_FONT_SCALES: Array<number> = [0.85, 1, 1.15, 1.3];
+
+/** 歌词模式操作按钮/面板行描述（ForEach 数据源） */
+class LyricAction {
+  icon: Resource;
+  label: string;
+  highlight: boolean;
+  onTap: () => void;
+
+  constructor(icon: Resource, label: string, onTap: () => void, highlight: boolean = false) {
+    this.icon = icon;
+    this.label = label;
+    this.onTap = onTap;
+    this.highlight = highlight;
+  }
+}
 
 /**
  * 全屏播放页（结构参考官方多设备音乐最佳实践）：
@@ -42,6 +62,10 @@ export struct PlayerPage {
   @Local lyrics: Array<ParsedLrcItem> = [];
   /** 是否含翻译 */
   @Local hasTranslation: boolean = false;
+  /** 翻译显示开关（含翻译时生效，持久化） */
+  @Local showTranslation: boolean = appConfig.getLyricShowTranslation();
+  /** 歌词字体大小档位（0 小 / 1 标准 / 2 大 / 3 特大，持久化） */
+  @Local lyricFontIndex: number = appConfig.getLyricFontSize();
   /** 歌词模式（点击封面或左滑进入，歌词区右滑返回封面） */
   @Local showLyric: boolean = false;
   /** 播放队列半模态 */
@@ -66,6 +90,14 @@ export struct PlayerPage {
   private commentsPage: number = 1;
   /** 评论请求序号：仅采纳最新一次请求的结果 */
   private commentsReqId: number = 0;
+  /** 当前歌词原文（复制/编辑歌词用） */
+  private lyricRawLrc: string = '';
+  /** 歌词「更多」半模态（复制/编辑歌词、悬浮歌词设置） */
+  @Local showLyricMore: boolean = false;
+  /** 编辑歌词半模态 */
+  @Local showLyricEditor: boolean = false;
+  /** 编辑歌词文本 */
+  @Local lyricEditText: string = '';
   private offCurrent: () => void = (): void => {
   };
   private offState: () => void = (): void => {
@@ -142,6 +174,7 @@ export struct PlayerPage {
     this.lyricLoading = state.loading;
     this.lyrics = state.lyrics;
     this.hasTranslation = state.hasTranslation;
+    this.lyricRawLrc = state.rawLrc;
   }
 
   /** 歌词行变化时自动居中滚动（歌词可见（歌词模式或分栏常驻）且用户未在手动滚动时） */
@@ -206,6 +239,164 @@ export struct PlayerPage {
   private isCurrentLyric(item: ParsedLrcItem): boolean {
     const current = this.currentLyric;
     return current !== null && current.index === item.index && current.time === item.time;
+  }
+
+  /** 歌词字体缩放系数 */
+  private lyricFontScale(): number {
+    const idx = this.lyricFontIndex;
+    return idx >= 0 && idx < LYRIC_FONT_SCALES.length ? LYRIC_FONT_SCALES[idx] : 1;
+  }
+
+  /** 歌词模式底部操作按钮列表 */
+  private lyricActionItems(): Array<LyricAction> {
+    const items: Array<LyricAction> = [];
+    items.push(new LyricAction($r('sys.symbol.clock'), '时间偏移', (): void => {
+      this.showLyricOffsetMenu();
+    }));
+    items.push(new LyricAction($r('sys.symbol.textformat'), '字体大小', (): void => {
+      this.showLyricFontMenu();
+    }));
+    items.push(new LyricAction($r('sys.symbol.magnifyingglass'), '搜索歌词', (): void => {
+      this.searchLyricForCurrent();
+    }));
+    items.push(new LyricAction($r('sys.symbol.translate'), '翻译', (): void => {
+      this.toggleTranslation();
+    }, this.showTranslation));
+    items.push(new LyricAction($r('sys.symbol.text_bubble_left_2'), '悬浮歌词', (): void => {
+      this.showToast('悬浮歌词暂不支持，敬请期待');
+    }));
+    items.push(new LyricAction($r('sys.symbol.ellipsis_circle'), '更多', (): void => {
+      this.showLyricMore = true;
+    }));
+    return items;
+  }
+
+  /** 歌词「更多」面板行列表 */
+  private lyricMoreItems(): Array<LyricAction> {
+    const items: Array<LyricAction> = [];
+    items.push(new LyricAction($r('sys.symbol.doc_filled_on_doc'), '复制歌词', (): void => {
+      this.copyLyric();
+    }));
+    items.push(new LyricAction($r('sys.symbol.square_and_pencil'), '编辑歌词', (): void => {
+      this.openLyricEditor();
+    }));
+    items.push(new LyricAction($r('sys.symbol.gearshape'), '悬浮歌词设置', (): void => {
+      this.showToast('悬浮歌词暂不支持，敬请期待');
+    }));
+    return items;
+  }
+
+  /** 时间偏移：±5s 步进 0.5s 滚轮选择，确定后立即生效并重新解析 */
+  private showLyricOffsetMenu(): void {
+    const current = this.currentMusic;
+    if (current === null) {
+      return;
+    }
+    const options: Array<string> = [];
+    for (let i = -10; i <= 10; i++) {
+      const v = i / 2;
+      options.push((v > 0 ? '+' : '') + v.toFixed(1) + 's');
+    }
+    const prop = MediaExtra.getMediaExtraProperty(current, 'lyricOffset');
+    const offset = typeof prop === 'number' ? prop : 0;
+    DialogManager.pickerTitle = '歌词时间偏移';
+    DialogManager.pickerOptions = options;
+    DialogManager.pickerIndex = Math.round(offset * 2) + 10;
+    DialogManager.pickerConfirm = (index: number): void => {
+      const newOffset = (index - 10) / 2;
+      if (newOffset === offset) {
+        return;
+      }
+      lyricManager.updateLyricOffset(current, newOffset);
+      this.showToast(newOffset === 0 ? '已恢复默认偏移' :
+        '歌词已偏移 ' + (newOffset > 0 ? '+' : '') + newOffset.toFixed(1) + 's');
+    };
+    DialogManager.OpenDialog('选择器');
+  }
+
+  /** 字体大小：滚轮选择档位（小/标准/大/特大） */
+  private showLyricFontMenu(): void {
+    DialogManager.pickerTitle = '歌词字体大小';
+    DialogManager.pickerOptions = LYRIC_FONT_LABELS;
+    DialogManager.pickerIndex = this.lyricFontIndex;
+    DialogManager.pickerConfirm = (index: number): void => {
+      if (index === this.lyricFontIndex) {
+        return;
+      }
+      this.lyricFontIndex = index;
+      appConfig.setConfig(ConfigKeys.LYRIC_FONT_SIZE, index);
+      this.showToast('字体大小：' + LYRIC_FONT_LABELS[index]);
+    };
+    DialogManager.OpenDialog('选择器');
+  }
+
+  /** 翻译显示开关（持久化） */
+  private toggleTranslation(): void {
+    this.showTranslation = !this.showTranslation;
+    appConfig.setConfig(ConfigKeys.LYRIC_SHOW_TRANSLATION, this.showTranslation);
+    this.showToast(this.showTranslation ? '已显示翻译' : '已隐藏翻译');
+  }
+
+  /** 搜索歌词：重新拉取当前歌曲歌词并刷新展示 */
+  private searchLyricForCurrent(): void {
+    const current = this.currentMusic;
+    if (current === null) {
+      return;
+    }
+    const plugin = pluginManager.getByMedia(current);
+    if (plugin === null) {
+      this.showToast('无可用插件');
+      return;
+    }
+    this.showToast('正在搜索歌词…');
+    plugin.methods.getLyric(current).then((lyric: LyricSource | null): void => {
+      if (lyric !== null && !lyric.isEmpty()) {
+        lyricManager.reloadLyric();
+        this.showToast('歌词已更新');
+      } else {
+        this.showToast('未找到歌词');
+      }
+    }).catch((_e: Object): void => {
+      this.showToast('歌词获取失败');
+    });
+  }
+
+  /** 复制歌词原文到剪贴板 */
+  private copyLyric(): void {
+    const text = this.lyricRawLrc;
+    if (text.length === 0) {
+      this.showToast('暂无歌词');
+      return;
+    }
+    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
+    pasteboard.getSystemPasteboard().setData(data).then((): void => {
+      this.showToast('已复制歌词');
+    }).catch((_e: Object): void => {
+      this.showToast('复制失败');
+    });
+  }
+
+  /** 打开编辑歌词面板（预填当前歌词原文） */
+  private openLyricEditor(): void {
+    this.lyricEditText = this.lyricRawLrc;
+    this.showLyricEditor = true;
+  }
+
+  /** 保存编辑的歌词：写入本地歌词并立即刷新 */
+  private saveLyricEditor(): void {
+    const current = this.currentMusic;
+    if (current === null) {
+      return;
+    }
+    const text = this.lyricEditText.trim();
+    if (text.length === 0) {
+      this.showToast('歌词内容不能为空');
+      return;
+    }
+    lyricManager.uploadLocalLyric(current, text, 'raw').then((): void => {
+      this.showLyricEditor = false;
+      this.showToast('歌词已更新');
+    });
   }
 
   private refreshFavorite(): void {
@@ -543,22 +734,52 @@ export struct PlayerPage {
           })
         }
 
-        // 评论半模态挂载点（独立锚点，避免与队列 bindSheet 冲突）
-        Column()
-          .width(0)
-          .height(0)
-          .bindSheet(!!this.showComments, this.CommentsSheetBuilder(), {
-            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-            dragBar: true,
-            backgroundColor: $r('sys.color.background_secondary'),
-            onWillDisappear: () => {
-              this.showComments = false;
-              appState.isForegroundBlur = false;
-            },
-            onWillAppear: () => {
-              appState.isForegroundBlur = true;
-            }
-          })
+      // 评论半模态挂载点（独立锚点，避免与队列 bindSheet 冲突）
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet(!!this.showComments, this.CommentsSheetBuilder(), {
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          dragBar: true,
+          backgroundColor: $r('sys.color.background_secondary'),
+          onWillDisappear: () => {
+            this.showComments = false;
+            appState.isForegroundBlur = false;
+          },
+          onWillAppear: () => {
+            appState.isForegroundBlur = true;
+          }
+        })
+
+      // 歌词操作半模态挂载点（更多按钮弹出）
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet(!!this.showLyricMore, this.LyricMoreSheetBuilder(), {
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM],
+          dragBar: true,
+          backgroundColor: $r('sys.color.background_secondary'),
+          onWillDisappear: () => {
+            this.showLyricMore = false;
+            appState.isForegroundBlur = false;
+          },
+          onWillAppear: () => {
+            appState.isForegroundBlur = true;
+          }
+        })
+
+      // 编辑歌词半模态挂载点（二级半模态，不重复设背景模糊）
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet(!!this.showLyricEditor, this.LyricEditorSheetBuilder(), {
+          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          dragBar: true,
+          backgroundColor: $r('sys.color.background_secondary'),
+          onWillDisappear: () => {
+            this.showLyricEditor = false;
+          }
+        })
       }
     .width('100%')
     .height('100%')
@@ -605,7 +826,12 @@ export struct PlayerPage {
       }
       this.ProgressArea(1)
       this.ControlsRow(1)
-      this.BottomActions(1)
+      // 封面模式：歌曲功能按钮；歌词模式：歌词操作按钮
+      if (!this.showLyric) {
+        this.BottomActions(1)
+      } else {
+        this.LyricActions(1)
+      }
     }
     .width('100%')
     .height('100%')
@@ -635,9 +861,10 @@ export struct PlayerPage {
         .layoutWeight(1)
         .height('100%')
 
-        // 右侧：歌词常驻滚动（当前行自动居中）
+        // 右侧：歌词常驻滚动（当前行自动居中）+ 底部歌词操作按钮排（与左侧功能按钮排底部对齐）
         Column() {
           this.LyricArea()
+          this.LyricActions(this.uiScale())
         }
         .layoutWeight(1)
         .height('100%')
@@ -865,15 +1092,17 @@ export struct PlayerPage {
             ListItem() {
               Column({ space: 4 }) {
                 Text(item.lrc)
-                  .fontSize(this.isCurrentLyric(item) ? 18 : 16)
-                  .fontWeight(this.isCurrentLyric(item) ? FontWeight.Bold : FontWeight.Normal)
-                  .fontColor(this.isCurrentLyric(item) ?
-                    appState.accentColor : $r('sys.color.font_secondary'))
-                  .maxLines(2)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                if (this.hasTranslation && item.translation.length > 0) {
+                .fontSize(this.isCurrentLyric(item) ?
+                  Math.round(18 * this.lyricFontScale()) : Math.round(16 * this.lyricFontScale()))
+                .fontWeight(this.isCurrentLyric(item) ? FontWeight.Bold : FontWeight.Normal)
+                .fontColor(this.isCurrentLyric(item) ?
+                  appState.accentColor : $r('sys.color.font_secondary'))
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                if (this.showTranslation && this.hasTranslation && item.translation.length > 0) {
                   Text(item.translation)
-                    .fontSize(this.isCurrentLyric(item) ? 14 : 12)
+                    .fontSize(this.isCurrentLyric(item) ?
+                      Math.round(14 * this.lyricFontScale()) : Math.round(12 * this.lyricFontScale()))
                     .fontColor(this.isCurrentLyric(item) ?
                       $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
                     .maxLines(2)
@@ -1190,6 +1419,127 @@ export struct PlayerPage {
     .alignItems(VerticalAlign.Center)
     .padding({ left: 4, right: 4 })
     .margin({ top: this.compactGap(25) })
+  }
+
+  /** 歌词模式底部操作：时间偏移 / 字体大小 / 搜索歌词 / 翻译 / 悬浮歌词 / 更多（s：分栏缩放系数，样式同 BottomActions） */
+  @Builder
+  LyricActions(s: number) {
+    Row() {
+      ForEach(this.lyricActionItems(), (item: LyricAction) => {
+        Column({ space: Math.max(3, Math.round(5 * s)) }) {
+          SymbolGlyph(item.icon)
+            .fontSize(Math.max(20, Math.round(24 * s)))
+            .fontColor([item.highlight ?
+              appState.accentColor : $r('sys.color.icon_secondary')])
+          Text(item.label)
+            .fontSize(Math.max(9, Math.round(10 * s)))
+            .fontColor(item.highlight ?
+              appState.accentColor : $r('sys.color.font_secondary'))
+        }
+        .alignItems(HorizontalAlign.Center)
+        .onClick(() => {
+          item.onTap();
+        })
+      }, (item: LyricAction) => item.label + (item.highlight ? '_on' : '_off'))
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceBetween)
+    .alignItems(VerticalAlign.Center)
+    .padding({ left: 4, right: 4 })
+    .margin({ top: this.compactGap(25) })
+    .transition(TransitionEffect.OPACITY)
+  }
+
+  /** 歌词「更多」半模态：复制歌词 / 编辑歌词 / 悬浮歌词设置（行样式同歌曲操作面板） */
+  @Builder
+  LyricMoreSheetBuilder() {
+    Column() {
+      Text('歌词操作')
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ top: 4, bottom: 4 })
+      List() {
+        ForEach(this.lyricMoreItems(), (item: LyricAction) => {
+          ListItem() {
+            Row({ space: 12 }) {
+              SymbolGlyph(item.icon)
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+              Text(item.label)
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+              Blank()
+            }
+            .width('100%')
+            .height(48)
+            .onClick(() => {
+              item.onTap();
+            })
+          }
+        }, (item: LyricAction) => item.label)
+      }
+      .width('100%')
+      .divider({
+        strokeWidth: 0.5,
+        color: $r('sys.color.comp_divider'),
+        startMargin: 0,
+        endMargin: 0
+      })
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 编辑歌词半模态：多行编辑 + 保存/取消 */
+  @Builder
+  LyricEditorSheetBuilder() {
+    Column() {
+      Text('编辑歌词')
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ top: 4, bottom: 12 })
+      TextArea({ text: this.lyricEditText, placeholder: '输入 LRC 歌词文本' })
+        .width('100%')
+        .constraintSize({ minHeight: 200, maxHeight: 320 })
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(10)
+        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+        .alignSelf(ItemAlign.Start)
+        .onChange((v: string): void => {
+          this.lyricEditText = v;
+        })
+      Row({ space: 12 }) {
+        Button('取消')
+          .layoutWeight(1)
+          .height(40)
+          .fontSize(15)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .fontColor($r('sys.color.font_primary'))
+          .onClick(() => {
+            this.showLyricEditor = false;
+          })
+        Button('保存')
+          .layoutWeight(1)
+          .height(40)
+          .fontSize(15)
+          .onClick(() => {
+            this.saveLyricEditor();
+          })
+      }
+      .width('100%')
+      .margin({ top: 16 })
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder

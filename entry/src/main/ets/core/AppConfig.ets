@@ -32,6 +32,8 @@ export class ConfigKeys {
   static readonly LAZY_LOAD_PLUGIN = 'basic.lazyLoadPlugin';
   static readonly TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL = 'basic.tryChangeSourceWhenPlayFail';
   static readonly LYRIC_AUTO_SEARCH_LYRIC = 'lyric.autoSearchLyric';
+  static readonly LYRIC_FONT_SIZE = 'lyric.fontSize';
+  static readonly LYRIC_SHOW_TRANSLATION = 'lyric.showTranslation';
   static readonly LOCAL_MUSIC_AUTO_MATCH_COVER = 'localMusic.autoMatchCover';
   static readonly BACKUP_RESUME_MODE = 'backup.resumeMode';
   static readonly APPEARANCE_THEME_COLOR = 'appearance.themeColor';
@@ -238,6 +240,17 @@ export class AppConfig {
 
   getLyricAutoSearchLyric(): boolean {
     return this.getBoolean(ConfigKeys.LYRIC_AUTO_SEARCH_LYRIC, true);
+  }
+
+  /** 歌词字体大小档位：0 小 / 1 标准 / 2 大 / 3 特大（默认标准） */
+  getLyricFontSize(): number {
+    const v = this.getNumber(ConfigKeys.LYRIC_FONT_SIZE, 1);
+    return v >= 0 && v <= 3 ? v : 1;
+  }
+
+  /** 歌词翻译显示开关（默认开启） */
+  getLyricShowTranslation(): boolean {
+    return this.getBoolean(ConfigKeys.LYRIC_SHOW_TRANSLATION, true);
   }
 
   getDownloadPath(): string {

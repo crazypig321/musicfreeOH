@@ -65,7 +65,7 @@ export struct CommonSearch{
   /** 本实例的焦点定位 id */
   private myFocusId: string = ''
 
-  @Event submit: () => void
+  @Event submit: (searchContent: string, event: SubmitEvent) => void
   @Event change: (value: string) => void
   @Event click: () => void
   @Event didDelete: () => void
@@ -97,29 +97,21 @@ export struct CommonSearch{
       .placeholderColor($r('sys.color.font_tertiary'))
       .placeholderFont({ size: 14, weight: 400 })
       .textFont({ size: 14, weight: 400 })
-      .onSubmit(() => {// 键盘回车或者搜索按钮触发回调
-        this.submit()
-        // 出搜索结果后收起软键盘，不重新呼出
-        try {
-          setTimeout(()=>{
-            this.getUIContext().getFocusController().clearFocus()
-          }, 200)
-        } catch (e) {
-          // 焦点控制器不可用时忽略
-        }
+      .onSubmit((searchContent: string, event: SubmitEvent) => {// 键盘回车或者搜索按钮触发回调
+        this.submit(searchContent, event)
       })
       .onChange((value: string) => {
         if (value.length > 0) {
           this.change(value)
-        }else{
-
         }
       })
       .onClick(()=>{
         this.click()
       })
-      .onDidDelete(()=>{
-        this.didDelete()
+      .onDidDelete((e: DeleteValue)=>{
+        if (e.deleteOffset === 0) {
+          this.didDelete()
+        }
       })
       .focusable(this.isFocusable)// 无法获焦则无法呼出软键盘
       .defaultFocus(this.isFocusable)

@@ -21,6 +21,8 @@ export class LyricState {
   lyrics: Array<ParsedLrcItem> = [];
   hasTranslation: boolean = false;
   meta: JsonRecord = {};
+  /** 歌词原文（复制/编辑歌词用） */
+  rawLrc: string = '';
 }
 
 /** 歌词状态变化事件 */
@@ -161,6 +163,11 @@ export class LyricManager {
     }
   }
 
+  /** 强制重新加载当前歌曲歌词（搜索歌词/编辑歌词/偏移调整后调用） */
+  reloadLyric(): void {
+    this.refreshLyric(false, false);
+  }
+
   private setLyricState(state: LyricState): void {
     this.lyricStateInternal = state;
     const ev = new LyricStateChangedEvent();
@@ -246,6 +253,7 @@ export class LyricManager {
       state.lyrics = this.lyricParser.getLyricItems();
       state.hasTranslation = lrcSource.translation.length > 0;
       state.meta = this.lyricParser.getMeta();
+      state.rawLrc = lrcSource.rawLrc;
       this.setLyricState(state);
 
       const items = this.lyricParser.getLyricItems();
