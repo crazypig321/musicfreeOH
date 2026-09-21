@@ -1459,7 +1459,7 @@ export struct PlayerPage {
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .margin({ top: 4, bottom: 4 })
+        .margin({ top: 12, bottom: 4 })
       List() {
         ForEach(this.lyricMoreItems(), (item: LyricAction) => {
           ListItem() {
@@ -1481,13 +1481,14 @@ export struct PlayerPage {
         }, (item: LyricAction) => item.label)
       }
       .width('100%')
-      .divider({
+      .margin({ top: 16 })
+     /* .divider({
         strokeWidth: 0.5,
         color: $r('sys.color.comp_divider'),
         startMargin: 0,
         endMargin: 0
       })
-    }
+*/    }
     .width('100%')
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)

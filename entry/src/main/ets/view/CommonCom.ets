@@ -57,6 +57,7 @@ export struct CommonSearch{
   private controller: SearchController = new SearchController()
   @Param searchValue: string = ''
   @Param placeholderValue: ResourceStr = ''
+  @Param isCloseKeyboard: boolean = false
   @Param isFocusable: boolean = true
   /** 挂载后自动请求焦点并呼出软键盘（用于点击标题栏搜索按钮后展开的场景） */
   @Param autoFocus: boolean = false
@@ -99,6 +100,9 @@ export struct CommonSearch{
       .textFont({ size: 14, weight: 400 })
       .onSubmit((searchContent: string, event: SubmitEvent) => {// 键盘回车或者搜索按钮触发回调
         this.submit(searchContent, event)
+        if (!this.isCloseKeyboard) {
+          event.keepEditableState()
+        }
       })
       .onChange((value: string) => {
         if (value.length > 0) {

@@ -665,6 +665,7 @@ export struct SearchPage {
       CommonSearch({
         searchValue: this.keyword,
         placeholderValue: $r('app.string.home_search_placeholder'),
+        isCloseKeyboard: true,
         change: (v) => {
           this.keyword = v;
         },
