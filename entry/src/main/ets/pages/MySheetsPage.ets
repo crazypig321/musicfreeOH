@@ -21,6 +21,7 @@ import { DialogManager } from '../utils/DialogUtils';
 
 /** 添加菜单锚点 id（openMenu 在锚点处弹出） */
 const ADD_ANCHOR_ID = 'mysheets_add_anchor';
+const MORE_ANCHOR_ID = 'mysheets_more_anchor';
 
 /** 我的歌单页条目 */
 interface SheetRow {
@@ -73,6 +74,9 @@ export struct MySheetsPage {
   @Local searchKeyword: string = '';
   /** 搜索框实时输入内容（未提交，不参与过滤） */
   @Local searchInput: string = '';
+  /** 歌单排序半模态（默认歌单固定首位，仅排序其余歌单） */
+  @Local showSortSheet: boolean = false;
+  @Local sortSheetIds: Array<string> = [];
   /** 当前所处 tab 序号（由 Index 传入，切走时收起搜索框） */
   @Param hostTabIndex: number = 1;
 
@@ -200,14 +204,36 @@ export struct MySheetsPage {
     };
     const batch: HdsNavigationMenuItemOptions = {
       content: {
-        icon: $r('sys.symbol.list_checkmask'),
+        icon: $r('sys.symbol.dot_grid_2x2'),
         label: '批量操作',
         action: (): void => {
-          this.enterBatchMode();
+          this.openMoreMenu()
         }
       }
     };
     return [add, search, batch];
+  }
+
+  private openMoreMenu(): void {
+    const batchItem = new MenuItemParams();
+    batchItem.icon = $r('sys.symbol.arrow_clockwise');
+    batchItem.label = '批量操作';
+    batchItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        this.enterBatchMode();
+      });
+    };
+    const sortItem = new MenuItemParams();
+    sortItem.icon = $r('sys.symbol.line_3_horizontal');
+    sortItem.label = '歌单排序';
+    sortItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        this.openSortSheet()
+      });
+    };
+    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [batchItem, sortItem], {
+      placement: Placement.BottomRight
+    });
   }
 
   private runMenuAction(action: () => void): void {
@@ -244,7 +270,15 @@ export struct MySheetsPage {
         this.openImportSheet(true);
       });
     };
-    MenuUtils.Open(this.getUIContext(), ADD_ANCHOR_ID, [newItem, importSheetItem, importMusicItem], {
+    const sortItem = new MenuItemParams();
+    sortItem.icon = $r('sys.symbol.line_3_horizontal');
+    sortItem.label = '歌单排序';
+    sortItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        this.openSortSheet();
+      });
+    };
+    MenuUtils.Open(this.getUIContext(), ADD_ANCHOR_ID, [newItem, importSheetItem, importMusicItem, sortItem], {
       placement: Placement.BottomRight
     });
   }
@@ -494,6 +528,14 @@ export struct MySheetsPage {
           onAction: (): void => {
             this.openEditSheet(row);
           }
+        },
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.arrow_left_arrow_right'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.editRowSort(row);
+          }
         }
       ],
       deleteIconOptions: {
@@ -538,6 +580,100 @@ export struct MySheetsPage {
       musicSheet.removeSheet(row.id);
       this.showToast('已删除「' + row.title + '」');
     });
+  }
+
+  /** 收集可排序歌单 id（排除默认歌单，保持当前顺序） */
+  private collectSortableSheetIds(): Array<string> {
+    const ids: Array<string> = [];
+    for (const sheet of musicSheet.sheets) {
+      if (sheet.id !== musicSheet.defaultSheet.id) {
+        ids.push(sheet.id);
+      }
+    }
+    return ids;
+  }
+
+  /** 歌单排序标题（按 id 查找） */
+  private sortSheetTitle(id: string): string {
+    for (const sheet of musicSheet.sheets) {
+      if (sheet.id === id) {
+        return sheet.title;
+      }
+    }
+    return '';
+  }
+
+  /** 打开歌单排序半模态 */
+  private openSortSheet(): void {
+    if (appState.isBatchMode) {
+      this.exitBatchMode();
+    }
+    const ids = this.collectSortableSheetIds();
+    if (ids.length === 0) {
+      this.showToast('暂无可排序的歌单');
+      return;
+    }
+    this.sortSheetIds = ids;
+    this.showSortSheet = true;
+  }
+
+  private moveSortItem(index: number, delta: number): void {
+    const target = index + delta;
+    if (index < 0 || index >= this.sortSheetIds.length || target < 0 || target >= this.sortSheetIds.length) {
+      return;
+    }
+    const ids = this.sortSheetIds.slice();
+    const tmp = ids[index];
+    ids[index] = ids[target];
+    ids[target] = tmp;
+    this.sortSheetIds = ids;
+  }
+
+  /** 打开「跳转排序」弹窗：将当前条目直接移动到输入的序号位置 */
+  private openSortJump(index: number): void {
+    DialogManager.sortJumpValue = (index + 1).toString();
+    DialogManager.sortJumpMax = this.sortSheetIds.length;
+    DialogManager.sortJumpConfirm = (target: number): void => {
+      this.moveSortItemTo(index, target);
+    };
+    DialogManager.OpenDialog('跳转排序');
+  }
+
+  /** 将排序条目从 from 移动到 to（0 基索引） */
+  private moveSortItemTo(from: number, to: number): void {
+    if (from === to || from < 0 || from >= this.sortSheetIds.length ||
+      to < 0 || to >= this.sortSheetIds.length) {
+      return;
+    }
+    const ids = this.sortSheetIds.slice();
+    const item = ids.splice(from, 1)[0];
+    ids.splice(to, 0, item);
+    this.sortSheetIds = ids;
+    this.showToast('已移动到第 ' + (to + 1).toString() + ' 位');
+  }
+
+  private saveSortOrder(): void {
+    musicSheet.setSheetOrder(this.sortSheetIds);
+    this.showSortSheet = false;
+    this.showToast('歌单排序已保存');
+  }
+
+  /** 行内排序：弹「跳转排序」对话框，确认后直接改序并保存 */
+  private editRowSort(row: SheetRow): void {
+    const ids = this.collectSortableSheetIds();
+    const index = ids.indexOf(row.id);
+    if (index < 0) {
+      this.showToast('默认歌单不支持排序');
+      return;
+    }
+    this.sortSheetIds = ids;
+    DialogManager.sortJumpValue = (index + 1).toString();
+    DialogManager.sortJumpMax = ids.length;
+    DialogManager.sortJumpConfirm = (target: number): void => {
+      this.moveSortItemTo(index, target);
+      this.saveSortOrder();
+    };
+    DialogManager.OpenDialog('跳转排序');
   }
 
   /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出；显式动画包裹避免突兀） */
@@ -792,10 +928,30 @@ export struct MySheetsPage {
             }
           })
 
+        // 歌单排序半模态锚点（独立节点挂载半模态，不与新建/编辑 sheet 共用宿主）
+        Column()
+          .width('100%')
+          .height(0)
+          .bindSheet(!!this.showSortSheet, this.SortSheetBuilder(), {
+            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            dragBar: true,
+            onWillDisappear: () => {
+              this.showSortSheet = false;
+              appState.isForegroundBlur = false
+            },
+            onWillAppear: () => {
+              appState.isForegroundBlur = true
+            }
+          })
+
         // 添加菜单锚点（标题栏下方右上角，菜单在锚点处弹出；导入半模态挂载于此）
         Row() {
           Column()
             .id(ADD_ANCHOR_ID)
+            .width(24)
+            .height(24)
+          Column()
+            .id(MORE_ANCHOR_ID)
             .width(24)
             .height(24)
         }
@@ -911,6 +1067,7 @@ export struct MySheetsPage {
     CommonSearch({
       searchValue: this.searchInput,
       placeholderValue: '搜索歌单名称或简介',
+      autoFocus: true,
       submit: (): void => {
         this.searchKeyword = this.searchInput.trim();
       },
@@ -1019,6 +1176,76 @@ export struct MySheetsPage {
         })
     }
     .width('100%')
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 歌单排序半模态：上移/下移/跳转，保存后生效（默认歌单固定首位，不参与排序） */
+  @Builder
+  SortSheetBuilder() {
+    Column() {
+      Text('歌单排序')
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ top: 4, bottom: 8 })
+      List() {
+        ForEach(this.sortSheetIds, (id: string, index: number) => {
+          ListItem() {
+            Row({ space: 12 }) {
+              Text((index + 1).toString())
+                .fontSize(13)
+                .fontColor($r('sys.color.font_tertiary'))
+                .width(20)
+                .textAlign(TextAlign.Center)
+              Text(this.sortSheetTitle(id))
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .layoutWeight(1)
+
+              ForEach([$r('sys.symbol.chevron_up'), $r('sys.symbol.chevron_down'), $r('sys.symbol.arrow_left_arrow_right')],(v: Resource, i: number)=>{
+                SymbolGlyph(v)
+                  .fontSize(18)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                  .onClick(() => {
+                    if (i === 0) {// 上移
+                      this.moveSortItem(index, -1);
+                    }else if (i === 1) {// 下移
+                      this.moveSortItem(index, 1);
+                    }else{// 跳转
+                      this.openSortJump(index);
+                    }
+                  })
+              })
+            }
+            .width('100%')
+            .height(52)
+          }
+        }, (id: string, index: number) => id + '_' + index.toString())
+      }
+      .divider({
+        strokeWidth: 0.5,
+        color: $r('sys.color.comp_divider'),
+      })
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .margin({ top: 4 })
+      Button('保存排序')
+        .width('100%')
+        .height(42)
+        .fontSize(15)
+        .margin({ top: 12 })
+        .backgroundColor(appState.accentColor)
+        .onClick(() => {
+          this.saveSortOrder();
+        })
+    }
+    .width('100%')
+    .height('100%')
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }

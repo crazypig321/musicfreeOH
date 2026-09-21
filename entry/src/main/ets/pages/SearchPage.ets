@@ -20,6 +20,7 @@ import { appState } from '../entryability/AppState';
 import { CommonSearch } from '../view/CommonCom';
 import { KVStore } from '../infra/KVStore';
 import { JsonUtil } from '../common/JsonUtil';
+import { BottomBuilderShowType } from '@kit.UIDesignKit';
 
 /** 搜索结果不足以铺满首屏时自动续拉的阈值 */
 const AUTO_LOAD_MORE_THRESHOLD = 30;
@@ -100,10 +101,17 @@ export struct SearchPage {
     return t !== undefined ? t : SupportMediaType.Music;
   }
 
+  /** 插件是否支持指定类型搜索（supportedSearchType 为空视为全类型支持，与 PluginManager 口径一致） */
+  private static supportsType(p: Plugin, type: SupportMediaType): boolean {
+    return p.instanceInfo === null || p.instanceInfo.supportedSearchType.length === 0 ||
+      p.instanceInfo.supportedSearchType.indexOf(type) !== -1;
+  }
+
   private refreshPlugins(): void {
-    // 记住当前选中插件名，列表按分类重建后按名称找回其位置（找不到则回到「全部」）
+    // 插件标签列表不按分类过滤（保持跨分类恒定），选中插件按名称跨分类保持；
+    // 分类支持性在搜索时按插件各自判断，避免声明不全的插件在切分类后被挤出列表
     const prevName = this.selectedPluginName;
-    const plugins = pluginManager.getSortedSearchablePlugins(this.currentType());
+    const plugins = pluginManager.getSortedSearchablePlugins();
     this.searchPlugins = plugins;
     const names: Array<string> = ['全部'];
     for (const p of plugins) {
@@ -168,13 +176,9 @@ export struct SearchPage {
     this.resultCount = 0;
     this.searchStatus = '搜索中...';
     if (this.selectedPluginIndex === 0) {
-      // 全部源：重置各插件分页状态后并行搜索
+      // 全部源：清空分页状态，由 fetchAllRound 重建（不支持当前分类的插件直接标记结束）
       this.allPages = [];
       this.allEnds = [];
-      for (let i = 0; i < this.searchPlugins.length; i++) {
-        this.allPages.push(0);
-        this.allEnds.push(false);
-      }
       this.fetchAllRound(kw);
       return;
     }
@@ -272,12 +276,13 @@ export struct SearchPage {
    */
   private fetchAllRound(kw: string): void {
     const plugins = this.searchPlugins;
+    const type = this.currentType();
     if (this.allPages.length !== plugins.length) {
       this.allPages = [];
       this.allEnds = [];
       for (let i = 0; i < plugins.length; i++) {
         this.allPages.push(0);
-        this.allEnds.push(false);
+        this.allEnds.push(!SearchPage.supportsType(plugins[i], type));
       }
     }
     let pending = 0;
@@ -290,6 +295,9 @@ export struct SearchPage {
       this.searching = false;
       this.loadingMore = false;
       this.isEnd = true;
+      if (this.resultCount === 0) {
+        this.searchStatus = '未找到相关结果';
+      }
       return;
     }
     this.pendingCount = pending;
@@ -299,7 +307,7 @@ export struct SearchPage {
       }
       const idx = i;
       const nextPage = this.allPages[idx] + 1;
-      SearchPage.searchWithTimeout(plugins[idx], kw, nextPage, this.currentType(), SEARCH_TIMEOUT_MS)
+      SearchPage.searchWithTimeout(plugins[idx], kw, nextPage, type, SEARCH_TIMEOUT_MS)
         .then((r: SearchResult): void => {
           this.allPages[idx] = nextPage;
           this.allEnds[idx] = r.isEnd;
@@ -507,21 +515,18 @@ export struct SearchPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf($r('app.string.search_title'), undefined, undefined, { builder: (): void => {this.SearchBarBuilder()} }),
+      titleBarOp: titleBarOf($r('app.string.search_title'), undefined, undefined,
+        { builder: (): void => { this.SearchBarBuilder() }, height: this.hasSearched ? 140 : 80 }),
       isShowPlayBar: false,
       scroller: this.scroller,
       doubleTapToTop: true,
+      isSearchBarScroller: false,
       backPressed: (): boolean => false
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller }) {
           ListItem() {
             Column() {
-              this.PluginSelectorBuilder()
-              // 分类标签条（搜索后出现）
-              if (this.hasSearched) {
-                this.CategoryTabsBuilder()
-              }
               if (this.searchStatus.length > 0) {
                 Text(this.searchStatus)
                   .fontSize(12)
@@ -599,7 +604,7 @@ export struct SearchPage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .contentStartOffset(appState.topRect + 110)
+      .contentStartOffset(this.hasSearched ? 235 : appState.topRect + 160)
       .contentEndOffset(appState.bottomRect)
       .padding({ left: 16, right: 16 })
       .onReachEnd(() => {
@@ -622,20 +627,31 @@ export struct SearchPage {
 
   @Builder
   SearchBarBuilder() {
-    CommonSearch({
-      searchValue: this.keyword,
-      placeholderValue: $r('app.string.home_search_placeholder'),
-      change: (v) => {
-        this.keyword = v;
-      },
-      submit: () => {
-        this.doSearch();
-      },
-      didDelete: ()=>{
-        // 清除键：清空输入与结果，回到搜索前状态（恢复历史词展示）
-        this.resetSearch()
+    Column(){
+      CommonSearch({
+        searchValue: this.keyword,
+        placeholderValue: $r('app.string.home_search_placeholder'),
+        change: (v) => {
+          this.keyword = v;
+        },
+        submit: () => {
+          this.doSearch();
+        },
+        didDelete: ()=>{
+          // 清除键：清空输入与结果，回到搜索前状态（恢复历史词展示）
+          this.resetSearch()
+        }
+      })
+
+      this.PluginSelectorBuilder()
+
+      // 分类标签条（搜索后出现）
+      if (this.hasSearched) {
+      this.CategoryTabsBuilder()
       }
-    }).padding({ left: 16, right: 16 })
+    }.padding({ left: 16, right: 16 })
+    .width('100%')
+    .height('100%')
   }
 
   /** 历史搜索词区块：标题 + 清空按钮 + 词标签 */
@@ -706,6 +722,7 @@ export struct SearchPage {
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .width('100%')
+      .height(36)
       .margin({ top: 10 })
     } else {
       Text('无可用音乐插件，请先在「插件管理」中安装并启用')

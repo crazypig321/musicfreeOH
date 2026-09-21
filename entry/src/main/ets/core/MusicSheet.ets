@@ -276,6 +276,34 @@ export class MusicSheet {
     return Promise.resolve();
   }
 
+  /** 调整歌单顺序（orderedIds 为非默认歌单的新顺序；默认歌单固定首位，未列出的歌单按原顺序追加） */
+  setSheetOrder(orderedIds: Array<string>): void {
+    if (this.sheets.length === 0) {
+      return;
+    }
+    const defaultSheet = this.sheets[0];
+    const byId = new Map<string, SheetItem>();
+    for (const s of this.sheets) {
+      byId.set(s.id, s);
+    }
+    const newSheets: Array<SheetItem> = [defaultSheet];
+    for (const id of orderedIds) {
+      const s = byId.get(id);
+      if (s !== undefined && s.id !== defaultSheet.id) {
+        newSheets.push(s);
+        byId.delete(id);
+      }
+    }
+    for (const s of this.sheets) {
+      if (s.id !== defaultSheet.id && byId.has(s.id)) {
+        newSheets.push(s);
+      }
+    }
+    this.sheets = newSheets;
+    MusicSheetStorage.setSheets(newSheets);
+    this.emitSheetBasicUpdated(defaultSheet.id);
+  }
+
   /** 添加音乐到歌单 */
   addMusic(sheetId: string, musicItem: MusicItem | Array<MusicItem>): Promise<void> {
     const musicList = this.musicListMap.get(sheetId);

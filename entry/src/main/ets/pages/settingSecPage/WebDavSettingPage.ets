@@ -243,21 +243,39 @@ export struct WebDavSettingPage {
               Divider()
                 .DividerStyle('do')
 
-              // 退出应用前自动备份
+              // 退出应用前自动备份（智感握姿左手：开关镜像到行首，文本右对齐，图标镜像到行尾）
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoBackupOnExit })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoBackupOnExit = isOn;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_AUTO_BACKUP_ON_EXIT, isOn);
+                    })
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
                 Text('退出时自动备份')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
-                Toggle({ type: ToggleType.Switch, isOn: this.autoBackupOnExit })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.autoBackupOnExit = isOn;
-                    appConfig.setConfig(ConfigKeys.WEBDAV_AUTO_BACKUP_ON_EXIT, isOn);
-                  })
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoBackupOnExit })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoBackupOnExit = isOn;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_AUTO_BACKUP_ON_EXIT, isOn);
+                    })
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
               }
               .width('100%')
               .height(52)

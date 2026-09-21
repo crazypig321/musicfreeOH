@@ -727,7 +727,7 @@ export struct PluginPage {
     const options: HdsSwipeActionOptions = {
       icons: [
         {
-          icon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil'))
+          icon: new SymbolGlyphModifier($r('sys.symbol.arrow_left_arrow_right'))
             .fontColor([Color.White]).fontSize(20),
           backgroundColor: appState.accentColor,
           onAction: (): void => {
@@ -807,7 +807,7 @@ export struct PluginPage {
     };
     const more: HdsNavigationMenuItemOptions = {
       content: {
-        icon: $r('sys.symbol.ellipsis_circle'),
+        icon: $r('sys.symbol.dot_grid_2x2'),
         label: '菜单',
         action: (): void => {
           this.openMoreMenu();
@@ -1210,6 +1210,7 @@ export struct PluginPage {
     CommonSearch({
       searchValue: this.searchInput,
       placeholderValue: '搜索插件名称或作者',
+      autoFocus: true,
       submit: (): void => {
         this.searchKeyword = this.searchInput.trim();
       },

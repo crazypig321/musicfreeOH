@@ -58,14 +58,36 @@ export struct CommonSearch{
   @Param searchValue: string = ''
   @Param placeholderValue: ResourceStr = ''
   @Param isFocusable: boolean = true
+  /** 挂载后自动请求焦点并呼出软键盘（用于点击标题栏搜索按钮后展开的场景） */
+  @Param autoFocus: boolean = false
+  /** 组件 id 序列（为每个实例生成唯一 id，供 requestFocus 定位） */
+  private static focusIdSeq: number = 0
+  /** 本实例的焦点定位 id */
+  private myFocusId: string = ''
 
   @Event submit: () => void
   @Event change: (value: string) => void
   @Event click: () => void
   @Event didDelete: () => void
 
+  aboutToAppear(): void {
+    CommonSearch.focusIdSeq++;
+    this.myFocusId = 'common_search_' + CommonSearch.focusIdSeq.toString();
+    if (this.autoFocus) {
+      // 延迟到展开过渡结束后请求焦点，避免组件尚未上树导致 requestFocus 失败
+      setTimeout((): void => {
+        try {
+          this.getUIContext().getFocusController().requestFocus(this.myFocusId);
+        } catch (e) {
+          // 组件已卸载或不可聚焦时忽略
+        }
+      }, 320);
+    }
+  }
+
   build() {
     Search({ value: this.searchValue, placeholder: this.placeholderValue, controller: this.controller })
+      .id(this.myFocusId)
       .searchIcon(new SymbolGlyphModifier($r('sys.symbol.magnifyingglass')).fontColor([$r('sys.color.font')]))
       .cancelButton({
         style: CancelButtonStyle.INPUT,

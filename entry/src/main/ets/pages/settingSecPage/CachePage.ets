@@ -273,11 +273,21 @@ export struct CachePage {
 
           ListItem() {
             Column() {
-              // 本地音乐自动匹配音乐封面
+              // 本地音乐自动匹配音乐封面（智感握姿左手：开关镜像到行首，文本右对齐，图标镜像到行尾）
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.wand_and_stars'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoMatchCover })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoMatchCover = isOn;
+                      appConfig.setConfig(ConfigKeys.LOCAL_MUSIC_AUTO_MATCH_COVER, isOn);
+                    })
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.wand_and_stars'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
                 Column({ space: 2 }) {
                   Text('本地音乐自动匹配音乐封面')
                     .fontSize(15)
@@ -288,13 +298,20 @@ export struct CachePage {
                     .maxLines(2)
                 }
                 .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start)
-                Toggle({ type: ToggleType.Switch, isOn: this.autoMatchCover })
-                  .selectedColor(appState.accentColor)
-                  .onChange((isOn: boolean) => {
-                    this.autoMatchCover = isOn;
-                    appConfig.setConfig(ConfigKeys.LOCAL_MUSIC_AUTO_MATCH_COVER, isOn);
-                  })
+                .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.autoMatchCover })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.autoMatchCover = isOn;
+                      appConfig.setConfig(ConfigKeys.LOCAL_MUSIC_AUTO_MATCH_COVER, isOn);
+                    })
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.wand_and_stars'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
               }
               .width('100%')
               .height(60)

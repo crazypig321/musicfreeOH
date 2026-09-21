@@ -1,6 +1,7 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
-import { CommonBlur } from '../view/CommonCom';
+import { CommonBlur, CommonSearch } from '../view/CommonCom';
+import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicItem } from '../common/model/MediaTypes';
 import { SheetItem, SheetInfoResult, TopListInfoResult } from '../common/model/SheetTypes';
@@ -52,8 +53,16 @@ export struct SheetDetailPage {
   @Local batchChanging: boolean = false;
   /** 批量换源进度文案 */
   @Local batchChangeProgress: string = '';
+  /** 标题栏搜索框展开 */
+  @Local showSearchBox: boolean = false;
+  /** 已应用的搜索关键词（点搜索/回车后生效） */
+  @Local searchKeyword: string = '';
+  /** 搜索框输入内容 */
+  @Local searchInput: string = '';
 
   dataSource: MusicDataSource = new MusicDataSource();
+  /** 搜索结果数据源（关键词生效时替代全量列表展示） */
+  private searchSource: MusicDataSource = new MusicDataSource();
   private scroller: Scroller = new Scroller();
   private plugin: Plugin | null = null;
   private sheet: SheetItem | null = null;
@@ -177,6 +186,8 @@ export struct SheetDetailPage {
     }
     this.dataSource.appendData(musicList);
     this.musicCount = this.dataSource.totalCount();
+    // 搜索中：新到达的页同样纳入过滤结果
+    this.applySearchFilter();
     if (item !== null) {
       if (item.title.length > 0) {
         this.sheetTitle = item.title;
@@ -204,7 +215,7 @@ export struct SheetDetailPage {
 
   /** 播放（以已加载列表为播放队列） */
   private playItem(item: MusicItem): void {
-    const playList = this.dataSource.getItems();
+    const playList = this.visibleMusicList();
     if (playList.length === 0) {
       return;
     }
@@ -215,7 +226,7 @@ export struct SheetDetailPage {
 
   /** 全部播放：立即以已加载歌曲开始播放，剩余页后台补齐到播放队列 */
   private playAll(): void {
-    const playList = this.dataSource.getItems();
+    const playList = this.visibleMusicList();
     if (playList.length === 0) {
       this.showToast(this.loading ? '加载中，请稍候' : '暂无歌曲');
       return;
@@ -223,7 +234,82 @@ export struct SheetDetailPage {
     trackPlayer.playWithReplacePlayList(playList[0], playList).catch((_e: Object): void => {
       this.showToast('播放失败');
     });
-    this.loadRemainingToQueue();
+    if (!this.isSearching()) {
+      this.loadRemainingToQueue();
+    }
+  }
+
+  // ---------- 标题栏搜索（已加载列表内过滤，点搜索/回车应用关键词） ----------
+
+  /** 搜索中（关键词已生效） */
+  private isSearching(): boolean {
+    return this.searchKeyword.trim().length > 0;
+  }
+
+  /** 当前展示列表：搜索中返回过滤结果，否则返回全量已加载列表 */
+  private visibleMusicList(): Array<MusicItem> {
+    return this.isSearching() ? this.searchSource.getItems() : this.dataSource.getItems();
+  }
+
+  /** 当前展示歌曲数 */
+  private visibleMusicCount(): number {
+    return this.isSearching() ? this.searchSource.totalCount() : this.musicCount;
+  }
+
+  /** 关键词匹配（歌名/歌手/专辑，不区分大小写） */
+  private itemMatchesKeyword(item: MusicItem): boolean {
+    const kw = this.searchKeyword.trim().toLowerCase();
+    if (kw.length === 0) {
+      return true;
+    }
+    return item.title.toLowerCase().indexOf(kw) >= 0 ||
+      item.artist.toLowerCase().indexOf(kw) >= 0 ||
+      item.album.toLowerCase().indexOf(kw) >= 0;
+  }
+
+  /** 按关键词重建搜索结果数据源 */
+  private applySearchFilter(): void {
+    this.searchSource.clear();
+    if (!this.isSearching()) {
+      return;
+    }
+    const filtered: Array<MusicItem> = [];
+    for (const item of this.dataSource.getItems()) {
+      if (this.itemMatchesKeyword(item)) {
+        filtered.push(item);
+      }
+    }
+    this.searchSource.appendData(filtered);
+  }
+
+  /** 展开/收起标题栏搜索框（收起时清空关键词恢复全部；展开时列表回顶） */
+  private toggleSearchBox(): void {
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      this.showSearchBox = !this.showSearchBox;
+    });
+
+    if (!this.showSearchBox) {
+      this.searchKeyword = '';
+      this.searchInput = '';
+      return;
+    }
+    if (this.scroller.currentOffset().yOffset !== 0) {
+      this.scroller.scrollTo({ xOffset: 0, yOffset: 0, animation: { duration: 250, curve: Curve.EaseOut } });
+    }
+  }
+
+  /** titleBar 搜索按钮 */
+  private titleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const search: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.magnifyingglass'),
+        label: '搜索',
+        action: (): void => {
+          this.toggleSearchBox();
+        }
+      }
+    };
+    return [search];
   }
 
   /** 后台加载剩余页并追加到播放队列尾部（同时补全页面列表）；loadingMore=true 阻断手动触底加载 */
@@ -699,7 +785,9 @@ export struct SheetDetailPage {
 
   build() {
     CommonNav({
-      titleBarOp: titleBarOf('歌单详情'),
+      titleBarOp: titleBarOf('歌单详情', this.isSearching() ? '找到 ' + this.visibleMusicCount().toString() + ' 首' : undefined,
+        this.titleMenus(),
+        this.showSearchBox ? { builder: (): void => { this.SearchBuilder() } } : undefined),
       scroller: this.scroller,
       doubleTapToTop: true,
       isShowPlayBar: true,
@@ -774,6 +862,25 @@ export struct SheetDetailPage {
               .margin({ top: 32 })
               .alignItems(HorizontalAlign.Center)
             }
+          } else if (this.isSearching()) {
+            // 搜索结果列表（仅过滤已加载内容）
+            if (this.searchSource.totalCount() === 0) {
+              ListItem() {
+                Text('未找到匹配的歌曲')
+                  .fontSize(13)
+                  .fontColor($r('sys.color.font_tertiary'))
+                  .width('100%')
+                  .textAlign(TextAlign.Center)
+                  .margin({ top: 32 })
+              }
+            } else {
+              LazyForEach(this.searchSource, (item: MusicItem, index: number) => {
+                ListItem() {
+                  this.MusicRowBuilder(item, index)
+                }
+              }, (item: MusicItem, _index: number) => item.platform + '_' + item.id +
+                (appState.isBatchMode && this.isSelected(item) ? '_sel' : ''))
+            }
           } else {
             // 歌曲列表
             LazyForEach(this.dataSource, (item: MusicItem, index: number) => {
@@ -816,7 +923,10 @@ export struct SheetDetailPage {
         .edgeEffect(EdgeEffect.Spring)
         .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 154 : 60))
         .onReachEnd(() => {
-          this.loadPage(false);
+          // 搜索中：仅过滤已加载内容，不触发续拉
+          if (!this.isSearching()) {
+            this.loadPage(false);
+          }
         })
 
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
@@ -935,6 +1045,34 @@ export struct SheetDetailPage {
     }
   }
 
+  /**
+   * 搜索框（固定于标题栏下方，不随列表滚动消失；输入不即时过滤，
+   * 点搜索按钮/软键盘回车后才应用关键词）
+   */
+  @Builder
+  SearchBuilder() {
+    CommonSearch({
+      searchValue: this.searchInput,
+      placeholderValue: '搜索歌曲名、歌手或专辑',
+      autoFocus: true,
+      submit: (): void => {
+        this.searchKeyword = this.searchInput.trim();
+        this.applySearchFilter();
+      },
+      change: (v: string): void => {
+        this.searchInput = v;
+      },
+      didDelete: (): void => {
+        this.searchInput = '';
+        this.searchKeyword = '';
+        this.applySearchFilter();
+      },
+    })
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+      .transition(TransitionEffect.move(TransitionEdge.TOP))
+  }
+
   /** 头部：封面渐变图 + 歌单/榜单名 + 榜单规则 + 全部播放/批量操作 */
   @Builder
   HeaderBuilder() {
@@ -990,7 +1128,7 @@ export struct SheetDetailPage {
             SymbolGlyph($r('sys.symbol.play_circle_fill'))
               .fontSize(36)
               .fontColor([$r('sys.color.font')])
-            Text('全部播放' + (this.musicCount > 0 ? ' · ' + this.musicCount.toString() : ''))
+            Text('全部播放' + (this.visibleMusicCount() > 0 ? ' · ' + this.visibleMusicCount().toString() : ''))
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('sys.color.font'))
@@ -1021,7 +1159,7 @@ export struct SheetDetailPage {
 
         if (appState.holdingHand === 'left') {
           Row({ space: 6 }) {
-            Text('全部播放' + (this.musicCount > 0 ? ' · ' + this.musicCount.toString() : ''))
+            Text('全部播放' + (this.visibleMusicCount() > 0 ? ' · ' + this.visibleMusicCount().toString() : ''))
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('sys.color.font'))

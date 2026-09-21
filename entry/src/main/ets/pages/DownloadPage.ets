@@ -182,6 +182,8 @@ export struct DownloadPage {
         filtered.push(item);
       }
     }
+    // 最近下载的排前面；无下载时间记录的条目保持相对顺序排在最后
+    filtered.sort((a: MusicItem, b: MusicItem): number => this.itemDownloadedAt(b) - this.itemDownloadedAt(a));
     this.dataSource.clear();
     this.dataSource.appendData(filtered);
   }
@@ -362,7 +364,7 @@ export struct DownloadPage {
     }
   }
 
-  /** 将选中的音频文件复制到下载目录，完成后自动导入 */
+  /** 将选中的音频文件复制到下载目录，完成后自动导入（下载目录内已有的文件保留原子目录位置，不移动） */
   private copyUrisToDownloadDir(uris: Array<string>): void {
     this.scanning = true;
     this.showToast('正在导入 ' + uris.length.toString() + ' 个文件...');
@@ -370,13 +372,21 @@ export struct DownloadPage {
     const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
     let ok = 0;
     let dup = 0;
+    let inplace = 0;
     let fail = 0;
     for (const uri of uris) {
       let src: fs.File | null = null;
       try {
-        const name = FileUtils.getFileName(FileUtils.normalizePath(uri));
+        const normalized = FileUtils.normalizePath(uri);
+        const name = FileUtils.getFileName(normalized);
         if (name.length === 0) {
           fail++;
+          continue;
+        }
+        // 文件已在下载目录内（含子目录）：保留原位置不复制，仅清除排除并交给扫描入库
+        if (normalized.startsWith(base) && normalized.length > base.length) {
+          LocalMusicExclusion.clearExclusion(name);
+          inplace++;
           continue;
         }
         const destName = FileUtils.escapeCharacter(name);
@@ -406,8 +416,11 @@ export struct DownloadPage {
     }
     this.scanning = false;
     let summary: string;
-    if (ok > 0) {
-      summary = '已复制 ' + ok.toString() + ' 个文件';
+    if (ok > 0 || inplace > 0) {
+      summary = inplace > 0 ? '已导入 ' + inplace.toString() + ' 个' : '已复制 ' + ok.toString() + ' 个文件';
+      if (inplace > 0 && ok > 0) {
+        summary += '，复制 ' + ok.toString() + ' 个';
+      }
       if (dup > 0) {
         summary += '，' + dup.toString() + ' 个已存在';
       }
@@ -418,8 +431,8 @@ export struct DownloadPage {
       summary = dup > 0 ? '文件已存在，直接扫描入库' : '导入失败';
     }
     this.showToast(summary);
-    // 复制/已存在的文件统一重新扫描入库
-    if (ok > 0 || dup > 0) {
+    // 复制/已存在/目录内的文件统一重新扫描入库
+    if (ok > 0 || dup > 0 || inplace > 0) {
       this.rescanDownloadDir();
     }
   }
@@ -600,18 +613,18 @@ export struct DownloadPage {
   private enterBatchMode(scope: string): void {
     this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
       appState.isBatchMode = true;
+      this.batchScope = scope;
+      this.batchSelected = [];
     });
-    this.batchScope = scope;
-    this.batchSelected = [];
   }
 
   /** 退出批量模式 */
   private exitBatchMode(): void {
     this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
       appState.isBatchMode = false;
+      this.batchScope = '';
+      this.batchSelected = [];
     });
-    this.batchScope = '';
-    this.batchSelected = [];
   }
 
   private static itemKey(item: MusicItem): string {
@@ -1002,6 +1015,56 @@ export struct DownloadPage {
       strokeWidth: LengthMetrics.vp(0.5),
       startMargin: LengthMetrics.vp(2),
       endMargin: LengthMetrics.vp(2)})
+  }
+
+  /** 下载任务分组标题右侧操作图标（智感握姿左手时镜像到行首） */
+  @Builder
+  TaskHeaderActionsBuilder() {
+    if (!appState.isBatchMode) {
+      // 取消全部可取消任务
+      SymbolGlyph($r('sys.symbol.xmark_circle'))
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_secondary')])
+        .onClick(() => {
+          this.cancelAllTasks();
+        })
+      // 重试全部失败任务
+      SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_secondary')])
+        .onClick(() => {
+          this.retryAllFailed();
+        })
+      // 任务区批量操作
+      SymbolGlyph($r('sys.symbol.list_checkmask'))
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_secondary')])
+        .onClick(() => {
+          this.enterBatchMode('task');
+        })
+    }
+  }
+
+  /** 已下载/本地音乐分组标题右侧操作图标（智感握姿左手时镜像到行首） */
+  @Builder
+  DownloadedHeaderActionsBuilder() {
+    // 本地音乐：添加标签（在下载目录下创建子文件夹，作为移动分组的目标）
+    if (this.isLocalMode) {
+      SymbolGlyph($r('sys.symbol.folder_badge_plus'))
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_secondary')])
+        .onClick(() => {
+          this.openAddTagDialog();
+        })
+    }
+
+    // 已下载/本地音乐区批量操作
+    SymbolGlyph($r('sys.symbol.list_checkmask'))
+      .fontSize(20)
+      .fontColor([$r('sys.color.icon_secondary')])
+      .onClick(() => {
+        this.enterBatchMode('downloaded');
+      })
   }
 
   /** 编辑标签：弹窗输入新名称（预填旧名），确认后重命名对应文件夹并同步两域记录 */
@@ -1566,34 +1629,22 @@ export struct DownloadPage {
         // 下载任务分组（仅下载模式）
         if (!this.isLocalMode && this.taskRows.length > 0) {
           ListItem() {
+            // 智感握姿左手：操作图标镜像到行首（拇指可达），标题右对齐
             Row({ space: 16 }) {
-              Text('下载中 · ' + this.taskRows.length.toString())
-                .fontSize(14)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_secondary'))
-              Blank()
-              if (!appState.isBatchMode) {
-                // 取消全部可取消任务
-                SymbolGlyph($r('sys.symbol.xmark_circle'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                  .onClick(() => {
-                    this.cancelAllTasks();
-                  })
-                // 重试全部失败任务
-                SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                  .onClick(() => {
-                    this.retryAllFailed();
-                  })
-                // 任务区批量操作
-                SymbolGlyph($r('sys.symbol.list_checkmask'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                  .onClick(() => {
-                    this.enterBatchMode('task');
-                  })
+              if (appState.holdingHand === 'left') {
+                this.TaskHeaderActionsBuilder()
+                Blank()
+                Text('下载中 · ' + this.taskRows.length.toString())
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.font_secondary'))
+              } else {
+                Text('下载中 · ' + this.taskRows.length.toString())
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.font_secondary'))
+                Blank()
+                this.TaskHeaderActionsBuilder()
               }
             }
             .width('100%')
@@ -1612,30 +1663,23 @@ export struct DownloadPage {
         // 列表分组
         if (this.downloadedCount > 0) {
           ListItem() {
+            // 智感握姿左手：操作图标镜像到行首（拇指可达），标题右对齐
             Row({ space: 16 }) {
-              Text((this.isLocalMode ? '本地音乐 · ' : '已下载 · ') + this.downloadedCount.toString())
-                .fontSize(14)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_secondary'))
-              Blank()
-
-              // 本地音乐：添加标签（在下载目录下创建子文件夹，作为移动分组的目标）
-              if (this.isLocalMode) {
-                SymbolGlyph($r('sys.symbol.folder_badge_plus'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                  .onClick(() => {
-                    this.openAddTagDialog();
-                  })
+              if (appState.holdingHand === 'left') {
+                this.DownloadedHeaderActionsBuilder()
+                Blank()
+                Text((this.isLocalMode ? '本地音乐 · ' : '已下载 · ') + this.downloadedCount.toString())
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.font_secondary'))
+              } else {
+                Text((this.isLocalMode ? '本地音乐 · ' : '已下载 · ') + this.downloadedCount.toString())
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.font_secondary'))
+                Blank()
+                this.DownloadedHeaderActionsBuilder()
               }
-
-              // 已下载/本地音乐区批量操作
-              SymbolGlyph($r('sys.symbol.list_checkmask'))
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
-                .onClick(() => {
-                  this.enterBatchMode('downloaded');
-                })
             }
             .width('100%')
             .margin({ top: 12, bottom: 4 })
@@ -2353,6 +2397,7 @@ export struct DownloadPage {
     CommonSearch({
       searchValue: this.searchInput,
       placeholderValue: '搜索歌曲名、歌手或专辑',
+      autoFocus: true,
       submit: (): void => {
         this.searchKeyword = this.searchInput.trim();
         this.refreshDownloaded();
