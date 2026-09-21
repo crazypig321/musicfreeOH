@@ -279,6 +279,13 @@ export struct TextPickerDialogContent {
           DialogManager.pickerIndex = index;
         }
       })
+      .divider({
+        strokeWidth: 0.5,
+        startMargin: 16,
+        endMargin: 16
+      })
+      .textStyle({ color: $r('sys.color.font_tertiary') })
+      .selectedTextStyle({ color: appState.accentColor })
       .width('100%')
   }
 }
