@@ -72,6 +72,8 @@ export struct PlayerPage {
   };
   private offProgress: () => void = (): void => {
   };
+  private offRepeatMode: () => void = (): void => {
+  };
   private offLyricState: () => void = (): void => {
   };
   private offCurrentLyric: () => void = (): void => {
@@ -96,6 +98,10 @@ export struct PlayerPage {
     });
     this.offState = trackPlayer.onPlayStateChanged((state: PlayState) => {
       this.isPlaying = state === PlayState.Playing;
+    });
+    // 播放队列 sheet 等其他入口切换播放方式时同步本页按钮
+    this.offRepeatMode = trackPlayer.onRepeatModeChanged((mode: MusicRepeatMode) => {
+      this.repeatMode = mode;
     });
     this.offProgress = trackPlayer.onProgressChanged((position: number, duration: number) => {
       if (duration > 0) {
@@ -123,6 +129,7 @@ export struct PlayerPage {
     this.offCurrent();
     this.offState();
     this.offProgress();
+    this.offRepeatMode();
     this.offLyricState();
     this.offCurrentLyric();
     if (this.userScrollTimer !== -1) {

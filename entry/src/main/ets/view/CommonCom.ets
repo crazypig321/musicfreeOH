@@ -98,21 +98,28 @@ export struct CommonSearch{
       .placeholderFont({ size: 14, weight: 400 })
       .textFont({ size: 14, weight: 400 })
       .onSubmit(() => {// 键盘回车或者搜索按钮触发回调
-       // animStyle.animTo(async ()=> {
         this.submit()
-     //   })
+        // 出搜索结果后收起软键盘，不重新呼出
+        try {
+          setTimeout(()=>{
+            this.getUIContext().getFocusController().clearFocus()
+          }, 200)
+        } catch (e) {
+          // 焦点控制器不可用时忽略
+        }
       })
       .onChange((value: string) => {
         if (value.length > 0) {
-          // animStyle.animTo(async ()=>{
           this.change(value)
-          // })
         }else{
-          this.didDelete()
+
         }
       })
       .onClick(()=>{
         this.click()
+      })
+      .onDidDelete(()=>{
+        this.didDelete()
       })
       .focusable(this.isFocusable)// 无法获焦则无法呼出软键盘
       .defaultFocus(this.isFocusable)

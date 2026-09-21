@@ -199,6 +199,8 @@ export struct QueueSheet {
   };
   private offCurrent: () => void = (): void => {
   };
+  private offRepeatMode: () => void = (): void => {
+  };
 
   aboutToAppear(): void {
     this.repeatMode = trackPlayer.repeatMode;
@@ -210,11 +212,16 @@ export struct QueueSheet {
     this.offCurrent = trackPlayer.onCurrentMusicChanged((music: MusicItem | null) => {
       this.currentMusic = music;
     });
+    // 播放页等其他入口切换播放方式时同步本组件按钮
+    this.offRepeatMode = trackPlayer.onRepeatModeChanged((mode: MusicRepeatMode) => {
+      this.repeatMode = mode;
+    });
   }
 
   aboutToDisappear(): void {
     this.offPlayList();
     this.offCurrent();
+    this.offRepeatMode();
   }
 
   /** 刷新播放队列数据源 */

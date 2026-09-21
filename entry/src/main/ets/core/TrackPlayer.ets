@@ -56,6 +56,11 @@ export class PlayStateChangedEvent {
 export class PlayListChangedEvent {
 }
 
+/** 循环模式（播放方式）变化事件：播放页/播放队列 sheet 按钮同步用 */
+export class RepeatModeChangedEvent {
+  mode: MusicRepeatMode = MusicRepeatMode.QUEUE;
+}
+
 /** 移动网络播放被禁止事件（UI 弹提示用） */
 export class CellularForbiddenEvent {
 }
@@ -840,6 +845,9 @@ export class TrackPlayer {
     }
     this.repeatModeValue = mode;
     PersistStatus.setRepeatMode(mode);
+    const ev = new RepeatModeChangedEvent();
+    ev.mode = mode;
+    this.ee.emit('repeat-mode-changed', ev);
   }
 
   private setQualityInternal(quality: QualityKey): void {
@@ -1104,6 +1112,18 @@ export class TrackPlayer {
     this.ee.on('play-list-changed', wrapper);
     return (): void => {
       this.ee.off('play-list-changed', wrapper);
+    };
+  }
+
+  onRepeatModeChanged(cb: (mode: MusicRepeatMode) => void): () => void {
+    const wrapper: EventListenerFn = (payload?: Object) => {
+      if (payload instanceof RepeatModeChangedEvent) {
+        cb(payload.mode);
+      }
+    };
+    this.ee.on('repeat-mode-changed', wrapper);
+    return (): void => {
+      this.ee.off('repeat-mode-changed', wrapper);
     };
   }
 

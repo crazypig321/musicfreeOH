@@ -58,6 +58,9 @@ class AppState{
   @Trace isDialogOpen: boolean = false;
   // 批量操作模式（隐藏 tab 栏，返回键退出该模式）
   @Trace isBatchMode: boolean = false;
+  // 当前 tab 页（我的歌单/插件）标题栏搜索框展开时登记的收起回调
+  // （tab 页返回键由 Index.onBackPress 统一拦截：优先收起搜索框，再回到主页，主页弹退出确认）
+  tabSearchClose: (() => void) | null = null;
   // Tab 切换计数：左滑条目以 key 引用，切换 tab 时重建行以复位左滑状态
   @Trace swipeResetTick: number = 0;
 

@@ -776,6 +776,11 @@ export struct MediaDetailPage {
           this.exitBatchMode();
           return true;
         }
+        // 搜索框展开时返回键先收起搜索框并清空关键词
+        if (this.showSearchBox) {
+          this.toggleSearchBox();
+          return true;
+        }
         return false;
       }
     }) {

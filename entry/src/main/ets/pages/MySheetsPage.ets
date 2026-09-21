@@ -87,6 +87,7 @@ export struct MySheetsPage {
       this.showSearchBox = false;
       this.searchKeyword = '';
       this.searchInput = '';
+      appState.tabSearchClose = null;
     }
   }
 
@@ -167,8 +168,13 @@ export struct MySheetsPage {
     if (!this.showSearchBox) {
       this.searchKeyword = '';
       this.searchInput = '';
+      appState.tabSearchClose = null;
       return;
     }
+    // 登记收起回调：tab 页的返回手势由 Index 统一拦截，优先收起搜索框
+    appState.tabSearchClose = (): void => {
+      this.toggleSearchBox();
+    };
     if (this.scroller.currentOffset().yOffset !== 0) {
       this.scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 66 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
     }

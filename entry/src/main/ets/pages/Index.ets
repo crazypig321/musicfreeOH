@@ -38,6 +38,7 @@ import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
   import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
+  import { ContextHolder } from '../common/ContextHolder';
 
 @Entry
 @ComponentV2
@@ -252,7 +253,7 @@ struct Index {
     .height('100%')
   }
 
-  /** 返回键：展开态先收起播放页；批量操作模式下先退出批量模式 */
+  /** 返回键：展开态先收起播放页；批量操作先退出；tab 搜索框先收起；非主页 tab 回主页；主页弹退出确认 */
   onBackPress(): boolean {
     if (playerAnim.isExpand || playerAnim.isAnimating) {
       PlayerExpandAnimController.collapse();
@@ -264,7 +265,46 @@ struct Index {
       });
       return true;
     }
-    return false;
+    // 当前 tab 标题栏搜索框展开时，返回手势优先收起搜索框
+    if (appState.tabSearchClose !== null) {
+      const closeSearch = appState.tabSearchClose;
+      appState.tabSearchClose = null;
+      closeSearch();
+      return true;
+    }
+    // 非「主页」tab：返回手势回到主页 tab
+    if (appState.currTabsIndex !== 0) {
+      if (useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth)) {
+        this.sideTabsController.changeIndex(0);
+      } else {
+        this.tabsController.changeIndex(0);
+      }
+      return true;
+    }
+    // 主页：弹出退出确认弹窗，确认后彻底退出应用
+    this.showExitConfirm();
+    return true;
+  }
+
+  /** 退出确认弹窗：确认后终止应用 */
+  private showExitConfirm(): void {
+    this.getUIContext().showAlertDialog({
+      title: '退出应用',
+      message: '是否确认退出软件？',
+      primaryButton: {
+        value: '取消',
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: '退出',
+        fontColor: Color.Red,
+        action: (): void => {
+          ContextHolder.get().terminateSelf().catch((_e: Object): void => {
+          });
+        }
+      }
+    });
   }
 
   /** 主页面 TabContent（手机 HdsTabs 与 PC 侧边栏 Tabs 共用，保持页面状态不丢失） */
