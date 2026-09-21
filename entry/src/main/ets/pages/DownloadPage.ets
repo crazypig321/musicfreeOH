@@ -1617,24 +1617,24 @@ export struct DownloadPage {
                 .fontWeight(FontWeight.Medium)
                 .fontColor($r('sys.color.font_secondary'))
               Blank()
-              if (!appState.isBatchMode) {
-                // 本地音乐：添加标签（在下载目录下创建子文件夹，作为移动分组的目标）
-                if (this.isLocalMode) {
-                  SymbolGlyph($r('sys.symbol.folder_badge_plus'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                    .onClick(() => {
-                      this.openAddTagDialog();
-                    })
-                }
-                // 已下载/本地音乐区批量操作
-                SymbolGlyph($r('sys.symbol.list_checkmask'))
+
+              // 本地音乐：添加标签（在下载目录下创建子文件夹，作为移动分组的目标）
+              if (this.isLocalMode) {
+                SymbolGlyph($r('sys.symbol.folder_badge_plus'))
                   .fontSize(20)
                   .fontColor([$r('sys.color.icon_secondary')])
                   .onClick(() => {
-                    this.enterBatchMode('downloaded');
+                    this.openAddTagDialog();
                   })
               }
+
+              // 已下载/本地音乐区批量操作
+              SymbolGlyph($r('sys.symbol.list_checkmask'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+                .onClick(() => {
+                  this.enterBatchMode('downloaded');
+                })
             }
             .width('100%')
             .margin({ top: 12, bottom: 4 })

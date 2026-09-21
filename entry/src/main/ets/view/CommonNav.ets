@@ -183,16 +183,12 @@ export struct CommonNav{
   @Builder
   AdaptiveContent() {
     Column() {
-      Column() {
-        this.content()
-      }
-      .width('100%')
-      .height('100%')
-      .constraintSize({ maxWidth: contentMaxWidthVp(appState.WidthBp) })
+      this.content()
     }
     .width('100%')
     .height('100%')
     .alignItems(HorizontalAlign.Center)
+    .constraintSize({ maxWidth: contentMaxWidthVp(appState.WidthBp) })
   }
 
   @Builder

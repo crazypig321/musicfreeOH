@@ -459,7 +459,7 @@ export class DialogManager {
   public static OpenDialog(key: string): void {
     DialogManager.dialogChangeKey = key;
     appState.isDialogOpen = true;
-    appState.isForegroundBlur = true;
+    //appState.isForegroundBlur = true;
     if (DialogManager.opener !== null) {
       DialogManager.opener();
     }
@@ -892,16 +892,18 @@ export class DialogManager {
 
   /** 弹窗出现回调 */
   public static AppearDialog(key: string): void {
-    appState.isForegroundBlur = true;
+   // appState.isForegroundBlur = true;
     switch (key) {
       case '速度调节':
         break;
+      case '添加标签':
+        appState.isForegroundBlur = true
     }
   }
 
   /** 弹窗消失回调 */
   public static DisappearDialog(key: string): void {
-    appState.isForegroundBlur = false;
+   // appState.isForegroundBlur = false;
     appState.isDialogOpen = false;
     DialogManager.dialogChangeKey = '';
     // 重命名是一次性交互，关闭后清理回调与内容
@@ -920,6 +922,9 @@ export class DialogManager {
       key === '添加标签' || key === '编辑标签') {
       DialogManager.downloadFolderValue = '';
       DialogManager.downloadFolderConfirm = null;
+    }
+    if (key === '添加标签') {
+      appState.isForegroundBlur = false
     }
     // 选择器同理（取消或关闭弹窗不触发确认回调）
     if (key === '选择器') {
