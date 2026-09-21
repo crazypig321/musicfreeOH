@@ -1,6 +1,7 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { SheetGridItem } from '../view/SheetGridItem';
 import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
+import { MediaTagDataSource } from '../common/model/MediaTagDataSource';
 import { MediaTag, PageResult, RecommendSheetTagsResult, SheetItem } from '../common/model/SheetTypes';
 import { RecommendSheetNavParams, ROUTE_SHEET_DETAIL, SheetDetailNavParams } from '../common/model/NavModels';
 import { Plugin } from '../plugin/Plugin';
@@ -22,6 +23,8 @@ const RECOMMEND_MENU_ANCHOR_ID = 'recommend_menu_anchor';
 @ComponentV2
 export struct RecommendSheetsPage {
   @Local tags: Array<MediaTag> = [];
+  /** 标签懒加载数据源（插件标签较多时按需创建） */
+  private tagSource: MediaTagDataSource = new MediaTagDataSource();
   @Local selectedIndex: number = 0;
   @Local sheets: Array<SheetItem> = [];
   @Local loading: boolean = false;
@@ -57,6 +60,7 @@ export struct RecommendSheetsPage {
     this.plugin = pluginManager.getByName(RecommendSheetNavParams.pluginName);
     this.pluginName = RecommendSheetNavParams.pluginName;
     this.tags = RecommendSheetNavParams.tags;
+    this.tagSource.reload(this.tags);
     this.selectedIndex = RecommendSheetNavParams.selectedIndex;
     this.loadSheets(true);
   }
@@ -164,6 +168,7 @@ export struct RecommendSheetsPage {
     this.plugin = pluginManager.getByName(name);
     if (this.plugin === null) {
       this.tags = [];
+      this.tagSource.reload([]);
       this.sheets = [];
       return;
     }
@@ -179,10 +184,12 @@ export struct RecommendSheetsPage {
         }
       }
       this.tags = tags;
+      this.tagSource.reload(tags);
       this.selectedIndex = 0;
       this.loadSheets(true);
     }).catch((_e: Object): void => {
       this.tags = [];
+      this.tagSource.reload([]);
       this.sheets = [];
     });
   }
@@ -257,7 +264,7 @@ export struct RecommendSheetsPage {
         if (this.tags.length > 0) {
           ListItem() {
             List({ space: 8 }) {
-              ForEach(this.tags, (tag: MediaTag, index: number) => {
+              LazyForEach(this.tagSource, (tag: MediaTag, index: number) => {
                 ListItem() {
                   Text(tag.title)
                     .fontSize(13)
@@ -272,7 +279,7 @@ export struct RecommendSheetsPage {
                       this.onSelectTag(index);
                     })
                 }
-              }, (tag: MediaTag, index: number) => tag.id + '_' + index.toString())
+              }, (tag: MediaTag, _index: number) => tag.id + '_' + tag.title)
             }
             .listDirection(Axis.Horizontal)
             .scrollBar(BarState.Off)

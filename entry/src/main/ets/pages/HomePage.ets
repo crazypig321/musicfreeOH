@@ -7,6 +7,7 @@ import { NavPathUtils } from '../utils/NavPathUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { SheetGroupItem, SheetItem, MediaTag, PageResult } from '../common/model/SheetTypes';
 import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
+import { MediaTagDataSource } from '../common/model/MediaTagDataSource';
 import { ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, RecommendSheetNavParams, SheetDetailNavParams } from '../common/model/NavModels';
 import { MusicItem } from '../common/model/MediaTypes';
 import { MusicRow } from '../view/MusicRow';
@@ -37,6 +38,8 @@ export struct HomePage{
   // 推荐歌单
   @Local recommendPluginName: string = '';
   @Local recommendTags: Array<MediaTag> = [];
+  /** 推荐标签懒加载数据源（插件标签较多时按需创建） */
+  private recommendTagSource: MediaTagDataSource = new MediaTagDataSource();
   @Local selectedTagIndex: number = 0;
   @Local recommendSheets: Array<SheetItem> = [];
   // 本地音乐
@@ -193,6 +196,7 @@ export struct HomePage{
     if (plugin === null) {
       this.recommendPlugin = null;
       this.recommendTags = [];
+      this.recommendTagSource.reload([]);
       this.recommendSheets = [];
       this.recommendPluginName = '';
       return;
@@ -211,10 +215,12 @@ export struct HomePage{
         }
       }
       this.recommendTags = tags;
+      this.recommendTagSource.reload(tags);
       this.selectedTagIndex = 0;
       this.applyTagSheets(0);
     }).catch((_e: Object): void => {
       this.recommendTags = [];
+      this.recommendTagSource.reload([]);
       this.recommendSheets = [];
     });
   }
@@ -589,7 +595,7 @@ export struct HomePage{
       if (this.recommendTags.length > 0) {
         ListItem() {
           List({ space: 8 }) {
-            ForEach(this.recommendTags, (tag: MediaTag, index: number) => {
+            LazyForEach(this.recommendTagSource, (tag: MediaTag, index: number) => {
               ListItem() {
                 Text(tag.title)
                   .fontSize(13)
@@ -602,7 +608,7 @@ export struct HomePage{
                     this.onSelectTag(index);
                   })
               }
-            }, (tag: MediaTag, index: number) => tag.id + '_' + index.toString())
+            }, (tag: MediaTag, _index: number) => tag.id + '_' + tag.title)
           }
           .listDirection(Axis.Horizontal)
           .scrollBar(BarState.Off)

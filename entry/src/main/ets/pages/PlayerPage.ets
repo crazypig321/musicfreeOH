@@ -249,8 +249,13 @@ export struct PlayerPage {
       this.showToast('已在下载列表中');
       return;
     }
-    downloader.download(current, appConfig.getDefaultDownloadQuality());
-    this.showToast('已加入下载队列');
+    // 弹窗填写目标子文件夹（留空 = 默认下载目录），与歌曲操作面板一致
+    DialogManager.downloadFolderValue = '';
+    DialogManager.downloadFolderConfirm = (folder: string): void => {
+      downloader.download(current, appConfig.getDefaultDownloadQuality(), folder);
+      this.showToast('已加入下载队列');
+    };
+    DialogManager.OpenDialog('下载到文件夹');
   }
 
   /** 当前歌曲的插件是否支持获取评论 */

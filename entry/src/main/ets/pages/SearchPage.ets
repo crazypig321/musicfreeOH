@@ -12,6 +12,10 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicDataSource } from '../common/model/MusicDataSource';
+import { StringDataSource } from '../common/model/StringDataSource';
+import { AlbumDataSource } from '../common/model/AlbumDataSource';
+import { ArtistDataSource } from '../common/model/ArtistDataSource';
+import { SheetDataSource } from '../common/model/SheetDataSource';
 import { appState } from '../entryability/AppState';
 import { CommonSearch } from '../view/CommonCom';
 import { KVStore } from '../infra/KVStore';
@@ -45,6 +49,8 @@ export struct SearchPage {
   @Local resultCount: number = 0;
   @Local pluginNames: Array<string> = [];
   @Local selectedPluginIndex: number = 0;
+  /** 选中的插件名（空 = 全部）：按名称跨分类保持选中，避免分类切换后插件列表变化导致选源跳回「全部」 */
+  private selectedPluginName: string = '';
   @Local showOptions: boolean = false;
   @Local optionsItem: MusicItem = new MusicItem();
   /** 历史搜索词（最多 20 个，仅搜索前展示） */
@@ -53,12 +59,14 @@ export struct SearchPage {
   @Local hasSearched: boolean = false;
   /** 当前结果分类（下标对应 CATEGORY_LABELS / CATEGORY_TYPES） */
   @Local categoryIndex: number = 0;
-  /** 非单曲分类的搜索结果（单曲沿用 dataSource 懒加载） */
-  @Local albumResults: Array<AlbumItem> = [];
-  @Local artistResults: Array<ArtistItem> = [];
-  @Local sheetResults: Array<SheetItem> = [];
 
   dataSource: MusicDataSource = new MusicDataSource();
+  /** 非单曲分类的搜索结果懒加载数据源（单曲沿用 dataSource） */
+  private albumSource: AlbumDataSource = new AlbumDataSource();
+  private artistSource: ArtistDataSource = new ArtistDataSource();
+  private sheetSource: SheetDataSource = new SheetDataSource();
+  /** 插件标签条懒加载数据源（插件较多时按需创建） */
+  private pluginTagSource: StringDataSource = new StringDataSource();
   private searchPlugins: Array<Plugin> = [];
   private page: number = 1;
   private isEnd: boolean = false;
@@ -93,6 +101,8 @@ export struct SearchPage {
   }
 
   private refreshPlugins(): void {
+    // 记住当前选中插件名，列表按分类重建后按名称找回其位置（找不到则回到「全部」）
+    const prevName = this.selectedPluginName;
     const plugins = pluginManager.getSortedSearchablePlugins(this.currentType());
     this.searchPlugins = plugins;
     const names: Array<string> = ['全部'];
@@ -100,9 +110,20 @@ export struct SearchPage {
       names.push(p.name);
     }
     this.pluginNames = names;
-    if (this.selectedPluginIndex >= names.length) {
-      this.selectedPluginIndex = 0;
+    this.pluginTagSource.reload(names);
+    let index = 0;
+    if (prevName.length > 0) {
+      for (let i = 0; i < plugins.length; i++) {
+        if (plugins[i].name === prevName) {
+          index = i + 1;
+          break;
+        }
+      }
     }
+    if (index === 0) {
+      this.selectedPluginName = '';
+    }
+    this.selectedPluginIndex = index;
   }
 
   private showToast(message: string): void {
@@ -141,9 +162,9 @@ export struct SearchPage {
     this.page = 1;
     this.isEnd = false;
     this.dataSource.clear();
-    this.albumResults = [];
-    this.artistResults = [];
-    this.sheetResults = [];
+    this.albumSource.clear();
+    this.artistSource.clear();
+    this.sheetSource.clear();
     this.resultCount = 0;
     this.searchStatus = '搜索中...';
     if (this.selectedPluginIndex === 0) {
@@ -183,14 +204,14 @@ export struct SearchPage {
       this.dataSource.appendData(r.musicData);
       this.resultCount = this.dataSource.totalCount();
     } else if (type === SupportMediaType.Album) {
-      this.albumResults = this.albumResults.concat(r.albumData);
-      this.resultCount = this.albumResults.length;
+      this.albumSource.appendData(r.albumData);
+      this.resultCount = this.albumSource.totalCount();
     } else if (type === SupportMediaType.Artist) {
-      this.artistResults = this.artistResults.concat(r.artistData);
-      this.resultCount = this.artistResults.length;
+      this.artistSource.appendData(r.artistData);
+      this.resultCount = this.artistSource.totalCount();
     } else {
-      this.sheetResults = this.sheetResults.concat(r.sheetData);
-      this.resultCount = this.sheetResults.length;
+      this.sheetSource.appendData(r.sheetData);
+      this.resultCount = this.sheetSource.totalCount();
     }
     if (this.resultCount > 0) {
       this.searchStatus = '共 ' + this.resultCount.toString() + ' 条结果';
@@ -351,6 +372,8 @@ export struct SearchPage {
       return;
     }
     this.selectedPluginIndex = index;
+    const plugin = index > 0 ? this.searchPlugins[index - 1] : undefined;
+    this.selectedPluginName = plugin !== undefined ? plugin.name : '';
     if (this.keyword.trim().length > 0 && !this.searching) {
       this.doSearch();
     }
@@ -416,9 +439,9 @@ export struct SearchPage {
   private resetSearch(): void {
     this.keyword = '';
     this.dataSource.clear();
-    this.albumResults = [];
-    this.artistResults = [];
-    this.sheetResults = [];
+    this.albumSource.clear();
+    this.artistSource.clear();
+    this.sheetSource.clear();
     this.resultCount = 0;
     this.searchStatus = '';
     this.hasSearched = false;
@@ -525,22 +548,22 @@ export struct SearchPage {
             }
           }, (item: MusicItem, _index: number) => item.platform + '_' + item.id)
         } else if (this.categoryIndex === 1) {
-          // 专辑结果
-          ForEach(this.albumResults, (item: AlbumItem, index: number) => {
+          // 专辑结果（懒加载）
+          LazyForEach(this.albumSource, (item: AlbumItem, index: number) => {
             ListItem() {
               this.AlbumRowBuilder(item, index)
             }
           }, (item: AlbumItem, _index: number) => item.platform + '_' + item.id)
         } else if (this.categoryIndex === 2) {
-          // 歌手结果
-          ForEach(this.artistResults, (item: ArtistItem, index: number) => {
+          // 歌手结果（懒加载）
+          LazyForEach(this.artistSource, (item: ArtistItem, index: number) => {
             ListItem() {
               this.ArtistRowBuilder(item, index)
             }
           }, (item: ArtistItem, _index: number) => item.platform + '_' + item.id)
         } else {
-          // 歌单结果
-          ForEach(this.sheetResults, (item: SheetItem, index: number) => {
+          // 歌单结果（懒加载）
+          LazyForEach(this.sheetSource, (item: SheetItem, index: number) => {
             ListItem() {
               this.SheetRowBuilder(item, index)
             }
@@ -662,7 +685,7 @@ export struct SearchPage {
   PluginSelectorBuilder() {
     if (this.pluginNames.length > 0) {
       List({ space: 8 }) {
-        ForEach(this.pluginNames, (name: string, index: number) => {
+        LazyForEach(this.pluginTagSource, (name: string, index: number) => {
           ListItem() {
             Text(name)
               .fontSize(13)
@@ -677,7 +700,7 @@ export struct SearchPage {
                 this.onSelectPlugin(index);
               })
           }
-        }, (name: string, index: number) => name + '_' + index.toString())
+        }, (name: string, _index: number) => name)
       }
       .listDirection(Axis.Horizontal)
       .scrollBar(BarState.Off)
@@ -827,7 +850,7 @@ export struct SearchPage {
       .onClick(() => {
         this.openAlbumDetail(item);
       })
-      if (index < this.albumResults.length - 1) {
+      if (index < this.albumSource.totalCount() - 1) {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
@@ -876,7 +899,7 @@ export struct SearchPage {
       .onClick(() => {
         this.openArtistDetail(item);
       })
-      if (index < this.artistResults.length - 1) {
+      if (index < this.artistSource.totalCount() - 1) {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
@@ -928,7 +951,7 @@ export struct SearchPage {
       .onClick(() => {
         this.openSheetDetail(item);
       })
-      if (index < this.sheetResults.length - 1) {
+      if (index < this.sheetSource.totalCount() - 1) {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))

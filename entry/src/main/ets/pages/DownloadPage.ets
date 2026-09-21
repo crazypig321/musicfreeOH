@@ -14,6 +14,7 @@ import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
 import { MusicDataSource } from '../common/model/MusicDataSource';
+import { StringDataSource } from '../common/model/StringDataSource';
 import { MediaUtils } from '../utils/MediaUtils';
 import { CoverSearch } from '../utils/CoverSearch';
 import { pluginManager } from '../plugin/PluginManager';
@@ -87,6 +88,8 @@ export struct DownloadPage {
 
   /** 已下载/本地音乐列表懒加载数据源（复用搜索页的数据源） */
   dataSource: MusicDataSource = new MusicDataSource();
+  /** 分组标签懒加载数据源（本地音乐文件夹/来源歌单较多时按需创建） */
+  private tagSource: StringDataSource = new StringDataSource();
 
   /** 当前模式对应的数据域（已下载 / 本地音乐） */
   private get activeSheet(): LocalMusicSheet {
@@ -158,6 +161,7 @@ export struct DownloadPage {
         }
       }
       this.dateTags = ['全部'].concat(folders);
+      this.tagSource.reload(this.dateTags);
       if (this.selectedTag !== '全部' && folders.indexOf(this.selectedTag) === -1) {
         this.selectedTag = '全部';
       }
@@ -224,6 +228,7 @@ export struct DownloadPage {
       tags.push(t);
     }
     this.dateTags = tags;
+    this.tagSource.reload(tags);
     if (this.selectedTag !== '全部' && tags.indexOf(this.selectedTag) === -1) {
       this.selectedTag = '全部';
     }
@@ -756,24 +761,20 @@ export struct DownloadPage {
     this.batchSelected = all.length > 0 && this.batchSelected.length === all.length ? [] : all;
   }
 
-  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「移动」「搜索封面」） */
+  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「搜索封面」） */
   private batchTopLabels(): Array<string> {
     const total = this.batchScope === 'task' ? this.selectableTaskCount() : this.dataSource.totalCount();
     const allSelected = total > 0 && this.batchSelected.length === total;
-    const labels: Array<string> = [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单'];
-    if (this.isLocalMode) {
-      labels.push('移动');
-    }
-    labels.push('搜索歌词');
+    const labels: Array<string> = [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单', '搜索歌词'];
     if (this.isLocalMode) {
       labels.push('搜索封面');
     }
     return labels;
   }
 
-  /** 批量操作按钮文案·第二行 */
+  /** 批量操作按钮文案·第二行（本地模式在「移出」前插入「移动」） */
   private batchBottomLabels(): Array<string> {
-    return ['播放', '分享', '移出', '删除'];
+    return this.isLocalMode ? ['播放', '分享', '移动', '移出', '删除'] : ['播放', '分享', '移出', '删除'];
   }
 
   /** 勾选的歌曲实体列表（按列表顺序） */
@@ -1644,7 +1645,7 @@ export struct DownloadPage {
           if (this.dateTags.length > 1) {
             ListItem() {
               List({ space: 8 }) {
-                ForEach(this.dateTags, (tag: string) => {
+                LazyForEach(this.tagSource, (tag: string) => {
                   ListItem() {
                     // 本地音乐文件夹标签：长按/右键呼出 编辑/删除 菜单
                     if (this.isLocalMode && tag !== '全部') {
@@ -1677,7 +1678,7 @@ export struct DownloadPage {
                         })
                     }
                   }
-                }, (tag: string) => tag + (this.selectedTag === tag ? '_on' : '_off'))
+                }, (tag: string) => tag)
               }
               .listDirection(Axis.Horizontal)
               .scrollBar(BarState.Off)
@@ -1759,8 +1760,8 @@ export struct DownloadPage {
       })
 
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
-        // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词（本地模式追加 移动 / 搜索封面）；
-        // 第二行 播放 / 分享 / 移出 / 删除；
+        // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词（本地模式追加 搜索封面）；
+        // 第二行 播放 / 分享 / 移出 / 删除（本地模式在 移出 前多一个 移动）；
         // 第三行 换源 / 重新下载（仅任务区批量模式显示）
         if (appState.isBatchMode) {
           // 渐变模糊高度与底栏内容高度保持一致：
@@ -1806,8 +1807,6 @@ export struct DownloadPage {
                       this.batchFavorite();
                     } else if (v === '添加到歌单') {
                       this.openBatchSheetPicker();
-                    } else if (v === '移动') {
-                      this.openBatchMoveDialog();
                     } else if (v === '搜索歌词') {
                       this.batchSearchLyric();
                     } else {
@@ -1830,11 +1829,13 @@ export struct DownloadPage {
                   .backgroundColor($r('sys.color.comp_background_tertiary'))
                   .fontColor($r('sys.color.font_primary'))
                   .onClick(() => {
-                    if (i === 0) {// 播放
+                    if (v === '播放') {// 播放
                       this.batchPlay();
-                    } else if (i === 1) {// 分享
+                    } else if (v === '分享') {// 分享
                       this.batchShare();
-                    } else if (i === 2) {// 移出列表
+                    } else if (v === '移动') {// 移动到文件夹（仅本地模式）
+                      this.openBatchMoveDialog();
+                    } else if (v === '移出') {// 移出列表
                       this.batchRemove(false);
                     } else {// 删除歌曲文件
                       this.batchRemove(true);
