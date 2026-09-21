@@ -523,7 +523,9 @@ export class DialogManager {
       case '使用说明': {
         const ok: ButtonOptions = {
           value: '知道了',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
           }
         };
@@ -533,6 +535,7 @@ export class DialogManager {
       case '配置变量': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -540,7 +543,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '保存',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -551,6 +556,7 @@ export class DialogManager {
       case '创建分组': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -558,7 +564,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '确定',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -569,6 +577,7 @@ export class DialogManager {
       case '重命名': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -576,7 +585,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '确定',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -587,6 +598,7 @@ export class DialogManager {
       case '跳转排序': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -594,7 +606,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '确定',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -605,6 +619,7 @@ export class DialogManager {
       case '下载到文件夹': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -612,7 +627,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '下载',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -623,6 +640,7 @@ export class DialogManager {
       case '移动到文件夹': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -630,7 +648,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '移动',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -648,7 +668,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '创建',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -659,6 +681,7 @@ export class DialogManager {
       case '编辑标签': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -666,7 +689,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '保存',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -677,6 +702,7 @@ export class DialogManager {
       case '选择器': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -684,7 +710,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '确定',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -695,6 +723,7 @@ export class DialogManager {
       case '更换音源': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -702,7 +731,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '确定',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -713,6 +744,7 @@ export class DialogManager {
       case '设置缓存': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -720,7 +752,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '确定',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -731,6 +765,7 @@ export class DialogManager {
       case '清除缓存': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -738,7 +773,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '确定',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -749,6 +786,7 @@ export class DialogManager {
       case '确认删除': {
         const cancel: ButtonOptions = {
           value: '取消',
+          fontColor: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.CancelButtonDialog(key);
@@ -756,7 +794,9 @@ export class DialogManager {
         };
         const confirm: ButtonOptions = {
           value: '删除',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
             DialogManager.ConfirmButtonDialog(key);
           }
@@ -767,7 +807,9 @@ export class DialogManager {
       case '免责声明': {
         const ok: ButtonOptions = {
           value: '我知道了',
-          buttonStyle: ButtonStyleMode.EMPHASIZED,
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
           action: (): void => {
           }
         };
