@@ -12,6 +12,7 @@ import { screenInfo } from '../utils/ScreenInfo';
 import { themeUtils } from '../utils/ThemeUtils';
 import { WebDav } from '../core/WebDav';
 import { downloader } from '../core/Downloader';
+import { ExternalOpen } from '../core/ExternalOpen';
 
 const DOMAIN = 0x0000;
 
@@ -37,6 +38,13 @@ export default class EntryAbility extends UIAbility {
     Network.getInstance().setup();
     // 恢复上次未完成/失败的下载任务：失败任务原样恢复，中断任务网络可用时自动断点续传
     downloader.restorePersistedTasks();
+    // 外部文件关联打开（文件管理器/QQ/微信 → .js 插件 / .json 备份或订阅源 / 音频播放）
+    ExternalOpen.offer(want);
+  }
+
+  /** 应用已启动时再次被外部文件打开拉起（冷启动走 onCreate 的 want） */
+  onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    ExternalOpen.offer(want);
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {

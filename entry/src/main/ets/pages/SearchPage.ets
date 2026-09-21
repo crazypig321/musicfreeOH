@@ -517,7 +517,7 @@ export struct SearchPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.search_title'), undefined, undefined,
         { builder: (): void => { this.SearchBarBuilder() }, height: this.hasSearched ? 140 : 80 }),
-      isShowPlayBar: false,
+      isShowPlayBar: true,
       scroller: this.scroller,
       doubleTapToTop: true,
       isSearchBarScroller: false,
