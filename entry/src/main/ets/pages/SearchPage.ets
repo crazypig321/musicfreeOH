@@ -76,6 +76,16 @@ export struct SearchPage {
   private allEnds: Array<boolean> = [];
   /** 全部源模式：当前轮尚未返回的插件数 */
   private pendingCount: number = 0;
+  /** 搜索序号：点击标签时中断上一次搜索，旧异步回调按序号失配丢弃结果 */
+  private searchSeq: number = 0;
+
+  /** 中断在途搜索：使旧回调失效并复位进行中标记（不清理已展示结果，随后 doSearch 会整体重置） */
+  private cancelInFlightSearch(): void {
+    this.searchSeq++;
+    this.searching = false;
+    this.loadingMore = false;
+    this.pendingCount = 0;
+  }
 
   aboutToAppear(): void {
     this.refreshPlugins();
@@ -156,6 +166,7 @@ export struct SearchPage {
     if (kw.length === 0 || this.searching) {
       return;
     }
+    const seq = ++this.searchSeq;
     this.refreshPlugins();
     if (this.searchPlugins.length === 0) {
       this.dataSource.clear();
@@ -179,7 +190,7 @@ export struct SearchPage {
       // 全部源：清空分页状态，由 fetchAllRound 重建（不支持当前分类的插件直接标记结束）
       this.allPages = [];
       this.allEnds = [];
-      this.fetchAllRound(kw);
+      this.fetchAllRound(kw, seq);
       return;
     }
     const plugin = this.currentPlugin();
@@ -188,6 +199,9 @@ export struct SearchPage {
       return;
     }
     plugin.methods.search(kw, 1, this.currentType()).then((r: SearchResult): void => {
+      if (seq !== this.searchSeq) {
+        return;
+      }
       this.searching = false;
       this.isEnd = r.isEnd;
       this.appendSearchResult(r);
@@ -196,6 +210,9 @@ export struct SearchPage {
         this.loadMore();
       }
     }).catch((_e: Object): void => {
+      if (seq !== this.searchSeq) {
+        return;
+      }
       this.searching = false;
       this.searchStatus = '搜索失败，请重试';
     });
@@ -247,7 +264,7 @@ export struct SearchPage {
     if (this.selectedPluginIndex === 0) {
       // 全部源：向未结束的插件并行拉取下一页
       this.loadingMore = true;
-      this.fetchAllRound(this.keyword.trim());
+      this.fetchAllRound(this.keyword.trim(), this.searchSeq);
       return;
     }
     if (this.dataSource.totalCount() === 0) {
@@ -258,13 +275,20 @@ export struct SearchPage {
       return;
     }
     this.loadingMore = true;
+    const seq = this.searchSeq;
     const nextPage = this.page + 1;
     plugin.methods.search(this.keyword.trim(), nextPage, this.currentType()).then((r: SearchResult): void => {
+      if (seq !== this.searchSeq) {
+        return;
+      }
       this.loadingMore = false;
       this.page = nextPage;
       this.isEnd = r.isEnd;
       this.appendSearchResult(r);
     }).catch((_e: Object): void => {
+      if (seq !== this.searchSeq) {
+        return;
+      }
       this.loadingMore = false;
     });
   }
@@ -274,7 +298,7 @@ export struct SearchPage {
    * 单个插件失败/超时按该源结束处理，不影响其他源；
    * 每个插件结果到达即增量展示，整轮结束后不足首屏则自动续拉
    */
-  private fetchAllRound(kw: string): void {
+  private fetchAllRound(kw: string, seq: number): void {
     const plugins = this.searchPlugins;
     const type = this.currentType();
     if (this.allPages.length !== plugins.length) {
@@ -309,6 +333,9 @@ export struct SearchPage {
       const nextPage = this.allPages[idx] + 1;
       SearchPage.searchWithTimeout(plugins[idx], kw, nextPage, type, SEARCH_TIMEOUT_MS)
         .then((r: SearchResult): void => {
+          if (seq !== this.searchSeq) {
+            return;
+          }
           this.allPages[idx] = nextPage;
           this.allEnds[idx] = r.isEnd;
           if (this.resultDataLength(r) > 0) {
@@ -317,6 +344,9 @@ export struct SearchPage {
           this.afterPluginRound();
         })
         .catch((_e: Object): void => {
+          if (seq !== this.searchSeq) {
+            return;
+          }
           this.allEnds[idx] = true;
           this.afterPluginRound();
         });
@@ -382,18 +412,22 @@ export struct SearchPage {
     this.selectedPluginIndex = index;
     const plugin = index > 0 ? this.searchPlugins[index - 1] : undefined;
     this.selectedPluginName = plugin !== undefined ? plugin.name : '';
-    if (this.keyword.trim().length > 0 && !this.searching) {
+    if (this.keyword.trim().length > 0) {
+      // 在途搜索直接中断，用新选中的插件 + 当前文本重搜
+      this.cancelInFlightSearch();
       this.doSearch();
     }
   }
 
-  /** 切换结果分类：有搜索词时按新分类重新搜索 */
+  /** 切换结果分类：有搜索词时中断在途搜索并按新分类重新搜索 */
   private onSelectCategory(index: number): void {
     if (index === this.categoryIndex) {
       return;
     }
     this.categoryIndex = index;
-    if (this.keyword.trim().length > 0 && !this.searching) {
+    if (this.keyword.trim().length > 0) {
+      // 在途搜索直接中断，用新选中的分类 + 当前文本重搜
+      this.cancelInFlightSearch();
       this.doSearch();
     }
   }

@@ -102,20 +102,33 @@ export struct WebDavSettingPage {
 
           ListItem() {
             Column() {
-              // 服务器地址
+              // 服务器地址（智感握姿左手：输入框镜像到行首，标签镜像到行尾右对齐）
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  TextInput({ text: this.url, placeholder: 'https://dav.example.com/dav/' })
+                    .layoutWeight(1)
+                    .fontSize(14)
+                    .backgroundColor($r('sys.color.comp_background_tertiary'))
+                    .onChange((value: string) => {
+                      this.url = value;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_URL, value);
+                    })
+                }
                 Text('服务器地址')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .width(80)
-                TextInput({ text: this.url, placeholder: 'https://dav.example.com/dav/' })
-                  .layoutWeight(1)
-                  .fontSize(14)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .onChange((value: string) => {
-                    this.url = value;
-                    appConfig.setConfig(ConfigKeys.WEBDAV_URL, value);
-                  })
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  TextInput({ text: this.url, placeholder: 'https://dav.example.com/dav/' })
+                    .layoutWeight(1)
+                    .fontSize(14)
+                    .backgroundColor($r('sys.color.comp_background_tertiary'))
+                    .onChange((value: string) => {
+                      this.url = value;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_URL, value);
+                    })
+                }
               }
               .width('100%')
               .height(52)
@@ -123,20 +136,33 @@ export struct WebDavSettingPage {
               Divider()
                 .DividerStyle('config')
 
-              // 备份路径
+              // 备份路径（智感握姿左手：输入框镜像到行首，标签镜像到行尾右对齐）
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  TextInput({ text: this.path, placeholder: '可选，如 /backups' })
+                    .layoutWeight(1)
+                    .fontSize(14)
+                    .backgroundColor($r('sys.color.comp_background_tertiary'))
+                    .onChange((value: string) => {
+                      this.path = value;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_PATH, value);
+                    })
+                }
                 Text('备份路径')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .width(80)
-                TextInput({ text: this.path, placeholder: '可选，如 /backups' })
-                  .layoutWeight(1)
-                  .fontSize(14)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .onChange((value: string) => {
-                    this.path = value;
-                    appConfig.setConfig(ConfigKeys.WEBDAV_PATH, value);
-                  })
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  TextInput({ text: this.path, placeholder: '可选，如 /backups' })
+                    .layoutWeight(1)
+                    .fontSize(14)
+                    .backgroundColor($r('sys.color.comp_background_tertiary'))
+                    .onChange((value: string) => {
+                      this.path = value;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_PATH, value);
+                    })
+                }
               }
               .width('100%')
               .height(52)
@@ -144,20 +170,33 @@ export struct WebDavSettingPage {
               Divider()
                 .DividerStyle('config')
 
-              // 用户名
+              // 用户名（智感握姿左手：输入框镜像到行首，标签镜像到行尾右对齐）
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  TextInput({ text: this.username, placeholder: '可选' })
+                    .layoutWeight(1)
+                    .fontSize(14)
+                    .backgroundColor($r('sys.color.comp_background_tertiary'))
+                    .onChange((value: string) => {
+                      this.username = value;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_USERNAME, value);
+                    })
+                }
                 Text('用户名')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .width(80)
-                TextInput({ text: this.username, placeholder: '可选' })
-                  .layoutWeight(1)
-                  .fontSize(14)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .onChange((value: string) => {
-                    this.username = value;
-                    appConfig.setConfig(ConfigKeys.WEBDAV_USERNAME, value);
-                  })
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  TextInput({ text: this.username, placeholder: '可选' })
+                    .layoutWeight(1)
+                    .fontSize(14)
+                    .backgroundColor($r('sys.color.comp_background_tertiary'))
+                    .onChange((value: string) => {
+                      this.username = value;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_USERNAME, value);
+                    })
+                }
               }
               .width('100%')
               .height(52)
@@ -165,21 +204,35 @@ export struct WebDavSettingPage {
               Divider()
                 .DividerStyle('config')
 
-              // 密码
+              // 密码（智感握姿左手：输入框镜像到行首，标签镜像到行尾右对齐）
               Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  TextInput({ text: this.password, placeholder: '可选' })
+                    .layoutWeight(1)
+                    .fontSize(14)
+                    .type(InputType.Password)
+                    .backgroundColor($r('sys.color.comp_background_tertiary'))
+                    .onChange((value: string) => {
+                      this.password = value;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_PASSWORD, value);
+                    })
+                }
                 Text('密码')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .width(80)
-                TextInput({ text: this.password, placeholder: '可选' })
-                  .layoutWeight(1)
-                  .fontSize(14)
-                  .type(InputType.Password)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .onChange((value: string) => {
-                    this.password = value;
-                    appConfig.setConfig(ConfigKeys.WEBDAV_PASSWORD, value);
-                  })
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  TextInput({ text: this.password, placeholder: '可选' })
+                    .layoutWeight(1)
+                    .fontSize(14)
+                    .type(InputType.Password)
+                    .backgroundColor($r('sys.color.comp_background_tertiary'))
+                    .onChange((value: string) => {
+                      this.password = value;
+                      appConfig.setConfig(ConfigKeys.WEBDAV_PASSWORD, value);
+                    })
+                }
               }
               .width('100%')
               .height(52)
@@ -199,21 +252,39 @@ export struct WebDavSettingPage {
 
           ListItem() {
             Column() {
-              // 备份到 WebDAV
+              // 备份到 WebDAV（智感握姿左手：路径文本镜像到行首，标题右对齐，图标镜像到行尾）
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.arrow_up_circle'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
+                if (appState.holdingHand === 'left') {
+                  Text(this.backupFileDisplay)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(1)
+                    .width('50%')
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.arrow_up_circle'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
                 Text('备份到 WebDAV')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
-                Text(this.backupFileDisplay)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .maxLines(1)
-                  .width('50%')
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  Text(this.backupFileDisplay)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(1)
+                    .width('50%')
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.arrow_up_circle'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
               }
               .width('100%')
               .height(52)
@@ -224,15 +295,23 @@ export struct WebDavSettingPage {
               Divider()
                 .DividerStyle('do')
 
-              // 从 WebDAV 恢复
+              // 从 WebDAV 恢复（智感握姿左手：标题右对齐，图标镜像到行尾）
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.arrow_down_circle'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.arrow_down_circle'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
                 Text('从 WebDAV 恢复')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.arrow_down_circle'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
               }
               .width('100%')
               .height(52)
@@ -305,7 +384,9 @@ function ListItemStyle() {
 @Extend(Divider)
 function DividerStyle(key: 'config' | 'do') {
   .color($r('sys.color.comp_divider'))
-  .margin({ left: key === 'config' ? 4 : 32, right: 4 })
+  .margin(appState.holdingHand === 'left' ?
+    { left: key === 'config' ? 4 : 4, right: key === 'config' ? 4 : 32 } :
+    { left: key === 'config' ? 4 : 32, right: 4 })
 }
 
 @Extend(List)

@@ -231,7 +231,7 @@ export struct MySheetsPage {
         this.openSortSheet()
       });
     };
-    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [batchItem, sortItem], {
+    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [sortItem, batchItem], {
       placement: Placement.BottomRight
     });
   }
