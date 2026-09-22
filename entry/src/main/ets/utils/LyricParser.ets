@@ -58,6 +58,11 @@ export class LyricParser {
     return this._musicItem;
   }
 
+  /** 歌词时间偏移（秒），定位时从播放进度中扣除 */
+  get offset(): number {
+    return this.offsetValue;
+  }
+
   constructor(raw: string, options?: LyricParserOptions) {
     if (options !== undefined) {
       this._musicItem = options.musicItem === undefined ? null : options.musicItem;

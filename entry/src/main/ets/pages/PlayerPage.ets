@@ -1027,6 +1027,7 @@ export struct PlayerPage {
           highlightColor: appState.accentColor,
           showTranslation: this.showTranslation,
           hasTranslation: this.hasTranslation,
+          lyricOffset: lyricManager.offset,
           onSeek: (time: number): void => {
             trackPlayer.seekTo(time);
           },

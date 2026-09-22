@@ -54,6 +54,11 @@ export class LyricManager {
     return this.currentLyricItemInternal;
   }
 
+  /** 当前歌词时间偏移（秒） */
+  get offset(): number {
+    return this.lyricParser !== null ? this.lyricParser.offset : 0;
+  }
+
   setup(): void {
     if (this.setupDone) {
       return;

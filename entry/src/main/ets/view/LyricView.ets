@@ -21,6 +21,8 @@ export struct LyricView {
   @Param showTranslation: boolean = false;
   /** 是否含翻译 */
   @Param hasTranslation: boolean = false;
+  /** 歌词时间偏移（秒），定位时从播放进度中扣除 */
+  @Param lyricOffset: number = 0;
 
   /** seek 回调（秒） */
   @Event onSeek: (time: number) => void = () => {};
@@ -31,6 +33,8 @@ export struct LyricView {
   @Local currentIndex: number = -1;
   /** 当前行已唱到的词索引（-1=尚未开始） */
   @Local currentWordIndex: number = -1;
+  /** 正在唱的词渐变进度 0~1 */
+  @Local wordProgress: number = 0;
   /** 用户手动滑动中 */
   @Local isUserScrolling: boolean = false;
   /** 滑动 seek 目标时间（秒） */
@@ -67,7 +71,7 @@ export struct LyricView {
 
   /** 30ms 采样：更新当前行索引和渐变进度 */
   private updateProgress(): void {
-    const pos = this.positionProvider();
+    const pos = this.positionProvider() - this.lyricOffset;
     if (this.lyrics.length === 0) {
       return;
     }
@@ -87,8 +91,10 @@ export struct LyricView {
     }
     if (idx >= 0) {
       this.currentWordIndex = this.calcWordIndex(this.lyrics[idx], pos);
+      this.wordProgress = this.calcWordProgress(this.lyrics[idx], pos, this.currentWordIndex);
     } else {
       this.currentWordIndex = -1;
+      this.wordProgress = 0;
     }
   }
 
@@ -106,6 +112,27 @@ export struct LyricView {
       }
     }
     return idx;
+  }
+
+  /** 计算正在唱的词内渐变进度 0~1 */
+  private calcWordProgress(item: ParsedLrcItem, pos: number, wordIdx: number): number {
+    if (wordIdx < 0 || wordIdx >= item.words.length) {
+      return 0;
+    }
+    const w = item.words[wordIdx];
+    const duration = w.endTime - w.startTime;
+    return duration > 0 ? Math.min(1, Math.max(0, (pos - w.startTime) / duration)) : 1;
+  }
+
+  /** 渐变色 stops：已唱=高亮，未唱=次要色 */
+  private gradientColors(value: number): Array<[ResourceColor, number]> {
+    const v = Math.max(0, Math.min(1, value));
+    return [
+      [this.highlightColor, 0.0],
+      [this.highlightColor, v],
+      [$r('sys.color.font_secondary'), v],
+      [$r('sys.color.font_secondary'), 1.0]
+    ];
   }
 
   /** 用户触摸：按下暂停自动滚动，松手 3 秒后恢复 */
@@ -166,6 +193,7 @@ export struct LyricView {
       .justifyContent(FlexAlign.SpaceBetween)
       .alignItems(VerticalAlign.Center)
       .hitTestBehavior(HitTestMode.Transparent)
+      .transition(TransitionEffect.OPACITY)
     }
   }
 
@@ -190,24 +218,46 @@ export struct LyricView {
             ListItem() {
               Column({ space: 4 }) {
                 if (index === this.currentIndex) {
-                  Text() {
-                    if (item.words.length > 0) {
+                  if (item.words.length > 0) {
+                    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
                       ForEach(item.words, (word: LyricWord, i: number) => {
-                        Span(word.text)
-                          .fontColor(i <= this.currentWordIndex
-                            ? this.highlightColor : $r('sys.color.font_secondary'))
-                          .animation({ duration: 200, curve: Curve.EaseOut })
+                        if (i < this.currentWordIndex) {
+                          Text(word.text)
+                            .fontSize(Math.round(20 * this.fontScale))
+                            .fontWeight(FontWeight.Bold)
+                            .fontColor(this.highlightColor)
+                        } else if (i === this.currentWordIndex) {
+                          Stack() {
+                            Text(word.text)
+                              .fontColor(this.highlightColor)
+                              .fontSize(Math.round(20 * this.fontScale))
+                              .fontWeight(FontWeight.Bold)
+                              .blendMode(BlendMode.DST_IN, BlendApplyType.OFFSCREEN)
+                          }
+                          .linearGradient({
+                            direction: GradientDirection.Right,
+                            colors: this.gradientColors(this.wordProgress)
+                          })
+                          .blendMode(BlendMode.SRC_OVER, BlendApplyType.OFFSCREEN)
+                        } else {
+                          Text(word.text)
+                            .fontSize(Math.round(20 * this.fontScale))
+                            .fontWeight(FontWeight.Bold)
+                            .fontColor($r('sys.color.font_secondary'))
+                        }
                       }, (word: LyricWord, i: number) => i.toString())
-                    } else {
-                      Span(item.lrc)
-                        .fontColor(this.highlightColor)
                     }
+                    .width('100%')
+                    .animation({ duration: 300, curve: Curve.EaseInOut })
+                  } else {
+                    Text(item.lrc)
+                      .fontSize(Math.round(20 * this.fontScale))
+                      .fontWeight(FontWeight.Bold)
+                      .fontColor(this.highlightColor)
+                      .maxLines(2)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis })
+                      .animation({ duration: 300, curve: Curve.EaseInOut })
                   }
-                  .fontSize(Math.round(20 * this.fontScale))
-                  .fontWeight(FontWeight.Bold)
-                  .maxLines(2)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .animation({ duration: 300, curve: Curve.EaseInOut })
                 } else {
                   Text(item.lrc)
                     .fontSize(Math.round(16 * this.fontScale))
