@@ -11,7 +11,7 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { lyricManager, LyricState } from '../core/LyricManager';
 import { floatLyricManager } from '../core/FloatLyricManager';
 import { mediaSession } from '../core/MediaSession';
-import { ParsedLrcItem } from '../utils/LyricParser';
+import { ParsedLrcItem, LyricWord } from '../utils/LyricParser';
 import { MediaUtils } from '../utils/MediaUtils';
 import { MediaExtra } from '../core/MediaExtra';
 import { appState } from '../entryability/AppState';
@@ -67,6 +67,8 @@ export struct PlayerPage {
   @Local isFavorited: boolean = false;
   @Local lyricLoading: boolean = true;
   @Local currentLyric: ParsedLrcItem | null = null;
+  /** 当前行已唱到的字索引（-1=尚未开始） */
+  @Local lyricWordIndex: number = -1;
   /** 完整歌词列表（歌词模式下滚动展示） */
   @Local lyrics: Array<ParsedLrcItem> = [];
   /** 是否含翻译 */
@@ -95,6 +97,8 @@ export struct PlayerPage {
   /** 用户手动滚动歌词期间暂停自动居中；松手 3 秒后恢复 */
   private userScrolling: boolean = false;
   private userScrollTimer: number = -1;
+  /** 逐字高亮定时器（50ms 采样实时进度） */
+  private lyricWordTimer: number = -1;
   private lyricScroller: Scroller = new Scroller();
   private commentsPage: number = 1;
   /** 评论请求序号：仅采纳最新一次请求的结果 */
@@ -138,6 +142,7 @@ export struct PlayerPage {
     });
     this.offState = trackPlayer.onPlayStateChanged((state: PlayState) => {
       this.isPlaying = state === PlayState.Playing;
+      this.updateLyricWordTimer();
     });
     // 播放队列 sheet 等其他入口切换播放方式时同步本页按钮
     this.offRepeatMode = trackPlayer.onRepeatModeChanged((mode: MusicRepeatMode) => {
@@ -156,7 +161,10 @@ export struct PlayerPage {
     });
     this.offCurrentLyric = lyricManager.onCurrentLyricChanged((item: ParsedLrcItem | null) => {
       this.currentLyric = item;
+      this.lyricWordIndex = -1;
       this.autoScrollToCurrentLyric();
+      this.updateLyricWordTimer();
+      this.lyricWordTick();
     });
     // 通知栏收藏状态变化时同步本页收藏按钮
     this.offFavorite = mediaSession.onFavoriteChanged(() => {
@@ -165,6 +173,7 @@ export struct PlayerPage {
     // 收起完成时重置歌词态，保证下次展开时封面占位可测量
     playerAnim.onCollapsed = (): void => {
       this.showLyric = false;
+      this.updateLyricWordTimer();
     };
   }
 
@@ -180,6 +189,10 @@ export struct PlayerPage {
     if (this.userScrollTimer !== -1) {
       clearTimeout(this.userScrollTimer);
       this.userScrollTimer = -1;
+    }
+    if (this.lyricWordTimer !== -1) {
+      clearInterval(this.lyricWordTimer);
+      this.lyricWordTimer = -1;
     }
   }
 
@@ -227,6 +240,7 @@ export struct PlayerPage {
     if (on) {
       this.scrollToCurrentLyric(false);
     }
+    this.updateLyricWordTimer();
   }
 
   /** 用户触摸歌词列表：按下暂停自动滚动，松手 3 秒后恢复 */
@@ -252,6 +266,37 @@ export struct PlayerPage {
   private isCurrentLyric(item: ParsedLrcItem): boolean {
     const current = this.currentLyric;
     return current !== null && current.index === item.index && current.time === item.time;
+  }
+
+  /** 逐字高亮：启动/停止定时器 */
+  private updateLyricWordTimer(): void {
+    const shouldRun = this.showLyric && this.isPlaying && this.currentLyric !== null;
+    if (shouldRun && this.lyricWordTimer === -1) {
+      this.lyricWordTimer = setInterval((): void => this.lyricWordTick(), 50);
+    } else if (!shouldRun && this.lyricWordTimer !== -1) {
+      clearInterval(this.lyricWordTimer);
+      this.lyricWordTimer = -1;
+    }
+  }
+
+  /** 逐字高亮：根据实时播放进度计算当前唱到第几个字 */
+  private lyricWordTick(): void {
+    const current = this.currentLyric;
+    if (current === null || current.words.length === 0) {
+      return;
+    }
+    const pos = trackPlayer.getProgress().position;
+    let idx = -1;
+    for (let i = 0; i < current.words.length; ++i) {
+      if (current.words[i].startTime <= pos) {
+        idx = i;
+      } else {
+        break;
+      }
+    }
+    if (idx !== this.lyricWordIndex) {
+      this.lyricWordIndex = idx;
+    }
   }
 
   /** 歌词字体缩放系数 */
@@ -1076,12 +1121,21 @@ export struct PlayerPage {
           ForEach(this.lyrics, (item: ParsedLrcItem) => {
             ListItem() {
               Column({ space: 4 }) {
-                Text(item.lrc)
+                Text() {
+                  if (this.isCurrentLyric(item)) {
+                    ForEach(item.words, (word: LyricWord, i: number) => {
+                      Span(word.text)
+                        .fontColor(i <= this.lyricWordIndex
+                          ? appState.accentColor : $r('sys.color.font_secondary'))
+                    }, (word: LyricWord, i: number) => i.toString())
+                  } else {
+                    Span(item.lrc)
+                      .fontColor($r('sys.color.font_secondary'))
+                  }
+                }
                   .fontSize(this.isCurrentLyric(item) ?
                     Math.round(20 * this.lyricFontScale()) : Math.round(16 * this.lyricFontScale()))
                   .fontWeight(this.isCurrentLyric(item) ? FontWeight.Bold : FontWeight.Normal)
-                  .fontColor(this.isCurrentLyric(item) ?
-                    appState.accentColor : $r('sys.color.font_secondary'))
                   .maxLines(2)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .animation({

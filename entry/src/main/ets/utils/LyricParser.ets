@@ -1,16 +1,30 @@
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { JsonRecord } from '../common/JsonUtil';
 
+/** 逐字歌词项 */
+export class LyricWord {
+  /** 字文本 */
+  text: string = '';
+  /** 开始时间 s */
+  startTime: number = 0;
+  /** 结束时间 s */
+  endTime: number = 0;
+}
+
 /** 解析后的歌词项 */
 export class ParsedLrcItem {
   /** 时间 s */
   time: number = 0;
+  /** 行结束时间 s（下一行 time，末行取 time+5） */
+  endTime: number = 0;
   /** 歌词 */
   lrc: string = '';
   /** 翻译 */
   translation: string = '';
   /** 位置 */
   index: number = 0;
+  /** 逐字信息（按行时长均分） */
+  words: Array<LyricWord> = [];
 }
 
 /** 歌词解析配置 */
@@ -236,7 +250,30 @@ export class LyricParser {
         lrcItems.push(item);
       }
     }
+    LyricParser.fillWords(lrcItems);
     result.lrcItems = lrcItems;
     return result;
+  }
+
+  /** 计算每行 endTime 并按行时长均分逐字时间戳 */
+  private static fillWords(items: Array<ParsedLrcItem>): void {
+    for (let i = 0; i < items.length; ++i) {
+      const item = items[i];
+      item.endTime = i < items.length - 1 ? items[i + 1].time : item.time + 5;
+      const chars = Array.from(item.lrc);
+      if (chars.length === 0) {
+        continue;
+      }
+      const lineDuration = Math.max(item.endTime - item.time, 0.1);
+      const perChar = lineDuration / chars.length;
+      item.words = new Array<LyricWord>(chars.length);
+      for (let c = 0; c < chars.length; ++c) {
+        const w = new LyricWord();
+        w.text = chars[c];
+        w.startTime = item.time + c * perChar;
+        w.endTime = item.time + (c + 1) * perChar;
+        item.words[c] = w;
+      }
+    }
   }
 }
