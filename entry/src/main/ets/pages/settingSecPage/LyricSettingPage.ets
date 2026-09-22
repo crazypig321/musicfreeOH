@@ -147,6 +147,46 @@ export struct LyricSettingPage {
             .width('100%')
             .padding({ top: 4, bottom: 4 })
           }.ListItemStyle()
+
+          // 桌面歌词锁定开关（仅桌面歌词开启时显示）
+          if (floatLyricManager.enabled)
+            ListItem() {
+              Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: floatLyricManager.locked })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      floatLyricManager.toggleLocked().catch((): void => {
+                      });
+                    })
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.lock'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                Text('锁定桌面歌词')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: floatLyricManager.locked })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      floatLyricManager.toggleLocked().catch((): void => {
+                      });
+                    })
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.lock'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+              }
+              .width('100%')
+              .height(52)
+            }.ListItemStyle()
         }
         .ListStyle()
         .onScrollFrameBegin((offset: number) => {

@@ -91,6 +91,17 @@ export class MediaSession {
 
       await session.activate();
 
+      // 声明支持的循环模式（通知栏循环按钮需要此信息才会发送 setLoopMode 事件）
+      try {
+        await session.setSupportedLoopModes([
+          avSession.LoopMode.LOOP_MODE_LIST,
+          avSession.LoopMode.LOOP_MODE_SINGLE,
+          avSession.LoopMode.LOOP_MODE_SHUFFLE
+        ]);
+      } catch (e) {
+        Log.warn('setSupportedLoopModes 不可用', e);
+      }
+
       // 启用系统桌面歌词功能（通知栏显示桌面歌词按钮）
       this.tryEnableDesktopLyric();
 
@@ -311,6 +322,17 @@ export class MediaSession {
           Log.info('系统桌面歌词可见性变化: ' + visible);
           floatLyricManager.onDesktopLyricVisibilityChanged(visible);
         });
+        // 监听桌面歌词锁定状态变化
+        session.onDesktopLyricStateChanged((state: avSession.DesktopLyricState) => {
+          Log.info('系统桌面歌词锁定状态变化: ' + state.isLocked);
+          floatLyricManager.onLockStateChanged(state.isLocked);
+        });
+        // 获取初始锁定状态
+        session.getDesktopLyricState().then((state: avSession.DesktopLyricState) => {
+          floatLyricManager.onLockStateChanged(state.isLocked);
+        }).catch((e: Object) => {
+          Log.warn('获取桌面歌词锁定状态失败', e);
+        });
       }).catch((e: Object) => {
         Log.warn('启用系统桌面歌词失败', e);
       });
@@ -335,6 +357,21 @@ export class MediaSession {
       return true;
     } catch (e) {
       Log.warn('设置桌面歌词可见性失败');
+      return false;
+    }
+  }
+
+  /** 设置系统桌面歌词锁定状态；返回是否成功 */
+  async setDesktopLyricLocked(locked: boolean): Promise<boolean> {
+    const session = this.session;
+    if (session === null || !this.desktopLyricEnabled) {
+      return false;
+    }
+    try {
+      await session.setDesktopLyricState({ isLocked: locked });
+      return true;
+    } catch (e) {
+      Log.warn('设置桌面歌词锁定状态失败');
       return false;
     }
   }

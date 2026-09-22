@@ -11,6 +11,8 @@ import { Log } from '../utils/Log';
 export class FloatLyricManager {
   /** 开关状态（持久化到 floatLyric.enabled） */
   @Trace enabled: boolean = false;
+  /** 锁定状态（由系统桌面歌词 onDesktopLyricStateChanged 回调同步） */
+  @Trace locked: boolean = false;
 
   /** 用户入口：切换开/关；返回是否成功开启 */
   async toggle(): Promise<boolean> {
@@ -43,10 +45,23 @@ export class FloatLyricManager {
     appConfig.setConfig(ConfigKeys.FLOAT_LYRIC_ENABLED, false);
   }
 
+  /** 切换锁定状态 */
+  async toggleLocked(): Promise<void> {
+    const ok = await mediaSession.setDesktopLyricLocked(!this.locked);
+    if (!ok) {
+      Log.warn('设置桌面歌词锁定状态失败');
+    }
+  }
+
   /** 系统桌面歌词可见性变化（由 MediaSession 回调，仅更新状态） */
   onDesktopLyricVisibilityChanged(visible: boolean): void {
     this.enabled = visible;
     appConfig.setConfig(ConfigKeys.FLOAT_LYRIC_ENABLED, visible);
+  }
+
+  /** 系统桌面歌词锁定状态变化（由 MediaSession 回调，仅更新状态） */
+  onLockStateChanged(locked: boolean): void {
+    this.locked = locked;
   }
 }
 
