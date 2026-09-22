@@ -111,16 +111,18 @@ export struct LyricSettingPage {
                 Toggle({ type: ToggleType.Switch, isOn: floatLyricManager.enabled })
                   .selectedColor(appState.accentColor)
                   .onChange((isOn: boolean) => {
-                    if (isOn) {
-                      floatLyricManager.open().then((ok: boolean): void => {
-                        if (!ok) {
-                          this.showToast('桌面歌词不可用，请检查系统设置');
-                        }
-                      });
-                    } else {
-                      floatLyricManager.close().catch((): void => {
-                      });
-                    }
+                    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+                      if (isOn) {
+                        floatLyricManager.open().then((ok: boolean): void => {
+                          if (!ok) {
+                            this.showToast('桌面歌词不可用，请检查系统设置');
+                          }
+                        });
+                      } else {
+                        floatLyricManager.close().catch((): void => {
+                        });
+                      }
+                    });
                   })
               }
               if (appState.holdingHand === 'left') {
@@ -186,7 +188,7 @@ export struct LyricSettingPage {
               }
               .width('100%')
               .height(52)
-            }.ListItemStyle()
+            }.ListItemStyle().transition(TransitionEffect.OPACITY)
         }
         .ListStyle()
         .onScrollFrameBegin((offset: number) => {

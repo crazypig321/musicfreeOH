@@ -42,10 +42,10 @@ struct PlayingBars {
       for (let i = 0; i < 5; i++) {
         next.push(4 + Math.random() * 14);
       }
-      this.getUIContext().animateTo({ duration: 380, curve: Curve.EaseInOut }, (): void => {
+      this.getUIContext().animateTo({ duration: 300, curve: Curve.EaseInOut }, (): void => {
         this.heights = next;
       });
-    }, 400);
+    }, 800);
   }
 
   private stopTimer(): void {

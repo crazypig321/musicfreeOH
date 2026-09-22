@@ -52,6 +52,13 @@ class LyricAction {
  */
 @ComponentV2
 export struct PlayerPage {
+  /** 当前激活的半模态 sheet 类型 */
+  static readonly SHEET_NONE: number = 0;
+  static readonly SHEET_QUEUE: number = 1;
+  static readonly SHEET_COMMENTS: number = 2;
+  static readonly SHEET_LYRIC_MORE: number = 3;
+  static readonly SHEET_LYRIC_EDITOR: number = 4;
+  @Local isForegroundBlur: boolean = false;
   @Local currentMusic: MusicItem | null = null;
   @Local isPlaying: boolean = false;
   @Local currentPosition: number = 0;
@@ -70,12 +77,12 @@ export struct PlayerPage {
   @Local lyricFontIndex: number = appConfig.getLyricFontSize();
   /** 歌词模式（点击封面或左滑进入，歌词区右滑返回封面） */
   @Local showLyric: boolean = false;
-  /** 播放队列半模态 */
-  @Local showQueue: boolean = false;
+  /** 当前激活的半模态（0=无） */
+  @Local activeSheet: number = PlayerPage.SHEET_NONE;
+  /** sheet 是否可见（关闭动画期间保持 true，内容不闪空） */
+  @Local isSheetVisible: boolean = false;
   /** 「更多」歌曲操作半模态（复用搜索页组件） */
   @Local showMore: boolean = false;
-  /** 评论半模态 */
-  @Local showComments: boolean = false;
   @Local comments: Array<CommentItem> = [];
   @Local commentsLoading: boolean = false;
   @Local commentsEnded: boolean = false;
@@ -95,9 +102,6 @@ export struct PlayerPage {
   /** 当前歌词原文（复制/编辑歌词用） */
   private lyricRawLrc: string = '';
   /** 歌词「更多」半模态（复制/编辑歌词、悬浮歌词设置） */
-  @Local showLyricMore: boolean = false;
-  /** 编辑歌词半模态 */
-  @Local showLyricEditor: boolean = false;
   /** 编辑歌词文本 */
   @Local lyricEditText: string = '';
   private offCurrent: () => void = (): void => {
@@ -286,9 +290,8 @@ export struct PlayerPage {
       }
     }, floatLyricManager.enabled));
     items.push(new LyricAction($r('sys.symbol.ellipsis_circle'), '更多', (): void => {
-      this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
-        this.showLyricMore = true;
-      });
+      this.activeSheet = PlayerPage.SHEET_LYRIC_MORE;
+      this.isSheetVisible = true;
     }));
     return items;
   }
@@ -398,7 +401,8 @@ export struct PlayerPage {
   /** 打开编辑歌词面板（预填当前歌词原文） */
   private openLyricEditor(): void {
     this.lyricEditText = this.lyricRawLrc;
-    this.showLyricEditor = true;
+    this.activeSheet = PlayerPage.SHEET_LYRIC_EDITOR;
+    this.isSheetVisible = true;
   }
 
   /** 保存编辑的歌词：写入本地歌词并立即刷新 */
@@ -413,7 +417,7 @@ export struct PlayerPage {
       return;
     }
     lyricManager.uploadLocalLyric(current, text, 'raw').then((): void => {
-      this.showLyricEditor = false;
+      this.isSheetVisible = false;
       this.showToast('歌词已更新');
     });
   }
@@ -495,7 +499,8 @@ export struct PlayerPage {
     this.commentsEnded = false;
     this.commentsLoading = true;
     this.commentsPage = 1;
-    this.showComments = true;
+    this.activeSheet = PlayerPage.SHEET_COMMENTS;
+    this.isSheetVisible = true;
     this.loadComments(1);
   }
 
@@ -706,7 +711,7 @@ export struct PlayerPage {
 
   build() {
     Stack() {
-      // 背景：封面高斯模糊 + 主题色蒙层
+      // 背景：封面 + 主题色蒙层（去掉实时 blur(80)，用高 opacity 蒙层替代）
       if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
         Image(ArtworkCache.resolve(this.currentMusic.artwork))
           .width('100%')
@@ -717,7 +722,7 @@ export struct PlayerPage {
           .width('100%')
           .height('100%')
           .backgroundColor($r('sys.color.background_secondary'))
-          .opacity(0.82)
+          .opacity(0.8)
         }
 
         if (this.currentMusic === null) {
@@ -753,62 +758,13 @@ export struct PlayerPage {
           })
         }
 
-      // 评论半模态挂载点（独立锚点，避免与队列 bindSheet 冲突）
-      Column()
-        .width(0)
-        .height(0)
-        .bindSheet(!!this.showComments, this.CommentsSheetBuilder(), {
-          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
-          backgroundColor: $r('sys.color.background_secondary'),
-          onWillDisappear: () => {
-            this.showComments = false;
-            appState.isForegroundBlur = false;
-          },
-          onWillAppear: () => {
-            appState.isForegroundBlur = true;
-          }
-        })
-
-      // 歌词操作半模态挂载点（更多按钮弹出）
-      Column()
-        .width(0)
-        .height(0)
-        .bindSheet(!!this.showLyricMore, this.LyricMoreSheetBuilder(), {
-          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM],
-          dragBar: true,
-          backgroundColor: $r('sys.color.background_secondary'),
-          onWillDisappear: () => {
-            this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
-              this.showLyricMore = false;
-              appState.isForegroundBlur = false;
-            });
-          },
-          onWillAppear: () => {
-            appState.isForegroundBlur = true;
-          }
-        })
-
-      // 编辑歌词半模态挂载点（二级半模态，不重复设背景模糊）
-      Column()
-        .width(0)
-        .height(0)
-        .bindSheet(!!this.showLyricEditor, this.LyricEditorSheetBuilder(), {
-          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
-          backgroundColor: $r('sys.color.background_secondary'),
-          onWillDisappear: () => {
-            this.showLyricEditor = false;
-          }
-        })
-
       }
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
-    .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
+    .foregroundBlurStyle(this.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
       { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
-    // 展开态下拉收起：跟手 → 松手半屏判定回弹/收起（distance 20 防误触）
+    // 展开态下拉收起：跟手 → 松手半屏判定回弹/<unused>（distance 20 防误触）
     .gesture(
       PanGesture({ fingers: 1, direction: PanDirection.Vertical, distance: 20 })
         .onActionUpdate((event: GestureEvent): void => {
@@ -818,16 +774,19 @@ export struct PlayerPage {
           PlayerExpandAnimController.endDrag();
         })
     )
-    .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
+    .bindSheet(this.isSheetVisible, this.ActiveSheetBuilder(), {
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true,
       backgroundColor: $r('sys.color.background_secondary'),
       onWillDisappear: () => {
-        this.showQueue = false;
-        appState.isForegroundBlur = false;
+        this.isSheetVisible = false;
+        this.activeSheet = PlayerPage.SHEET_NONE;
+        this.isForegroundBlur = false;
       },
       onWillAppear: () => {
-        appState.isForegroundBlur = true;
+        if (this.activeSheet !== PlayerPage.SHEET_LYRIC_EDITOR) {
+          this.isForegroundBlur = true;
+        }
       }
     })
   }
@@ -917,7 +876,7 @@ export struct PlayerPage {
           .objectFit(ImageFit.Cover)
           .shadow({
             radius: 80,
-            color: ColoringStrategy.PRIMARY,
+            color: $r('sys.color.background_secondary'),
             offsetX: 0,
             offsetY: 0
           })
@@ -1030,16 +989,15 @@ export struct PlayerPage {
           Image(ArtworkCache.resolve(this.currentMusic.artwork))
             .width(280)
             .height(280)
+            .sourceSize({ width: 280, height: 280 })
             .borderRadius(24)
             .objectFit(ImageFit.Cover)
-            // 光晕：阴影颜色取封面主色（ColoringStrategy.PRIMARY）
             .shadow({
               radius: 80,
-              color: ColoringStrategy.PRIMARY,
+              color: $r('sys.color.background_secondary'),
               offsetX: 0,
               offsetY: 0
             })
-            // 一镜到底落点：动画期间作为隐形占位，由顶层飞行封面代替
             .id('player_page_cover')
             .opacity(playerAnim.bigCoverHidden ? 0 : 1)
         } else {
@@ -1321,7 +1279,8 @@ export struct PlayerPage {
         .fontColor([$r('sys.color.icon_secondary')])
         .padding(Math.max(2, Math.round(4 * s)))
         .onClick(() => {
-          this.showQueue = true;
+          this.activeSheet = PlayerPage.SHEET_QUEUE;
+          this.isSheetVisible = true;
         })
     }
     .width('100%')
@@ -1609,7 +1568,7 @@ export struct PlayerPage {
           .backgroundColor($r('sys.color.comp_background_tertiary'))
           .fontColor($r('sys.color.font_primary'))
           .onClick(() => {
-            this.showLyricEditor = false;
+            this.isSheetVisible = false;
           })
         Button('保存')
           .layoutWeight(1)
@@ -1630,6 +1589,20 @@ export struct PlayerPage {
   @Builder
   QueueSheetBuilder() {
     QueueSheet()
+  }
+
+  /** 当前激活的半模态面板：依据 activeSheet 枚举分发到对应 builder */
+  @Builder
+  ActiveSheetBuilder() {
+    if (this.activeSheet === PlayerPage.SHEET_COMMENTS) {
+      this.CommentsSheetBuilder()
+    } else if (this.activeSheet === PlayerPage.SHEET_LYRIC_MORE) {
+      this.LyricMoreSheetBuilder()
+    } else if (this.activeSheet === PlayerPage.SHEET_LYRIC_EDITOR) {
+      this.LyricEditorSheetBuilder()
+    } else if (this.activeSheet === PlayerPage.SHEET_QUEUE) {
+      this.QueueSheetBuilder()
+    }
   }
 
   /** 投播组件自定义图标 */
