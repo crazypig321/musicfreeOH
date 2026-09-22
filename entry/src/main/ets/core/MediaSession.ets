@@ -88,6 +88,10 @@ export class MediaSession {
       session.on('setLoopMode', (mode: avSession.LoopMode) => {
         this.handleLoopModeChange(mode);
       });
+      session.on('setTargetLoopMode', (mode: avSession.LoopMode) => {
+        Log.info('收到通知栏 setTargetLoopMode 事件: ' + mode);
+        this.handleLoopModeChange(mode);
+      });
 
       await session.activate();
 
@@ -482,8 +486,9 @@ export class MediaSession {
 
   /** 通知栏切换循环模式 */
   private handleLoopModeChange(mode: avSession.LoopMode): void {
-    const repeatMode = this.loopModeToRepeatMode(mode);
-    trackPlayer.setRepeatMode(repeatMode);
+    Log.info('收到通知栏 setLoopMode 事件: ' + mode);
+    // setLoopMode 事件值为当前模式，应用需自行切换到下一个模式
+    trackPlayer.toggleRepeatMode();
     this.updatePlaybackState(true);
   }
 
