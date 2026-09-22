@@ -103,6 +103,6 @@ hvigorw assembleHap
 
 ---
 
-> ⭐ 如果这个项目对你有帮助，欢迎给原项目 [MusicFree](https://github.com/maotoumao/MusicFree) 点个 Star 支持一下～
+> ⭐ 如果这个项目对你有帮助，欢迎给本项目MusicFreeOH和原项目 [MusicFree](https://github.com/maotoumao/MusicFree) 点个 Star 支持一下～
 > 
 
