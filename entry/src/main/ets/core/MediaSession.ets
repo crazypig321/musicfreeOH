@@ -10,6 +10,7 @@ import { floatLyricManager } from './FloatLyricManager';
 import { lyricManager } from './LyricManager';
 import { musicSheet } from './MusicSheet';
 import { MediaUtils } from '../utils/MediaUtils';
+import { MusicRepeatMode } from '../common/Consts';
 
 /**
  * 媒体会话（AVSession）
@@ -84,6 +85,9 @@ export class MediaSession {
       session.on('toggleFavorite', (_assetId: string) => {
         this.toggleFavoriteStatus();
       });
+      session.on('setLoopMode', (mode: avSession.LoopMode) => {
+        this.handleLoopModeChange(mode);
+      });
 
       await session.activate();
 
@@ -122,6 +126,10 @@ export class MediaSession {
             this.session.setAVMetadata(this.buildMetadata(music)).catch(() => {
             });
           }
+        });
+        // 监听循环模式变化，同步到通知栏
+        trackPlayer.onRepeatModeChanged((_mode: MusicRepeatMode) => {
+          this.updatePlaybackState(true);
         });
 
         // 启动时恢复的当前歌曲不会触发 onCurrentMusicChanged，主动补同步元数据，
@@ -259,6 +267,7 @@ export class MediaSession {
       state: state,
       speed: trackPlayer.getRate(),
       isFavorite: this.isFavorite,
+      loopMode: this.repeatModeToLoopMode(trackPlayer.repeatMode),
       position: {
         elapsedTime: Math.round(this.lastPosition * 1000),
         updateTime: now
@@ -410,6 +419,35 @@ export class MediaSession {
       session.setAVMetadata(this.buildMetadata(music)).catch(() => {
       });
     }
+  }
+
+  /** MusicRepeatMode → AVSession LoopMode */
+  private repeatModeToLoopMode(mode: MusicRepeatMode): avSession.LoopMode {
+    if (mode === MusicRepeatMode.SINGLE) {
+      return avSession.LoopMode.LOOP_MODE_SINGLE;
+    }
+    if (mode === MusicRepeatMode.SHUFFLE) {
+      return avSession.LoopMode.LOOP_MODE_SHUFFLE;
+    }
+    return avSession.LoopMode.LOOP_MODE_LIST;
+  }
+
+  /** AVSession LoopMode → MusicRepeatMode */
+  private loopModeToRepeatMode(mode: avSession.LoopMode): MusicRepeatMode {
+    if (mode === avSession.LoopMode.LOOP_MODE_SINGLE) {
+      return MusicRepeatMode.SINGLE;
+    }
+    if (mode === avSession.LoopMode.LOOP_MODE_SHUFFLE) {
+      return MusicRepeatMode.SHUFFLE;
+    }
+    return MusicRepeatMode.QUEUE;
+  }
+
+  /** 通知栏切换循环模式 */
+  private handleLoopModeChange(mode: avSession.LoopMode): void {
+    const repeatMode = this.loopModeToRepeatMode(mode);
+    trackPlayer.setRepeatMode(repeatMode);
+    this.updatePlaybackState(true);
   }
 
   /** 销毁会话（Ability onDestroy 时调用） */

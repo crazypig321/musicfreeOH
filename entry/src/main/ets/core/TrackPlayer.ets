@@ -612,6 +612,14 @@ export class TrackPlayer {
     this.setRepeatModeInternal(next);
   }
 
+  /** 直接设置循环模式（供通知栏 setLoopMode 回调使用） */
+  setRepeatMode(mode: MusicRepeatMode): void {
+    if (mode === this.repeatModeValue) {
+      return;
+    }
+    this.setRepeatModeInternal(mode);
+  }
+
   /** 清空播放队列 */
   async clearPlayList(): Promise<void> {
     this.setPlayList([]);
