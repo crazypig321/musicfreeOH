@@ -10,8 +10,7 @@ import { musicSheet } from '../core/MusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 import { lyricManager, LyricState } from '../core/LyricManager';
 import { floatLyricManager } from '../core/FloatLyricManager';
-import { NavPathUtils } from '../utils/NavPathUtils';
-import { ROUTE_FLOAT_LYRIC_SETTING } from '../common/model/NavModels';
+import { mediaSession } from '../core/MediaSession';
 import { ParsedLrcItem } from '../utils/LyricParser';
 import { MediaUtils } from '../utils/MediaUtils';
 import { MediaExtra } from '../core/MediaExtra';
@@ -113,11 +112,10 @@ export struct PlayerPage {
   };
   private offCurrentLyric: () => void = (): void => {
   };
-  /** 画中画歌词所需 XComponent 控制器（隐藏的 1x1 XComponent） */
-  private pipXCompController: XComponentController = new XComponentController();
+  private offFavorite: () => void = (): void => {
+  };
 
   aboutToAppear(): void {
-    floatLyricManager.setXComponentController(this.pipXCompController);
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
     const progress = trackPlayer.getProgress();
@@ -156,6 +154,10 @@ export struct PlayerPage {
       this.currentLyric = item;
       this.autoScrollToCurrentLyric();
     });
+    // 通知栏收藏状态变化时同步本页收藏按钮
+    this.offFavorite = mediaSession.onFavoriteChanged(() => {
+      this.refreshFavorite();
+    });
     // 收起完成时重置歌词态，保证下次展开时封面占位可测量
     playerAnim.onCollapsed = (): void => {
       this.showLyric = false;
@@ -170,6 +172,7 @@ export struct PlayerPage {
     this.offRepeatMode();
     this.offLyricState();
     this.offCurrentLyric();
+    this.offFavorite();
     if (this.userScrollTimer !== -1) {
       clearTimeout(this.userScrollTimer);
       this.userScrollTimer = -1;
@@ -283,7 +286,9 @@ export struct PlayerPage {
       }
     }, floatLyricManager.enabled));
     items.push(new LyricAction($r('sys.symbol.ellipsis_circle'), '更多', (): void => {
-      this.showLyricMore = true;
+      this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+        this.showLyricMore = true;
+      });
     }));
     return items;
   }
@@ -296,9 +301,6 @@ export struct PlayerPage {
     }));
     items.push(new LyricAction($r('sys.symbol.square_and_pencil'), '编辑歌词', (): void => {
       this.openLyricEditor();
-    }));
-    items.push(new LyricAction($r('sys.symbol.gearshape'), '悬浮歌词设置', (): void => {
-      NavPathUtils.push(ROUTE_FLOAT_LYRIC_SETTING);
     }));
     return items;
   }
@@ -777,8 +779,10 @@ export struct PlayerPage {
           dragBar: true,
           backgroundColor: $r('sys.color.background_secondary'),
           onWillDisappear: () => {
-            this.showLyricMore = false;
-            appState.isForegroundBlur = false;
+            this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+              this.showLyricMore = false;
+              appState.isForegroundBlur = false;
+            });
           },
           onWillAppear: () => {
             appState.isForegroundBlur = true;
@@ -798,11 +802,6 @@ export struct PlayerPage {
           }
         })
 
-      // 画中画歌词所需 XComponent（隐藏 1x1，供 PiPWindow.create 使用）
-      XComponent({ id: 'pip_xcomp', type: 'surface', controller: this.pipXCompController })
-        .width(1)
-        .height(1)
-        .opacity(0)
       }
     .width('100%')
     .height('100%')
@@ -1442,7 +1441,7 @@ export struct PlayerPage {
     .alignItems(VerticalAlign.Center)
     .padding({ left: 4, right: 4 })
     .margin({ top: this.compactGap(25) })
-    .transition(TransitionEffect.asymmetric(TransitionEffect.SLIDE, TransitionEffect.SLIDE_SWITCH))
+    .transition(TransitionEffect.SLIDE)
   }
 
   /** 歌词模式底部操作：时间偏移 / 字体大小 / 搜索歌词 / 翻译 / 悬浮歌词 / 更多（s：分栏缩放系数，样式同 BottomActions） */
@@ -1471,10 +1470,10 @@ export struct PlayerPage {
     .alignItems(VerticalAlign.Center)
     .padding({ left: 4, right: 4 })
     .margin({ top: this.compactGap(25) })
-    .transition(TransitionEffect.asymmetric(TransitionEffect.SLIDE_SWITCH, TransitionEffect.SLIDE))
+    .transition(TransitionEffect.SLIDE)
   }
 
-  /** 歌词「更多」半模态：复制歌词 / 编辑歌词 / 悬浮歌词设置（行样式同歌曲操作面板） */
+  /** 歌词「更多」半模态：复制歌词 / 编辑歌词 / 悬浮歌词设置 */
   @Builder
   LyricMoreSheetBuilder() {
     Column() {
@@ -1484,7 +1483,7 @@ export struct PlayerPage {
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
         .margin({ top: 12, bottom: 4 })
-      List() {
+      List({ space: 12 }) {
         ForEach(this.lyricMoreItems(), (item: LyricAction) => {
           ListItem() {
             Row({ space: 12 }) {
@@ -1501,19 +1500,58 @@ export struct PlayerPage {
             .onClick(() => {
               item.onTap();
             })
-          }
+          }.ListItemStyle()
         }, (item: LyricAction) => item.label)
+
+        // 桌面歌词开关
+        ListItem() {
+          Row({ space: 12 }) {
+            SymbolGlyph($r('sys.symbol.text_bubble_left_2'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+            Text('桌面歌词')
+              .fontSize(15)
+              .fontColor($r('sys.color.font_primary'))
+              .layoutWeight(1)
+            Toggle({ type: ToggleType.Switch, isOn: floatLyricManager.enabled })
+              .selectedColor(appState.accentColor)
+              .onChange((isOn: boolean) => {
+                if (isOn) {
+                  floatLyricManager.open().then((ok: boolean): void => {
+                    if (!ok) {
+                      this.showToast('桌面歌词不可用，请检查系统设置');
+                    }
+                  });
+                } else {
+                  floatLyricManager.close().catch((): void => {
+                  });
+                }
+              })
+          }
+          .width('100%')
+          .height(48)
+        }.ListItemStyle()
+
+        // 提示
+        ListItem() {
+          Row({ space: 8 }) {
+            SymbolGlyph($r('sys.symbol.info_circle'))
+              .fontSize(16)
+              .fontColor([$r('sys.color.icon_tertiary')])
+            Text('字体颜色、背景等样式请在系统桌面歌词设置中调整')
+              .fontSize(13)
+              .fontColor($r('sys.color.font_tertiary'))
+              .layoutWeight(1)
+          }
+          .width('100%')
+          .padding({ top: 4, bottom: 4 })
+        }.ListItemStyle()
       }
       .width('100%')
       .margin({ top: 16 })
-     /* .divider({
-        strokeWidth: 0.5,
-        color: $r('sys.color.comp_divider'),
-        startMargin: 0,
-        endMargin: 0
-      })
-*/    }
+    }
     .width('100%')
+    .height('100%')
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -1725,4 +1763,12 @@ export struct PlayerPage {
     .height('100%')
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 24 })
   }
+}
+
+@Extend(ListItem)
+function ListItemStyle() {
+  .width('100%')
+  .borderRadius(16)
+  .padding(12)
+  .backgroundColor($r('sys.color.comp_background_list_card'))
 }

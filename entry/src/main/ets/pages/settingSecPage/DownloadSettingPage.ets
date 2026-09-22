@@ -97,6 +97,8 @@ export struct DownloadSettingPage {
   private qualityMenu(): void {
     OptionsMenuBuilder(this.qualityEntries(), (value: string): void => {
       this.applyQuality(value);
+    }, (): void => {
+      this.showQualityMenu = true;
     })
   }
 
@@ -124,6 +126,8 @@ export struct DownloadSettingPage {
   private orderMenu(): void {
     OptionsMenuBuilder(this.orderEntries(), (value: string): void => {
       this.applyOrder(value);
+    }, (): void => {
+      this.showOrderMenu = true;
     })
   }
 
@@ -146,6 +150,8 @@ export struct DownloadSettingPage {
   private maxDownloadMenu(): void {
     OptionsMenuBuilder(this.maxDownloadEntries(), (value: string): void => {
       this.applyMaxDownload(value);
+    }, (): void => {
+      this.showMaxMenu = true;
     })
   }
 
@@ -172,6 +178,8 @@ export struct DownloadSettingPage {
   private intervalMenu(): void {
     OptionsMenuBuilder(this.intervalEntries(), (value: string): void => {
       this.applyTaskInterval(value);
+    }, (): void => {
+      this.showIntervalMenu = true;
     })
   }
 

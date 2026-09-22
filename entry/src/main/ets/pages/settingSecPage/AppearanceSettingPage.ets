@@ -128,7 +128,22 @@ export struct AppearanceSettingPage {
   private menuOf(entries: Array<MenuOptionEntry>, kind: string): void {
     OptionsMenuBuilder(entries, (value: string): void => {
       this.onMenuPick(kind, value);
+    }, (): void => {
+      this.reopenMenu(kind);
     })
+  }
+
+  /** 菜单选中后回弹再打开 */
+  private reopenMenu(kind: string): void {
+    if (kind === 'colorMode') {
+      this.showColorModeMenu = true;
+    } else if (kind === 'material') {
+      this.showMaterialMenu = true;
+    } else if (kind === 'orientation') {
+      this.showOrientationMenu = true;
+    } else if (kind === 'anim') {
+      this.showAnimMenu = true;
+    }
   }
 
   /** 菜单选中分发 */

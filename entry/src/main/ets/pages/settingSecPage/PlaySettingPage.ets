@@ -64,6 +64,8 @@ export struct PlaySettingPage {
   private qualityMenu(): void {
     OptionsMenuBuilder(this.qualityEntries(), (value: string): void => {
       this.applyQuality(value);
+    }, (): void => {
+      this.showQualityMenu = true;
     })
   }
 
@@ -91,6 +93,8 @@ export struct PlaySettingPage {
   private orderMenu(): void {
     OptionsMenuBuilder(this.orderEntries(), (value: string): void => {
       this.applyOrder(value);
+    }, (): void => {
+      this.showOrderMenu = true;
     })
   }
 

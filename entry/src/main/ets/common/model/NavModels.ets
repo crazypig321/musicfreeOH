@@ -21,7 +21,6 @@ export const ROUTE_PLUGIN_SETTING: string = 'pluginSetting';
 export const ROUTE_BACKUP_SETTING: string = 'backupSetting';
 export const ROUTE_WEBDAV_SETTING: string = 'webDavSetting';
 export const ROUTE_APPEARANCE_SETTING: string = 'appearanceSetting';
-export const ROUTE_FLOAT_LYRIC_SETTING: string = 'floatLyricSetting';
 
 /**
  * 推荐歌单页跳转参数（push 前由首页赋值，页面 aboutToAppear 读取）

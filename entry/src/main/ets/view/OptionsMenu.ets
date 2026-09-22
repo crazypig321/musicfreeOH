@@ -17,9 +17,11 @@ export class MenuOptionEntry {
 /**
  * 通用选项菜单 Builder（UI 同外观设置页）：
  * 选中项右侧勾选图标（主题色）+ 分割线 + 圆角；onPick 回调分发选中值
+ * reopen：选中后重新打开菜单（实现"回弹再打开"效果）
  */
 @Builder
-export function OptionsMenuBuilder(entries: Array<MenuOptionEntry>, onPick: (value: string) => void) {
+export function OptionsMenuBuilder(entries: Array<MenuOptionEntry>, onPick: (value: string) => void,
+  reopen?: () => void) {
   Menu() {
     ForEach(entries, (entry: MenuOptionEntry) => {
       MenuItem({
@@ -31,6 +33,9 @@ export function OptionsMenuBuilder(entries: Array<MenuOptionEntry>, onPick: (val
         .contentFontColor($r('sys.color.font_primary'))
         .onClick(() => {
           onPick(entry.value);
+          if (reopen !== undefined) {
+            setTimeout(reopen, 50);
+          }
         })
     }, (entry: MenuOptionEntry) => entry.value)
   }
