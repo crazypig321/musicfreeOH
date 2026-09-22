@@ -479,6 +479,10 @@ export struct SearchPage {
 
   /** 清除键：清空输入与结果，回到搜索前状态（恢复历史词展示） */
   private resetSearch(): void {
+    // 先中断在途搜索：使尚未返回的旧搜索回调失效，避免清空后结果又被异步填回
+    this.cancelInFlightSearch();
+    this.isEnd = false;
+    this.page = 1;
     this.keyword = '';
     this.dataSource.clear();
     this.albumSource.clear();
@@ -665,7 +669,7 @@ export struct SearchPage {
       CommonSearch({
         searchValue: this.keyword,
         placeholderValue: $r('app.string.home_search_placeholder'),
-        isCloseKeyboard: true,
+        focusId: 'search_page_search',
         change: (v) => {
           this.keyword = v;
         },

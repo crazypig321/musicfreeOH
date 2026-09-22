@@ -260,7 +260,9 @@ export struct PlayerPage {
       this.searchLyricForCurrent();
     }));
     items.push(new LyricAction($r('sys.symbol.translate'), '翻译', (): void => {
-      this.toggleTranslation();
+      this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+        this.toggleTranslation();
+      });
     }, this.showTranslation));
     items.push(new LyricAction($r('sys.symbol.text_bubble_left_2'), '悬浮歌词', (): void => {
       this.showToast('悬浮歌词暂不支持，敬请期待');
@@ -1419,6 +1421,7 @@ export struct PlayerPage {
     .alignItems(VerticalAlign.Center)
     .padding({ left: 4, right: 4 })
     .margin({ top: this.compactGap(25) })
+    .transition(TransitionEffect.asymmetric(TransitionEffect.SLIDE, TransitionEffect.SLIDE_SWITCH))
   }
 
   /** 歌词模式底部操作：时间偏移 / 字体大小 / 搜索歌词 / 翻译 / 悬浮歌词 / 更多（s：分栏缩放系数，样式同 BottomActions） */
@@ -1447,7 +1450,7 @@ export struct PlayerPage {
     .alignItems(VerticalAlign.Center)
     .padding({ left: 4, right: 4 })
     .margin({ top: this.compactGap(25) })
-    .transition(TransitionEffect.OPACITY)
+    .transition(TransitionEffect.asymmetric(TransitionEffect.SLIDE_SWITCH, TransitionEffect.SLIDE))
   }
 
   /** 歌词「更多」半模态：复制歌词 / 编辑歌词 / 悬浮歌词设置（行样式同歌曲操作面板） */

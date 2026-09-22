@@ -167,6 +167,15 @@ export struct PluginPage {
     appState.tabSearchClose = (): void => {
       this.toggleSearchBox();
     };
+    // 展开后请求焦点呼出软键盘（延时等待插槽挂载与展开过渡完成；id 需与 SearchBuilder 中一致）
+    const focusController = this.getUIContext().getFocusController();
+    setTimeout((): void => {
+      try {
+        focusController.requestFocus('plugin_search');
+      } catch (e) {
+        // 组件未挂载时忽略
+      }
+    }, 320);
     if (this.scroller.currentOffset().yOffset !== 0) {
       this.scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 66 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
     }
@@ -1216,7 +1225,7 @@ export struct PluginPage {
     CommonSearch({
       searchValue: this.searchInput,
       placeholderValue: '搜索插件名称或作者',
-      autoFocus: true,
+      focusId: 'plugin_search',
       submit: (): void => {
         this.searchKeyword = this.searchInput.trim();
       },

@@ -57,11 +57,14 @@ export struct CommonSearch{
   private controller: SearchController = new SearchController()
   @Param searchValue: string = ''
   @Param placeholderValue: ResourceStr = ''
-  @Param isCloseKeyboard: boolean = false
   @Param isFocusable: boolean = true
-  /** 挂载后自动请求焦点并呼出软键盘（用于点击标题栏搜索按钮后展开的场景） */
-  @Param autoFocus: boolean = false
-  /** 组件 id 序列（为每个实例生成唯一 id，供 requestFocus 定位） */
+  /**
+   * 焦点定位 id：必须由使用方传入且保持稳定。
+   * 标题栏副标题等 titleBar 内容变化会使 HdsTitleBar 重新执行底部插槽 builder，
+   * 导致本组件被卸载重建；稳定 id 保证提交/清空后延时 requestFocus 仍能命中重建出的新节点
+   */
+  @Param focusId: string = ''
+  /** 组件 id 序列（未传 focusId 时生成兜底 id） */
   private static focusIdSeq: number = 0
   /** 本实例的焦点定位 id */
   private myFocusId: string = ''
@@ -72,17 +75,11 @@ export struct CommonSearch{
   @Event didDelete: () => void
 
   aboutToAppear(): void {
-    CommonSearch.focusIdSeq++;
-    this.myFocusId = 'common_search_' + CommonSearch.focusIdSeq.toString();
-    if (this.autoFocus) {
-      // 延迟到展开过渡结束后请求焦点，避免组件尚未上树导致 requestFocus 失败
-      setTimeout((): void => {
-        try {
-          this.getUIContext().getFocusController().requestFocus(this.myFocusId);
-        } catch (e) {
-          // 组件已卸载或不可聚焦时忽略
-        }
-      }, 320);
+    if (this.focusId.length > 0) {
+      this.myFocusId = this.focusId;
+    } else {
+      CommonSearch.focusIdSeq++;
+      this.myFocusId = 'common_search_' + CommonSearch.focusIdSeq.toString();
     }
   }
 
@@ -100,22 +97,35 @@ export struct CommonSearch{
       .textFont({ size: 14, weight: 400 })
       .onSubmit((searchContent: string, event: SubmitEvent) => {// 键盘回车或者搜索按钮触发回调
         this.submit(searchContent, event)
-        if (!this.isCloseKeyboard) {
-          event.keepEditableState()
-        }
+        // 提交后收起软键盘：清除残留焦点，避免输入法重新挂载导致键盘回弹
+        const focusController = this.getUIContext().getFocusController();
+        setTimeout((): void => {
+          try {
+            focusController.clearFocus();
+          } catch (e) {
+            // 焦点控制器不可用时忽略
+          }
+        }, 200);
       })
       .onChange((value: string) => {
         if (value.length > 0) {
           this.change(value)
+        }else{
+          this.didDelete()
+          // 文本被清空（× 或退格删空）后重新请求焦点，确保软键盘不退出；
+          // 清空可能触发标题栏插槽重建（新节点），稳定 id 保证仍能命中
+          const focusController = this.getUIContext().getFocusController();
+          setTimeout((): void => {
+            try {
+              focusController.requestFocus(this.myFocusId);
+            } catch (e) {
+              // 组件已卸载或不可聚焦时忽略
+            }
+          }, 100);
         }
       })
       .onClick(()=>{
         this.click()
-      })
-      .onDidDelete((e: DeleteValue)=>{
-        if (e.deleteOffset === 0) {
-          this.didDelete()
-        }
       })
       .focusable(this.isFocusable)// 无法获焦则无法呼出软键盘
       .defaultFocus(this.isFocusable)

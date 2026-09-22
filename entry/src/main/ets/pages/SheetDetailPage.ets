@@ -293,6 +293,15 @@ export struct SheetDetailPage {
       this.searchInput = '';
       return;
     }
+    // 展开后请求焦点呼出软键盘（延时等待插槽挂载与展开过渡完成；id 需与 SearchBuilder 中一致）
+    const focusController = this.getUIContext().getFocusController();
+    setTimeout((): void => {
+      try {
+        focusController.requestFocus('sheet_detail_search');
+      } catch (e) {
+        // 组件未挂载时忽略
+      }
+    }, 320);
     if (this.scroller.currentOffset().yOffset !== 0) {
       this.scroller.scrollTo({ xOffset: 0, yOffset: 0, animation: { duration: 250, curve: Curve.EaseOut } });
     }
@@ -1059,7 +1068,7 @@ export struct SheetDetailPage {
     CommonSearch({
       searchValue: this.searchInput,
       placeholderValue: '搜索歌曲名、歌手或专辑',
-      autoFocus: true,
+      focusId: 'sheet_detail_search',
       submit: (): void => {
         this.searchKeyword = this.searchInput.trim();
         this.applySearchFilter();

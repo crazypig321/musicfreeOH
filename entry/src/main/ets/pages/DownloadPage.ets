@@ -333,6 +333,15 @@ export struct DownloadPage {
       return;
     }
     const scroller = this.isLocalMode ? this.scrollerLocal : this.scroller;
+    // 展开后请求焦点呼出软键盘（延时等待插槽挂载与展开过渡完成；id 需与 SearchBuilder 中一致）
+    const focusController = this.getUIContext().getFocusController();
+    setTimeout((): void => {
+      try {
+        focusController.requestFocus('download_search');
+      } catch (e) {
+        // 组件未挂载时忽略
+      }
+    }, 320);
     if (scroller.currentOffset().yOffset !== 0) {
       scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 55 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
     }
@@ -2397,7 +2406,7 @@ export struct DownloadPage {
     CommonSearch({
       searchValue: this.searchInput,
       placeholderValue: '搜索歌曲名、歌手或专辑',
-      autoFocus: true,
+      focusId: 'download_search',
       submit: (): void => {
         this.searchKeyword = this.searchInput.trim();
         this.refreshDownloaded();
