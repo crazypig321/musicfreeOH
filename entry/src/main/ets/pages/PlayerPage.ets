@@ -1072,13 +1072,17 @@ export struct PlayerPage {
             ListItem() {
               Column({ space: 4 }) {
                 Text(item.lrc)
-                .fontSize(this.isCurrentLyric(item) ?
-                  Math.round(18 * this.lyricFontScale()) : Math.round(16 * this.lyricFontScale()))
-                .fontWeight(this.isCurrentLyric(item) ? FontWeight.Bold : FontWeight.Normal)
-                .fontColor(this.isCurrentLyric(item) ?
-                  appState.accentColor : $r('sys.color.font_secondary'))
-                .maxLines(2)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .fontSize(this.isCurrentLyric(item) ?
+                    Math.round(20 * this.lyricFontScale()) : Math.round(16 * this.lyricFontScale()))
+                  .fontWeight(this.isCurrentLyric(item) ? FontWeight.Bold : FontWeight.Normal)
+                  .fontColor(this.isCurrentLyric(item) ?
+                    appState.accentColor : $r('sys.color.font_secondary'))
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .animation({
+                    duration: 250,
+                    curve: Curve.EaseOut,
+                  })
                 if (this.showTranslation && this.hasTranslation && item.translation.length > 0) {
                   Text(item.translation)
                     .fontSize(this.isCurrentLyric(item) ?
@@ -1087,6 +1091,10 @@ export struct PlayerPage {
                       $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
                     .maxLines(2)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .animation({
+                      duration: 250,
+                      curve: Curve.EaseOut,
+                    })
                 }
               }
               .width('100%')
