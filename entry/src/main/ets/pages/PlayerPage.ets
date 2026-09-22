@@ -299,6 +299,15 @@ export struct PlayerPage {
     }
   }
 
+  /** 打开弹窗并同步前景模糊 */
+  private openDialogWithBlur(key: string): void {
+    this.isForegroundBlur = true;
+    DialogManager.onDialogClosed = (): void => {
+      this.isForegroundBlur = false;
+    };
+    DialogManager.OpenDialog(key);
+  }
+
   /** 歌词字体缩放系数 */
   private lyricFontScale(): number {
     const idx = this.lyricFontIndex;
@@ -378,7 +387,7 @@ export struct PlayerPage {
       this.showToast(newOffset === 0 ? '已恢复默认偏移' :
         '歌词已偏移 ' + (newOffset > 0 ? '+' : '') + newOffset.toFixed(1) + 's');
     };
-    DialogManager.OpenDialog('选择器');
+    this.openDialogWithBlur('选择器');
   }
 
   /** 字体大小：滚轮选择档位（小/标准/大/特大） */
@@ -394,7 +403,7 @@ export struct PlayerPage {
       appConfig.setConfig(ConfigKeys.LYRIC_FONT_SIZE, index);
       this.showToast('字体大小：' + LYRIC_FONT_LABELS[index]);
     };
-    DialogManager.OpenDialog('选择器');
+    this.openDialogWithBlur('选择器');
   }
 
   /** 翻译显示开关（持久化） */
@@ -521,7 +530,7 @@ export struct PlayerPage {
       downloader.download(current, appConfig.getDefaultDownloadQuality(), folder);
       this.showToast('已加入下载队列');
     };
-    DialogManager.OpenDialog('下载到文件夹');
+    this.openDialogWithBlur('下载到文件夹');
   }
 
   /** 当前歌曲的插件是否支持获取评论 */
@@ -611,7 +620,7 @@ export struct PlayerPage {
         this.showToast(ok ? '已切换为' + PlayerPage.qualityLabel(quality) + '音质' : '音质切换失败');
       });
     };
-    DialogManager.OpenDialog('选择器');
+    this.openDialogWithBlur('选择器');
   }
 
   /** 切换系统音效开关 */

@@ -474,6 +474,9 @@ export class DialogManager {
   /** 「确认删除」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
   public static confirmDeleteConfirm: (() => void) | null = null;
 
+  /** 弹窗关闭回调（一次性，关闭后自动清空） */
+  public static onDialogClosed: (() => void) | null = null;
+
   // ===== 由 Index 注册的宿主动作 =====
   private static opener: (() => void) | null = null;
   private static toaster: ((message: string) => void) | null = null;
@@ -935,6 +938,11 @@ export class DialogManager {
    // appState.isForegroundBlur = false;
     appState.isDialogOpen = false;
     DialogManager.dialogChangeKey = '';
+    if (DialogManager.onDialogClosed !== null) {
+      const cb = DialogManager.onDialogClosed;
+      DialogManager.onDialogClosed = null;
+      cb();
+    }
     // 重命名是一次性交互，关闭后清理回调与内容
     if (key === '重命名') {
       DialogManager.renameValue = '';
