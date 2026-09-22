@@ -219,7 +219,7 @@ export struct LyricView {
               Column({ space: 4 }) {
                 if (index === this.currentIndex) {
                   if (item.words.length > 0) {
-                    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
+                    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start}) {
                       ForEach(item.words, (word: LyricWord, i: number) => {
                         if (i < this.currentWordIndex) {
                           Text(word.text)
