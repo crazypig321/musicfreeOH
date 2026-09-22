@@ -34,6 +34,14 @@ export class ConfigKeys {
   static readonly LYRIC_AUTO_SEARCH_LYRIC = 'lyric.autoSearchLyric';
   static readonly LYRIC_FONT_SIZE = 'lyric.fontSize';
   static readonly LYRIC_SHOW_TRANSLATION = 'lyric.showTranslation';
+  static readonly FLOAT_LYRIC_ENABLED = 'floatLyric.enabled';
+  static readonly FLOAT_LYRIC_LOCKED = 'floatLyric.locked';
+  static readonly FLOAT_LYRIC_POS_Y = 'floatLyric.posY';
+  static readonly FLOAT_LYRIC_FONT_SIZE = 'floatLyric.fontSize';
+  static readonly FLOAT_LYRIC_COLOR = 'floatLyric.color';
+  static readonly FLOAT_LYRIC_BG = 'floatLyric.background';
+  static readonly FLOAT_LYRIC_SHOW_TRANSLATION = 'floatLyric.showTranslation';
+  static readonly FLOAT_LYRIC_WINDOW_SIZE = 'floatLyric.windowSize';
   static readonly LOCAL_MUSIC_AUTO_MATCH_COVER = 'localMusic.autoMatchCover';
   static readonly BACKUP_RESUME_MODE = 'backup.resumeMode';
   static readonly APPEARANCE_THEME_COLOR = 'appearance.themeColor';
@@ -251,6 +259,56 @@ export class AppConfig {
   /** 歌词翻译显示开关（默认开启） */
   getLyricShowTranslation(): boolean {
     return this.getBoolean(ConfigKeys.LYRIC_SHOW_TRANSLATION, true);
+  }
+
+  // ---------- 悬浮歌词（桌面歌词） ----------
+
+  /** 悬浮歌词开关（默认关闭） */
+  getFloatLyricEnabled(): boolean {
+    return this.getBoolean(ConfigKeys.FLOAT_LYRIC_ENABLED, false);
+  }
+
+  /** 悬浮歌词锁定（点击穿透，默认关闭） */
+  getFloatLyricLocked(): boolean {
+    return this.getBoolean(ConfigKeys.FLOAT_LYRIC_LOCKED, false);
+  }
+
+  /** 悬浮歌词垂直位置（px，-1 表示未记录、使用默认位置） */
+  getFloatLyricPosY(): number {
+    return this.getNumber(ConfigKeys.FLOAT_LYRIC_POS_Y, -1);
+  }
+
+  setFloatLyricPosY(y: number): void {
+    this.setConfig(ConfigKeys.FLOAT_LYRIC_POS_Y, y);
+  }
+
+  /** 悬浮歌词字号（fp，默认 18，范围 12-32） */
+  getFloatLyricFontSize(): number {
+    const v = this.getNumber(ConfigKeys.FLOAT_LYRIC_FONT_SIZE, 18);
+    return v >= 12 && v <= 32 ? v : 18;
+  }
+
+  /** 悬浮歌词字体颜色（#AARRGGBB，默认白色） */
+  getFloatLyricColor(): string {
+    const v = this.getString(ConfigKeys.FLOAT_LYRIC_COLOR, '#FFFFFFFF');
+    return v.length > 0 ? v : '#FFFFFFFF';
+  }
+
+  /** 悬浮歌词背景样式：dark 深色 / light 浅色 / cover 封面（默认 dark） */
+  getFloatLyricBg(): string {
+    const v = this.getString(ConfigKeys.FLOAT_LYRIC_BG, 'dark');
+    return v === 'light' || v === 'cover' ? v : 'dark';
+  }
+
+  /** 悬浮歌词翻译行开关（默认开启） */
+  getFloatLyricShowTranslation(): boolean {
+    return this.getBoolean(ConfigKeys.FLOAT_LYRIC_SHOW_TRANSLATION, true);
+  }
+
+  /** 悬浮歌词画中画窗口高度（px，默认 80，范围 60-200） */
+  getFloatLyricWindowSize(): number {
+    const v = this.getNumber(ConfigKeys.FLOAT_LYRIC_WINDOW_SIZE, 80);
+    return v >= 60 && v <= 200 ? v : 80;
   }
 
   getDownloadPath(): string {

@@ -2,6 +2,8 @@ import { CommonNav, titleBarOf } from '../../view/CommonNav';
 import { appState } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
+import { NavPathUtils } from '../../utils/NavPathUtils';
+import { ROUTE_FLOAT_LYRIC_SETTING } from '../../common/model/NavModels';
 
 /**
  * 歌词设置页面
@@ -67,6 +69,27 @@ export struct LyricSettingPage {
             }
             .width('100%')
             .height(52)
+          }.ListItemStyle()
+
+          // 桌面歌词（悬浮窗）入口
+          ListItem() {
+            Row({ space: 12 }) {
+              SymbolGlyph($r('sys.symbol.text_bubble_left_2'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.icon_secondary')])
+              Text('桌面歌词')
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+                .layoutWeight(1)
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(16)
+                .fontColor([$r('sys.color.icon_tertiary')])
+            }
+            .width('100%')
+            .height(52)
+            .onClick(() => {
+              NavPathUtils.push(ROUTE_FLOAT_LYRIC_SETTING);
+            })
           }.ListItemStyle()
         }
         .ListStyle()

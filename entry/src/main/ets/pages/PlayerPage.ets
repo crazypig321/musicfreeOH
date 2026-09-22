@@ -9,6 +9,9 @@ import { MusicRepeatMode } from '../common/Consts';
 import { musicSheet } from '../core/MusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 import { lyricManager, LyricState } from '../core/LyricManager';
+import { floatLyricManager } from '../core/FloatLyricManager';
+import { NavPathUtils } from '../utils/NavPathUtils';
+import { ROUTE_FLOAT_LYRIC_SETTING } from '../common/model/NavModels';
 import { ParsedLrcItem } from '../utils/LyricParser';
 import { MediaUtils } from '../utils/MediaUtils';
 import { MediaExtra } from '../core/MediaExtra';
@@ -110,8 +113,11 @@ export struct PlayerPage {
   };
   private offCurrentLyric: () => void = (): void => {
   };
+  /** 画中画歌词所需 XComponent 控制器（隐藏的 1x1 XComponent） */
+  private pipXCompController: XComponentController = new XComponentController();
 
   aboutToAppear(): void {
+    floatLyricManager.setXComponentController(this.pipXCompController);
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
     const progress = trackPlayer.getProgress();
@@ -260,13 +266,22 @@ export struct PlayerPage {
       this.searchLyricForCurrent();
     }));
     items.push(new LyricAction($r('sys.symbol.translate'), '翻译', (): void => {
-      this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      this.getUIContext().animateTo({ duration: 250, curve: Curve.Linear }, () => {
         this.toggleTranslation();
       });
     }, this.showTranslation));
     items.push(new LyricAction($r('sys.symbol.text_bubble_left_2'), '悬浮歌词', (): void => {
-      this.showToast('悬浮歌词暂不支持，敬请期待');
-    }));
+      if (floatLyricManager.enabled) {
+        floatLyricManager.close().catch((): void => {
+        });
+      } else {
+        floatLyricManager.open().then((ok: boolean): void => {
+          if (!ok) {
+            this.showToast('画中画不可用，请检查系统设置');
+          }
+        });
+      }
+    }, floatLyricManager.enabled));
     items.push(new LyricAction($r('sys.symbol.ellipsis_circle'), '更多', (): void => {
       this.showLyricMore = true;
     }));
@@ -283,7 +298,7 @@ export struct PlayerPage {
       this.openLyricEditor();
     }));
     items.push(new LyricAction($r('sys.symbol.gearshape'), '悬浮歌词设置', (): void => {
-      this.showToast('悬浮歌词暂不支持，敬请期待');
+      NavPathUtils.push(ROUTE_FLOAT_LYRIC_SETTING);
     }));
     return items;
   }
@@ -782,6 +797,12 @@ export struct PlayerPage {
             this.showLyricEditor = false;
           }
         })
+
+      // 画中画歌词所需 XComponent（隐藏 1x1，供 PiPWindow.create 使用）
+      XComponent({ id: 'pip_xcomp', type: 'surface', controller: this.pipXCompController })
+        .width(1)
+        .height(1)
+        .opacity(0)
       }
     .width('100%')
     .height('100%')

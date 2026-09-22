@@ -11,6 +11,7 @@ import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { trackPlayer } from './TrackPlayer';
 import { mediaSession } from './MediaSession';
 import { lyricManager } from './LyricManager';
+import { floatLyricManager } from './FloatLyricManager';
 import { ScheduleClose } from '../utils/ScheduleClose';
 import { pluginManager } from '../plugin/PluginManager';
 import { SmartReach } from '../utils/SmartReach';
@@ -62,6 +63,8 @@ export class Bootstrap {
     await trackPlayer.setupTrackPlayer();
     await mediaSession.setup();
     lyricManager.setup();
+    // 悬浮歌词：恢复样式配置；开关为开且已授权时静默重建悬浮窗
+    floatLyricManager.setup();
     ScheduleClose.setup();
 
     // 5. 本地音乐 + 已下载（两份独立数据，互不关联）

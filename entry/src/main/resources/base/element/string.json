@@ -41,6 +41,10 @@
       "value": "搜索音乐、歌手、专辑"
     },
     {
+      "name": "float_window_permission_reason",
+      "value": "用于在桌面等界面悬浮显示歌词"
+    },
+    {
       "name": "search_title",
       "value": "搜索"
     },

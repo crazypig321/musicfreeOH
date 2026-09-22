@@ -9,7 +9,7 @@ import {
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ALBUM_DETAIL, ROUTE_ARTIST_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_WEBDAV_SETTING, ROUTE_APPEARANCE_SETTING } from '../common/model/NavModels';
+  import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ALBUM_DETAIL, ROUTE_ARTIST_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_WEBDAV_SETTING, ROUTE_APPEARANCE_SETTING, ROUTE_FLOAT_LYRIC_SETTING } from '../common/model/NavModels';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { DownloadPage } from './DownloadPage';
 import { PluginPage } from './PluginPage';
@@ -30,6 +30,7 @@ import { PluginSettingPage } from './settingSecPage/PluginSettingPage';
 import { BackupSettingPage } from './settingSecPage/BackupSettingPage';
 import { WebDavSettingPage } from './settingSecPage/WebDavSettingPage';
 import { AppearanceSettingPage } from './settingSecPage/AppearanceSettingPage';
+import { FloatLyricSettingPage } from './settingSecPage/FloatLyricSettingPage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
 import { SideBar } from '../view/SideBar';
@@ -378,6 +379,8 @@ struct Index {
       WebDavSettingPage()
     } else if (name === ROUTE_APPEARANCE_SETTING) {
       AppearanceSettingPage()
+    } else if (name === ROUTE_FLOAT_LYRIC_SETTING) {
+      FloatLyricSettingPage()
     }
   }
 
