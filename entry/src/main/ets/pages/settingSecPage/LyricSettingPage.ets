@@ -158,7 +158,7 @@ export struct LyricSettingPage {
                   Toggle({ type: ToggleType.Switch, isOn: floatLyricManager.locked })
                     .selectedColor(appState.accentColor)
                     .onChange((isOn: boolean) => {
-                      floatLyricManager.toggleLocked().catch((): void => {
+                      floatLyricManager.toggleLocked(isOn).catch((): void => {
                       });
                     })
                 }
@@ -176,7 +176,7 @@ export struct LyricSettingPage {
                   Toggle({ type: ToggleType.Switch, isOn: floatLyricManager.locked })
                     .selectedColor(appState.accentColor)
                     .onChange((isOn: boolean) => {
-                      floatLyricManager.toggleLocked().catch((): void => {
+                      floatLyricManager.toggleLocked(isOn).catch((): void => {
                       });
                     })
                 }

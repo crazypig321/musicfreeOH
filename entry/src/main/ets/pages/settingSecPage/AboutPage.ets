@@ -272,6 +272,42 @@ export struct AboutPage {
             .width('100%')
           }
           .ListItemStyle()
+
+          // 三方库
+          ListItem() {
+            Text('其他')
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }
+
+          ListItem() {
+            Column() {
+              Row({ space: 12 }) {
+                SymbolGlyph($r('sys.symbol.hand_thumbsup'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                Text('支持作者')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                Text('捐赠支持')
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(14)
+                  .fontColor([$r('sys.color.icon_tertiary')])
+              }
+              .width('100%')
+              .height(52)
+              .onClick(() => {
+                DialogManager.OpenDialog('捐赠')
+              })
+            }
+            .width('100%')
+          }
+          .ListItemStyle()
         }
         .ListStyle()
         .onScrollFrameBegin((offset: number) => {

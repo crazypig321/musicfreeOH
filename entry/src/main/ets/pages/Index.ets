@@ -39,6 +39,7 @@ import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
   import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
   import { ContextHolder } from '../common/ContextHolder';
+import { PaySupport } from '../view/CommonCom';
 
 @Entry
 @ComponentV2
@@ -451,6 +452,8 @@ struct Index {
       ClearCacheDialogContent()
     } else if (key === '确认删除') {
       ConfirmDeleteDialogContent()
+    } else if (key === '捐赠') {
+      PaySupport()
     }
   }
 }

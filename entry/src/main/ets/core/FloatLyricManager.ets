@@ -45,9 +45,12 @@ export class FloatLyricManager {
     appConfig.setConfig(ConfigKeys.FLOAT_LYRIC_ENABLED, false);
   }
 
-  /** 切换锁定状态 */
-  async toggleLocked(): Promise<void> {
-    const ok = await mediaSession.setDesktopLyricLocked(!this.locked);
+  /** 切换锁定状态；target 为目标状态，若与当前一致则忽略以避免系统回调循环 */
+  async toggleLocked(target: boolean): Promise<void> {
+    if (target === this.locked) {
+      return;
+    }
+    const ok = await mediaSession.setDesktopLyricLocked(target);
     if (!ok) {
       Log.warn('设置桌面歌词锁定状态失败');
     }

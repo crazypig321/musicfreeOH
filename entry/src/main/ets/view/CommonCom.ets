@@ -1,4 +1,5 @@
 import { SymbolGlyphModifier, LengthMetrics } from "@kit.ArkUI"
+import { ButtonItem } from "../common/model/home/HomeModel";
 import { SheetItem } from "../common/model/SheetTypes"
 import { appState } from "../entryability/AppState";
 
@@ -381,3 +382,30 @@ export struct CommonBlur{
         { fractionStops: [[0, 0], [0.9, 0.15], [1, 0.3], [1, 1]], direction: this.gradientDirection })
   }
 }
+
+
+@ComponentV2
+export struct PaySupport{
+  @Local list: ButtonItem[] = [
+    {icon:$r('app.media.weixin'), text: '微信'},
+    {icon:$r('app.media.zhifubao'), text: '支付宝'}
+  ]
+
+
+  build() {
+    Column({space: 16}){
+      ForEach(this.list,(item: ButtonItem, i: number)=>{
+        Column({space: 5}){
+          Image(item.icon)
+            .width(140)
+            .height(140).borderRadius(16)
+
+          Text(item.text)
+            .fontSize(14)
+            .fontColor($r('sys.color.font_on'))
+        }.borderRadius(20).padding(12).backgroundColor(i ===0 ? '#07c160' : '#1479fd')
+      })
+    }.width('100%').alignItems(HorizontalAlign.Center)
+  }
+}
+

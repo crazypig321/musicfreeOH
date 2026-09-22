@@ -9,3 +9,10 @@ export const HomeList: Array<IconTextItem> = [
   { icon: $r('sys.symbol.waveform_path_ecg_heart'), text1: $r('app.string.home_recommend_sheets') },
   { icon: $r('sys.symbol.folder'), text1: $r('app.string.home_local_music') }
 ]
+
+export interface ButtonItem {
+  icon?: Resource;
+  text: ResourceStr
+  label?: ResourceStr
+  color?: ResourceColor
+}

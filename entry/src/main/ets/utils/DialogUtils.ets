@@ -544,6 +544,8 @@ export class DialogManager {
         return '删除';
       case '免责声明':
         return '免责声明';
+      case '捐赠':
+        return '支持作者'
     }
     return '';
   }
@@ -837,6 +839,18 @@ export class DialogManager {
         break;
       }
       case '免责声明': {
+        const ok: ButtonOptions = {
+          value: '我知道了',
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+          }
+        };
+        buttons.push(ok);
+        break;
+      }
+      case '捐赠': {
         const ok: ButtonOptions = {
           value: '我知道了',
           fontColor: Color.White,
