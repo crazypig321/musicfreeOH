@@ -1,6 +1,6 @@
 import { pasteboard } from '@kit.BasicServicesKit';
 import { ArtworkCache } from '../utils/ArtworkCache';
-import { AVCastPicker } from '@kit.AVSessionKit';
+import { AVCastPicker, AVCastPickerState } from '@kit.AVSessionKit';
 import { MusicItem, QualityKey, QUALITY_KEYS, LyricSource } from '../common/model/MediaTypes';
 import { CommentItem, CommentsResult } from '../common/model/SheetTypes';
 import { CommentDataSource } from '../common/model/CommentDataSource';
@@ -752,8 +752,13 @@ export struct PlayerPage {
           MusicOptionsSheet({
             show: this.showMore,
             optionsItem: this.currentMusic,
+            isGoalForegroundBlur: false,
             onClose: (): void => {
               this.showMore = false;
+              this.isForegroundBlur = false
+            },
+            appear: (): void => {
+              this.isForegroundBlur = true
             }
           })
         }
@@ -1308,6 +1313,13 @@ export struct PlayerPage {
         AVCastPicker({
           customPicker: (): void => {
             this.CastPickerIcon();
+          },
+          onStateChange: (state: AVCastPickerState) => {
+            if(state === AVCastPickerState.STATE_APPEARING){
+              this.isForegroundBlur = true
+            }else{
+              this.isForegroundBlur = false
+            }
           }
         })
           .width(Math.max(20, Math.round(24 * s)))

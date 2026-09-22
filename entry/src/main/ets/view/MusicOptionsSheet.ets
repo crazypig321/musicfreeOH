@@ -136,8 +136,10 @@ export struct MusicOptionsSheet {
   @Param localListMode: boolean = false;
   /** 从该歌单移除本曲（我的歌单进入的歌单详情页传入歌单 id）：显示「从当前歌单删除」入口 */
   @Param removeSheetId: string = '';
+  @Param isGoalForegroundBlur: boolean = true;
   /** 面板消失回调（页面将 show 置回 false） */
   @Event onClose: () => void = (): void => {};
+  @Event appear: () => void = (): void => {};
 
   @Local isFavorited: boolean = false;
   @Local showSheetPicker: boolean = false;
@@ -457,10 +459,15 @@ export struct MusicOptionsSheet {
       preferType: SheetType.CENTER,
       onWillDisappear: () => {
         this.onClose();
-        appState.isForegroundBlur = false;
+        if (this.isGoalForegroundBlur) {
+          appState.isForegroundBlur = false;
+        }
       },
       onWillAppear: () => {
-        appState.isForegroundBlur = true;
+        this.appear()
+        if (this.isGoalForegroundBlur) {
+          appState.isForegroundBlur = true;
+        }
       }
     })
   }
