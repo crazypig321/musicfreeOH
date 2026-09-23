@@ -233,7 +233,6 @@ export struct LyricView {
                               .fontSize(Math.round(20 * this.fontScale))
                               .fontWeight(FontWeight.Bold)
                               .blendMode(BlendMode.DST_IN, BlendApplyType.OFFSCREEN)
-                              .alignSelf(ItemAlign.Start)
                           }
                           .linearGradient({
                             direction: GradientDirection.Right,
@@ -255,6 +254,7 @@ export struct LyricView {
                       .fontSize(Math.round(20 * this.fontScale))
                       .fontWeight(FontWeight.Bold)
                       .fontColor(this.highlightColor)
+                      .textAlign(TextAlign.Center)
                       .maxLines(2)
                       .textOverflow({ overflow: TextOverflow.Ellipsis })
                       .animation({ duration: 300, curve: Curve.EaseInOut })
@@ -263,6 +263,7 @@ export struct LyricView {
                   Text(item.lrc)
                     .fontSize(Math.round(16 * this.fontScale))
                     .fontColor($r('sys.color.font_secondary'))
+                    .textAlign(TextAlign.Center)
                     .maxLines(2)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                     .animation({ duration: 300, curve: Curve.EaseInOut })
@@ -273,6 +274,7 @@ export struct LyricView {
                       ? Math.round(14 * this.fontScale) : Math.round(12 * this.fontScale))
                     .fontColor(index === this.currentIndex
                       ? $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
+                    .textAlign(TextAlign.Center)
                     .maxLines(2)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                     .animation({ duration: 300, curve: Curve.EaseInOut })

@@ -852,7 +852,7 @@ export class DialogManager {
       }
       case '捐赠': {
         const ok: ButtonOptions = {
-          value: '我知道了',
+          value: '🙏感谢你的支持！',
           fontColor: Color.White,
           background: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,

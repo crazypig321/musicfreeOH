@@ -946,7 +946,7 @@ export struct PlayerPage {
           Image(ArtworkCache.resolve(this.currentMusic.artwork))
             .width(280)
             .height(280)
-            .sourceSize({ width: 280, height: 280 })
+           // .sourceSize({ width: 280, height: 280 })
             .borderRadius(24)
             .objectFit(ImageFit.Cover)
             .shadow({
