@@ -148,13 +148,14 @@ export class FileUtils {
     }
   }
 
-  /** 重命名目录（moveFileSync 不支持目录，需用 moveDirSync；目标路径必须不存在） */
+  /** 重命名目录（fs.moveDirSync 语义是"移动到目标目录之下"，目标不存在时抛 Invalid argument；重命名需用 renameSync） */
   static renameDir(from: string, to: string): boolean {
     try {
-      fs.moveDirSync(FileUtils.normalizePath(from), FileUtils.normalizePath(to));
+      fs.renameSync(FileUtils.normalizePath(from), FileUtils.normalizePath(to));
       return true;
     } catch (e) {
-      Log.error('重命名目录失败: ' + from + ' -> ' + to);
+      const detail = e instanceof Error ? e.message : '';
+      Log.error('重命名目录失败: ' + from + ' -> ' + to + ' 原因: ' + detail);
       return false;
     }
   }
