@@ -1707,36 +1707,53 @@ export struct DownloadPage {
           if (this.dateTags.length > 1) {
             ListItem() {
               List({ space: 8 }) {
-                LazyForEach(this.tagSource, (tag: string) => {
-                  ListItem() {
-                    // 本地音乐文件夹标签：长按/右键呼出 编辑/删除 菜单
-                    if (this.isLocalMode && tag !== '全部') {
-                      Text(tag)
+                LazyForEach(this.tagSource, (tag: string, tagIndex: number) => {
+                  if (tagIndex < 8 || (tagIndex === 8 && this.dateTags.length <= 9)) {
+                    ListItem() {
+                      // 本地音乐文件夹标签：长按/右键呼出 编辑/删除 菜单
+                      if (this.isLocalMode && tag !== '全部') {
+                        Text(tag)
+                          .fontSize(13)
+                          .maxLines(1)
+                          .fontColor(this.selectedTag === tag ?
+                            $r('sys.color.font_on') : $r('sys.color.font_secondary'))
+                          .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                          .borderRadius(16)
+                          .backgroundColor(this.selectedTag === tag ?
+                            $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
+                          .onClick(() => {
+                            this.selectTag(tag);
+                          })
+                          .bindContextMenu(this.TagContextMenuBuilder(tag), ResponseType.LongPress)
+                          .bindContextMenu(this.TagContextMenuBuilder(tag), ResponseType.RightClick)
+                      } else {
+                        Text(tag)
+                          .fontSize(13)
+                          .maxLines(1)
+                          .fontColor(this.selectedTag === tag ?
+                            $r('sys.color.font_on') : $r('sys.color.font_secondary'))
+                          .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                          .borderRadius(16)
+                          .backgroundColor(this.selectedTag === tag ?
+                            $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
+                          .onClick(() => {
+                            this.selectTag(tag);
+                          })
+                      }
+                    }
+                  } else if (tagIndex === 8) {
+                    ListItem() {
+                      Text('更早')
                         .fontSize(13)
                         .maxLines(1)
-                        .fontColor(this.selectedTag === tag ?
-                        $r('sys.color.font_on') : $r('sys.color.font_secondary'))
+                        .fontColor(this.selectedTag === '更早' ?
+                          $r('sys.color.font_on') : $r('sys.color.font_secondary'))
                         .padding({ left: 14, right: 14, top: 6, bottom: 6 })
                         .borderRadius(16)
-                        .backgroundColor(this.selectedTag === tag ?
-                        $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
+                        .backgroundColor(this.selectedTag === '更早' ?
+                          $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
                         .onClick(() => {
-                          this.selectTag(tag);
-                        })
-                        .bindContextMenu(this.TagContextMenuBuilder(tag), ResponseType.LongPress)
-                        .bindContextMenu(this.TagContextMenuBuilder(tag), ResponseType.RightClick)
-                    } else {
-                      Text(tag)
-                        .fontSize(13)
-                        .maxLines(1)
-                        .fontColor(this.selectedTag === tag ?
-                        $r('sys.color.font_on') : $r('sys.color.font_secondary'))
-                        .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-                        .borderRadius(16)
-                        .backgroundColor(this.selectedTag === tag ?
-                        $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
-                        .onClick(() => {
-                          this.selectTag(tag);
+                          this.selectTag('更早');
                         })
                     }
                   }
