@@ -12,8 +12,29 @@ const DEV_HOME: string = 'https://github.com/crazypig321';
 const DEP_DATE_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate';
 const DEP_COLOR_PICKER_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker';
 
+/** 关于页条目行：头像/图标 + 标题 + 右侧说明 + chevron，可选点击行为 */
+interface AboutRow {
+  /** 头像图片（设置后优先于 icon 显示） */
+  avatar?: Resource;
+  /** SymbolGlyph 图标 */
+  icon: Resource;
+  title: string;
+  /** 右侧说明文字 */
+  trailing?: string;
+  /** 右侧说明是否按长文本（地址）省略 */
+  trailingEllipsis?: boolean;
+  showChevron?: boolean;
+  action?: () => void;
+}
+
+/** 关于页分组：标题 + 卡片内多行 */
+interface AboutSection {
+  title: string;
+  rows: Array<AboutRow>;
+}
+
 /**
- * 关于页面：应用图标/名称/版本 + 开发者 + 项目地址 + 开源与条款
+ * 关于页面：应用图标/名称/版本 + 开发者 + 项目地址 + 开源与条款 + 三方库
  * 从设置页「关于」条目进入
  */
 @ComponentV2
@@ -33,6 +54,132 @@ export struct AboutPage {
     WebUtils.open(url, (message: string): void => {
       this.showToast(message);
     });
+  }
+
+  /** 分组数据 */
+  private sections(): Array<AboutSection> {
+    return [
+      {
+        title: '开发者',
+        rows: [
+          {
+            avatar: $r('app.media.crazypig321'),
+            icon: $r('sys.symbol.person'),
+            title: 'crazypig321',
+            showChevron: true,
+            action: (): void => {
+              this.openWeb(DEV_HOME);
+            }
+          }
+        ]
+      },
+      {
+        title: '项目地址',
+        rows: [
+          {
+            icon: $r('sys.symbol.store'),
+            title: '项目仓库',
+            trailing: REPO_OH,
+            trailingEllipsis: true,
+            action: (): void => {
+              this.openWeb(REPO_OH);
+            }
+          },
+          {
+            icon: $r('sys.symbol.store'),
+            title: '原项目仓库',
+            trailing: REPO_ORIGIN,
+            trailingEllipsis: true,
+            action: (): void => {
+              this.openWeb(REPO_ORIGIN);
+            }
+          }
+        ]
+      },
+      {
+        title: '开源与条款',
+        rows: [
+          {
+            icon: $r('sys.symbol.doc_plaintext'),
+            title: '开源许可',
+            trailing: 'AGPL-3.0 协议'
+          },
+          {
+            icon: $r('sys.symbol.info_circle'),
+            title: '免责声明',
+            showChevron: true,
+            action: (): void => {
+              DialogManager.OpenDialog('免责声明');
+            }
+          }
+        ]
+      },
+      {
+        title: '三方库',
+        rows: [
+          {
+            icon: $r('sys.symbol.store'),
+            title: '@xiaoye/date',
+            trailing: '1.0.1',
+            showChevron: true,
+            action: (): void => {
+              this.openWeb(DEP_DATE_URL);
+            }
+          },
+          {
+            icon: $r('sys.symbol.store'),
+            title: '@keke/color-picker',
+            trailing: '1.0.4',
+            showChevron: true,
+            action: (): void => {
+              this.openWeb(DEP_COLOR_PICKER_URL);
+            }
+          }
+        ]
+      }
+    ];
+  }
+
+  /** 单行条目：头像/图标 + 标题 + 右侧说明 + chevron */
+  @Builder
+  private RowItem(row: AboutRow) {
+    Row({ space: 12 }) {
+      if (row.avatar) {
+        Image(row.avatar)
+          .width(44)
+          .height(44)
+          .borderRadius(22)
+      } else {
+        SymbolGlyph(row.icon)
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      Text(row.title)
+        .fontSize(15)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+      if (row.trailing) {
+        Text(row.trailing)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .constraintSize({ maxWidth: row.trailingEllipsis ? '50%' : '100%' })
+      }
+      if (row.showChevron) {
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(14)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+    }
+    .width('100%')
+    .height(52)
+    .onClick(() => {
+      const action = row.action;
+      if (action) {
+        action();
+      }
+    })
   }
 
   build() {
@@ -75,204 +222,32 @@ export struct AboutPage {
             .alignItems(HorizontalAlign.Center)
           }
 
-          // 开发者
-          ListItem() {
-            Text('开发者')
-              .fontSize(14)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-          }
-          ListItem() {
-            Row({ space: 12 }) {
-              Image($r('app.media.crazypig321'))
-                .width(44)
-                .height(44)
-                .borderRadius(22)
-              Text('crazypig321')
-                .fontSize(15)
-                .fontColor($r('sys.color.font_primary'))
-                .layoutWeight(1)
-              SymbolGlyph($r('sys.symbol.chevron_right'))
+          // 分组：标题 + 卡片
+          ForEach(this.sections(), (section: AboutSection) => {
+            ListItem() {
+              Text(section.title)
                 .fontSize(14)
-                .fontColor([$r('sys.color.icon_tertiary')])
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_secondary'))
+                .width('100%')
             }
-            .width('100%')
-            .height(60)
-          }
-          .ListItemStyle()
-          .onClick(() => {
-            this.openWeb(DEV_HOME);
-          })
-
-          // 项目地址
-          ListItem() {
-            Text('项目地址')
-              .fontSize(14)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-          }
-          ListItem() {
-            Column() {
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.store'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('项目仓库')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                Text(REPO_OH)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .constraintSize({ maxWidth: '50%' })
+            ListItem() {
+              Column() {
+                ForEach(section.rows, (row: AboutRow, index: number) => {
+                  Column() {
+                    this.RowItem(row)
+                    if (index < section.rows.length - 1) {
+                      Divider()
+                        .DividerStyle()
+                    }
+                  }
+                  .width('100%')
+                }, (row: AboutRow) => row.title)
               }
               .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.openWeb(REPO_OH);
-              })
-
-              Divider()
-                .DividerStyle()
-
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.store'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('原项目仓库')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                Text(REPO_ORIGIN)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .constraintSize({ maxWidth: '50%' })
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.openWeb(REPO_ORIGIN);
-              })
             }
-            .width('100%')
-          }
-          .ListItemStyle()
-
-          // 开源与条款
-          ListItem() {
-            Text('开源与条款')
-              .fontSize(14)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-          }
-          ListItem() {
-            Column() {
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.doc_plaintext'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('开源许可')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                Text('AGPL-3.0 协议')
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .width('100%')
-              .height(52)
-
-              Divider()
-                .DividerStyle()
-
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.info_circle'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('免责声明')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                DialogManager.OpenDialog('免责声明');
-              })
-            }
-            .width('100%')
-          }
-          .ListItemStyle()
-
-          // 三方库
-          ListItem() {
-            Text('三方库')
-              .fontSize(14)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-          }
-          ListItem() {
-            Column() {
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.store'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('@xiaoye/date')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                Text('1.0.1')
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.openWeb(DEP_DATE_URL);
-              })
-
-              Divider()
-                .DividerStyle()
-
-              Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.store'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('@keke/color-picker')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                Text('1.0.4')
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.openWeb(DEP_COLOR_PICKER_URL);
-              })
-            }
-            .width('100%')
-          }
-          .ListItemStyle()
-
+            .ListItemStyle()
+          }, (section: AboutSection) => section.title)
         }
         .ListStyle()
         .onScrollFrameBegin((offset: number) => {
