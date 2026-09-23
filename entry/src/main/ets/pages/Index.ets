@@ -37,7 +37,7 @@ import { useSidebarLayout } from '../utils/BreakpointUtils';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
 import { HomePage } from './HomePage';
 import { CustomContentDialog } from '@kit.ArkUI';
-import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
+  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
 import { ContextHolder } from '../common/ContextHolder';
 
 @Entry
@@ -445,6 +445,8 @@ struct Index {
       TextPickerDialogContent()
     } else if (key === '更换音源') {
       ChangeSourceDialogContent()
+    } else if (key === '选择封面') {
+      CoverPickDialogContent()
     } else if (key === '免责声明') {
       DisclaimerDialogContent()
     } else if (key === '设置缓存') {

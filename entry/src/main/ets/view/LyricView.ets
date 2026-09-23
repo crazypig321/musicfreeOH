@@ -256,7 +256,7 @@ export struct LyricView {
                           .fontSize(Math.round(20 * this.fontScale))
                           .fontWeight(FontWeight.Bold)
                           .shaderStyle(this.wordShader(i))
-                          .animation({ duration: 200, curve: Curve.Linear })
+                          .animation({ duration: 200, curve: Curve.Smooth })
                       }, (word: LyricWord, i: number) => i.toString())
                     }.width('100%')
                   } else {

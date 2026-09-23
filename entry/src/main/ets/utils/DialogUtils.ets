@@ -6,6 +6,8 @@ import { MusicItem } from "../common/model/MediaTypes";
 import { trackPlayer } from "../core/TrackPlayer";
 import { PathConst } from "../common/PathConst";
 import { FileUtils } from "./FileUtils";
+import { CoverSearch } from "./CoverSearch";
+import { ArtworkCache } from "./ArtworkCache";
 
 
 /** 插件用户变量字段（弹窗内编辑） */
@@ -455,6 +457,105 @@ export struct ChangeSourceDialogContent {
 }
 
 
+/** 「选择封面」弹窗内容：打开即并发搜索候选封面（加载动画），完成后展示封面网格点选 */
+@ComponentV2
+export struct CoverPickDialogContent {
+  @Local loading: boolean = true;
+  @Local candidates: Array<string> = [];
+  @Local selectedIndex: number = 0;
+  private alive: boolean = true;
+
+  aboutToAppear(): void {
+    const item = DialogManager.coverPickItem;
+    if (item === null) {
+      this.loading = false;
+      return;
+    }
+    CoverSearch.searchCandidates(item).then((artworks: Array<string>): void => {
+      if (!this.alive) {
+        return;
+      }
+      this.candidates = artworks;
+      this.loading = false;
+      DialogManager.coverPickCandidates = artworks;
+    }).catch((_e: Object): void => {
+      if (!this.alive) {
+        return;
+      }
+      this.loading = false;
+    });
+  }
+
+  aboutToDisappear(): void {
+    this.alive = false;
+  }
+
+  build() {
+    if (this.loading) {
+      Column({ space: 12 }) {
+        LoadingProgress()
+          .width(36)
+          .height(36)
+          .color(appState.accentColor)
+        Text('正在搜索封面…')
+          .fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+      .height(160)
+      .justifyContent(FlexAlign.Center)
+    } else if (this.candidates.length === 0) {
+      Column() {
+        Text('未找到可用封面')
+          .fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+      .height(160)
+      .justifyContent(FlexAlign.Center)
+    } else {
+      Scroll() {
+        Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
+          ForEach(this.candidates, (artwork: string, index: number) => {
+            Stack({ alignContent: Alignment.BottomEnd }) {
+              Image(ArtworkCache.resolve(artwork))
+                .width(84)
+                .height(84)
+                .borderRadius(12)
+                .border({
+                  width: index === this.selectedIndex ? 2 : 0,
+                  color: index === this.selectedIndex ? appState.accentColor : $r('sys.color.comp_divider')
+                })
+                .objectFit(ImageFit.Cover)
+                .alt($r('app.media.altImage'))
+              if (index === this.selectedIndex) {
+                Toggle({ type: ToggleType.Checkbox, isOn: true })
+                  .width(20)
+                  .height(20)
+                  .selectedColor(appState.accentColor)
+              }
+            }
+            .width(84)
+            .height(84)
+            .margin({ right: 8, bottom: 8 })
+            .onClick(() => {
+              this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+                this.selectedIndex = index;
+                DialogManager.coverPickIndex = index;
+              });
+            })
+          }, (artwork: string, index: number) => artwork + '_' + index.toString())
+        }
+        .width('100%')
+      }
+      .constraintSize({ maxHeight: 340 })
+      .scrollBar(BarState.Off)
+      .width('100%')
+    }
+  }
+}
+
+
 /**
  * 公共弹窗管理：各页面通过 OpenDialog(key) 打开 Index 的公共弹窗，
  * 标题 / 按钮 / 确认取消逻辑集中在这里
@@ -502,6 +603,14 @@ export class DialogManager {
   public static changeSourceIndex: number = 0;
   /** 「更换音源」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
   public static changeSourceConfirm: ((index: number) => void) | null = null;
+  /** 「选择封面」目标歌曲（打开前赋值，弹窗内容组件据此搜索） */
+  public static coverPickItem: MusicItem | null = null;
+  /** 「选择封面」候选结果（弹窗内容组件搜索完成后回填） */
+  public static coverPickCandidates: Array<string> = [];
+  /** 「选择封面」选中下标（弹窗内点击候选更新） */
+  public static coverPickIndex: number = 0;
+  /** 「选择封面」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
+  public static coverPickConfirm: ((index: number) => void) | null = null;
   /** 「设置缓存」当前值（打开前赋初值，弹窗内编辑） */
   public static cacheInputValue: string = '';
   /** 「设置缓存」单位（'M' | 'G'，打开前赋初值，弹窗内切换） */
@@ -556,6 +665,18 @@ export class DialogManager {
     DialogManager.OpenDialog('确认删除');
   }
 
+  /** 手动选择封面弹窗：item 目标歌曲，onConfirm(artwork) 选中封面后执行（取消/关闭不触发） */
+  public static PickCover(item: MusicItem, onConfirm: (artwork: string) => void): void {
+    DialogManager.coverPickItem = item;
+    DialogManager.coverPickIndex = 0;
+    DialogManager.coverPickCandidates = [];
+    DialogManager.coverPickConfirm = (index: number): void => {
+      const list = DialogManager.coverPickCandidates;
+      onConfirm(index >= 0 && index < list.length ? list[index] : '');
+    };
+    DialogManager.OpenDialog('选择封面');
+  }
+
   /** 弹窗内轻提示 */
   public static Toast(message: string): void {
     if (DialogManager.toaster !== null) {
@@ -588,6 +709,8 @@ export class DialogManager {
         return DialogManager.pickerTitle;
       case '更换音源':
         return '更换音源';
+      case '选择封面':
+        return '选择封面';
       case '设置缓存':
         return '设置缓存';
       case '清除缓存':
@@ -808,6 +931,27 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '选择封面': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          fontColor: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '确定',
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
       case '设置缓存': {
         const cancel: ButtonOptions = {
           value: '取消',
@@ -929,6 +1073,11 @@ export class DialogManager {
           DialogManager.changeSourceConfirm(DialogManager.changeSourceIndex);
         }
         break;
+      case '选择封面':
+        if (DialogManager.coverPickCandidates.length > 0 && DialogManager.coverPickConfirm !== null) {
+          DialogManager.coverPickConfirm(DialogManager.coverPickIndex);
+        }
+        break;
       case '设置缓存':
         if (DialogManager.cacheInputConfirm !== null) {
           DialogManager.cacheInputConfirm(DialogManager.cacheInputValue);
@@ -1012,6 +1161,13 @@ export class DialogManager {
       DialogManager.changeSourceCandidates = [];
       DialogManager.changeSourceIndex = 0;
       DialogManager.changeSourceConfirm = null;
+    }
+    // 选择封面同理（取消或关闭弹窗不触发确认回调）
+    if (key === '选择封面') {
+      DialogManager.coverPickItem = null;
+      DialogManager.coverPickCandidates = [];
+      DialogManager.coverPickIndex = 0;
+      DialogManager.coverPickConfirm = null;
     }
     // 设置缓存同理
     if (key === '设置缓存') {

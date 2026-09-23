@@ -13,6 +13,7 @@ import { floatLyricManager } from '../core/FloatLyricManager';
 import { mediaSession } from '../core/MediaSession';
 import { ParsedLrcItem, LyricWord } from '../utils/LyricParser';
 import { MediaUtils } from '../utils/MediaUtils';
+import { CoverSearch } from '../utils/CoverSearch';
 import { MediaExtra } from '../core/MediaExtra';
 import { appState } from '../entryability/AppState';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
@@ -632,6 +633,28 @@ export struct PlayerPage {
     }
   }
 
+  /** 当前歌曲是否本地音乐/已下载（决定封面右下角是否显示「选择封面」入口） */
+  private isLocalLibraryMusic(): boolean {
+    const music = this.currentMusic;
+    return music !== null &&
+      (localMusicSheet.isLocalMusic(music) !== null || downloadedSheet.isLocalMusic(music) !== null);
+  }
+
+  /** 封面右下角「选择封面」（仅本地音乐/已下载）：弹窗候选封面点选后写回并刷新播放页 */
+  private pickCoverForCurrentMusic(): void {
+    const target = this.currentMusic;
+    if (target === null) {
+      return;
+    }
+    DialogManager.PickCover(target, (artwork: string): void => {
+      if (artwork.length === 0) {
+        return;
+      }
+      CoverSearch.applyArtwork(target, artwork);
+      this.showToast('封面已更新');
+    });
+  }
+
   // ==================== 断点适配 ====================
 
   /** 分栏布局（PC/窗口侧边栏模式、横屏/矮窗口，或宽度 lg 的宽屏）：左侧封面+控制组件纵向堆叠，右侧歌词常驻，无需封面/歌词切换 */
@@ -985,6 +1008,27 @@ export struct PlayerPage {
             this.enterLyricMode();
           })
       )
+      // 封面右下角「选择封面」入口（仅本地音乐/已下载歌曲显示）
+      Row() {
+        SymbolGlyph($r('sys.symbol.magnifyingglass'))
+          .fontSize(18)
+          .fontColor([Color.White])
+          .fontWeight(FontWeight.Bold)
+          .opacity(0.7)
+      }
+      .backdropBlur(10)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Center)
+      .width(36)
+      .height(36)
+      .borderRadius(18)
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .shadow({ radius: 12, color: 'rgba(0,0,0,0.35)', offsetX: 0, offsetY: 4 })
+      .offset({ x: 124, y: 124 })
+      .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+      .onClick(() => {
+        this.pickCoverForCurrentMusic();
+      })
     }.layoutWeight(1)
     .transition(TransitionEffect.OPACITY)
   }

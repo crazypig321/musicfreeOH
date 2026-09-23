@@ -734,6 +734,23 @@ export class TrackPlayer {
   }
 
   /**
+   * 更新当前播放歌曲的封面（手动选择/搜索封面写回后调用）
+   * 保证播放页与通知栏即时刷新；非当前播放歌曲或封面为空时不处理
+   */
+  patchArtwork(musicItem: MusicItem, artwork: string): void {
+    if (artwork.length === 0 || !this.isCurrentMusic(musicItem) || this.currentMusicItem === null) {
+      return;
+    }
+    const next = this.currentMusicItem.clone();
+    next.artwork = artwork;
+    this.currentMusicItem = next;
+    PersistStatus.setMusicItem(next);
+    const ev = new CurrentMusicChangedEvent();
+    ev.music = next;
+    this.ee.emit('current-music-changed', ev);
+  }
+
+  /**
    * 搜索其它插件上的同一首歌（每个插件取最优匹配），供手动换源选择
    * 并发搜索所有插件（单个插件超时 6s），总耗时约等于最慢的一个插件
    */

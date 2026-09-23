@@ -404,6 +404,17 @@ export struct MusicOptionsSheet {
     });
   }
 
+  /** 选择封面（仅本地音乐/已下载显示）：弹窗展示候选封面，点选后写回本地条目并刷新播放页 */
+  private pickCoverForCurrent(): void {
+    const target = this.optionsItem;
+    DialogManager.PickCover(target, (artwork: string): void => {
+      if (artwork.length > 0) {
+        CoverSearch.applyArtwork(target, artwork);
+        this.showToast('封面已更新');
+      }
+    });
+  }
+
   /** 从当前歌单删除本曲（仅歌单详情页本地歌单面板显示；弹窗确认，取消不删除）；
    * 列表随 onMusicListUpdated 自动刷新 */
   private removeFromCurrentSheet(): void {
@@ -634,17 +645,23 @@ export struct MusicOptionsSheet {
           })
         }
         // 本地音乐/已下载条目：搜索封面
-        if (localMusicSheet.isLocalMusic(this.optionsItem) !== null ||
-          downloadedSheet.isLocalMusic(this.optionsItem) !== null) {
-          ListItem() {
-            ActionRowItem({
-              icon: $r('sys.symbol.wand_and_stars'),
-              label: '搜索封面',
-              onTap: (): void => {
-                this.searchCoverForCurrent();
-              }
-            })
-          }
+        ListItem() {
+          ActionRowItem({
+            icon: $r('sys.symbol.wand_and_stars'),
+            label: '自动匹配封面',
+            onTap: (): void => {
+              this.searchCoverForCurrent();
+            }
+          })
+        }
+        ListItem() {
+          ActionRowItem({
+            icon: $r('sys.symbol.ohos_photo'),
+            label: '手选匹配封面',
+            onTap: (): void => {
+              this.pickCoverForCurrent();
+            }
+          })
         }
         ListItem() {
           ActionRowItem({
