@@ -146,6 +146,26 @@ export struct LyricView {
     ];
   }
 
+  /** 第 i 个词的渐变进度：已唱完=1，正在唱=wordProgress，未唱=0 */
+  private wordProgressAt(i: number): number {
+    if (i < this.currentWordIndex) {
+      return 1;
+    } else if (i === this.currentWordIndex) {
+      return this.wordProgress;
+    } else {
+      return 0;
+    }
+  }
+
+  /** 第 i 个词的线性渐变样式（直接作用于 Text 文字像素，无需 blendMode 离屏渲染） */
+  private wordShader(i: number): ShaderStyle {
+    const opts: LinearGradientOptions = {
+      direction: GradientDirection.Right,
+      colors: this.gradientColors(this.wordProgressAt(i))
+    };
+    return new LinearGradientStyle(opts);
+  }
+
   /** 用户触摸：按下暂停自动滚动，松手 3 秒后恢复 */
   private handleTouch(event: TouchEvent): void {
     if (event.type === TouchType.Down) {
@@ -232,34 +252,13 @@ export struct LyricView {
                   if (item.words.length > 0) {
                     Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center}) {
                       ForEach(item.words, (word: LyricWord, i: number) => {
-                        if (i < this.currentWordIndex) {
-                          Text(word.text)
-                            .fontSize(Math.round(20 * this.fontScale))
-                            .fontWeight(FontWeight.Bold)
-                            .fontColor(this.highlightColor)
-                        } else if (i === this.currentWordIndex) {
-                          Stack() {
-                            Text(word.text)
-                              .fontColor(this.highlightColor)
-                              .fontSize(Math.round(20 * this.fontScale))
-                              .fontWeight(FontWeight.Bold)
-                              .blendMode(BlendMode.DST_IN, BlendApplyType.OFFSCREEN)
-                          }
-                          .linearGradient({
-                            direction: GradientDirection.Right,
-                            colors: this.gradientColors(this.wordProgress)
-                          })
-                          .blendMode(BlendMode.SRC_OVER, BlendApplyType.OFFSCREEN)
-                        } else {
-                          Text(word.text)
-                            .fontSize(Math.round(20 * this.fontScale))
-                            .fontWeight(FontWeight.Bold)
-                            .fontColor($r('sys.color.font_secondary'))
-                        }
+                        Text(word.text)
+                          .fontSize(Math.round(20 * this.fontScale))
+                          .fontWeight(FontWeight.Bold)
+                          .shaderStyle(this.wordShader(i))
+                          .animation({ duration: 200, curve: Curve.Linear })
                       }, (word: LyricWord, i: number) => i.toString())
-                    }
-                    .width('100%')
-                    .animation({ duration: 300, curve: Curve.EaseInOut })
+                    }.width('100%')
                   } else {
                     Text(item.lrc)
                       .fontSize(Math.round(20 * this.fontScale))
