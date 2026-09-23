@@ -383,12 +383,11 @@ export struct CommonBlur{
   }
 }
 
-
+// 二维码赞助弹窗
 @ComponentV2
 export struct PaySupport{
   @Local list: ButtonItem[] = [
-    {icon:$r('app.media.weixin'), text: '微信'},
-    {icon:$r('app.media.zhifubao'), text: '支付宝'}
+    {icon:$r('app.media.shoukuanma'), text: '微信/支付宝'},
   ]
 
 
