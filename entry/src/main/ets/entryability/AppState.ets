@@ -56,6 +56,8 @@ class AppState{
   @Trace isForegroundBlur: boolean = false;
   // 弹窗是否开启
   @Trace isDialogOpen: boolean = false;
+  // 弹窗保存中（编辑标签等异步保存时显示 loading，防止重复点击）
+  @Trace isDialogSaving: boolean = false;
   // 批量操作模式（隐藏 tab 栏，返回键退出该模式）
   @Trace isBatchMode: boolean = false;
   // 当前 tab 页（我的歌单/插件）标题栏搜索框展开时登记的收起回调

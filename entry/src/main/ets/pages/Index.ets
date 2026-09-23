@@ -58,11 +58,13 @@ struct Index {
     playerAnim.density = d.densityPixels;
     playerAnim.pageTranslateY = playerAnim.collapsedOffset;
     WebPluginExecutor.getInstance().attachController(this.controller);
-    // 公共弹窗：注册打开动作与轻提示
+    // 公共弹窗：注册打开动作、轻提示与关闭动作
     DialogManager.Register((): void => {
       this.dataDialog.open();
     }, (message: string): void => {
       this.notifyToast(message);
+    }, (): void => {
+      this.dataDialog.close();
     });
     trackPlayer.onCellularForbidden(() => {
       try {

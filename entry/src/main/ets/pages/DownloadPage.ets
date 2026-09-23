@@ -1108,7 +1108,7 @@ export struct DownloadPage {
   }
 
   /** 重命名标签文件夹：物理重命名 + 同步本地音乐/已下载两域记录的本地路径 */
-  private doRenameTag(oldName: string, newName: string): void {
+  private async doRenameTag(oldName: string, newName: string): Promise<void> {
     const trimmed = newName.trim();
     if (trimmed.length === 0) {
       this.showToast('标签名不能为空');
@@ -1124,6 +1124,7 @@ export struct DownloadPage {
       return;
     }
     if (escaped === oldName) {
+      DialogManager.CloseDialog();
       return;
     }
     const base = PathConst.downloadPath.endsWith('/') ?
@@ -1138,7 +1139,13 @@ export struct DownloadPage {
       this.showToast('标签「' + escaped + '」已存在');
       return;
     }
+    // 校验通过：显示 loading，让出主线程让 loading 渲染后再执行重命名
+    appState.isDialogSaving = true;
+    await new Promise<void>((resolve: () => void): void => {
+      setTimeout(resolve, 300);
+    });
     if (!FileUtils.renameDir(oldDir, newDir)) {
+      appState.isDialogSaving = false;
       this.showToast('重命名失败');
       return;
     }
@@ -1155,9 +1162,11 @@ export struct DownloadPage {
         updated++;
       }
     }
+    appState.isDialogSaving = false;
     this.selectedTag = escaped;
     this.showToast('已重命名为「' + escaped + '」，更新 ' + updated.toString() + ' 首歌曲');
     this.refreshDownloaded();
+    DialogManager.CloseDialog();
   }
 
   /** 删除标签（弹窗确认）：其中的本地音乐移回下载根目录，再删除空文件夹 */

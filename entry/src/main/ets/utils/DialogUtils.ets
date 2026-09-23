@@ -180,6 +180,7 @@ export struct DownloadFolderDialogContent {
         .placeholderColor($r('sys.color.font_tertiary'))
         .backgroundColor($r('sys.color.comp_background_tertiary'))
         .borderRadius(10)
+        .enabled(!appState.isDialogSaving)
         .onChange((v: string): void => {
           this.inputValue = v;
           DialogManager.downloadFolderValue = v;
@@ -209,6 +210,48 @@ export struct DownloadFolderDialogContent {
           }, (folder: string) => folder + (this.inputValue === folder ? '_on' : '_off'))
         }
         .width('100%')
+      }
+      // 编辑标签：自定义按钮（支持 loading 态，异步保存完成后手动关闭弹窗）
+      if (DialogManager.dialogChangeKey === '编辑标签') {
+        Row({ space: 10 }) {
+          Button('取消')
+            .layoutWeight(1)
+            .height(40)
+            .fontSize(15)
+            .fontColor(appState.accentColor)
+            .backgroundColor(Color.Transparent)
+            .borderRadius(100)
+            .enabled(!appState.isDialogSaving)
+            .onClick(() => {
+              DialogManager.CloseDialog();
+            })
+          if (appState.isDialogSaving) {
+            Column() {
+              LoadingProgress()
+                .width(24)
+                .height(24)
+                .color(Color.White)
+            }
+            .layoutWeight(1)
+            .height(40)
+            .justifyContent(FlexAlign.Center)
+            .borderRadius(100)
+            .backgroundColor(appState.accentColor)
+          } else {
+            Button('保存')
+              .layoutWeight(1)
+              .height(40)
+              .fontSize(15)
+              .fontColor(Color.White)
+              .backgroundColor(appState.accentColor)
+              .borderRadius(100)
+              .onClick(() => {
+                DialogManager.ConfirmButtonDialog('编辑标签');
+              })
+          }
+        }
+        .width('100%')
+        .margin({ top: 4 })
       }
     }
     .width('100%')
@@ -480,11 +523,13 @@ export class DialogManager {
   // ===== 由 Index 注册的宿主动作 =====
   private static opener: (() => void) | null = null;
   private static toaster: ((message: string) => void) | null = null;
+  private static closer: (() => void) | null = null;
 
-  /** 注册弹窗宿主（打开动作 / 轻提示），由 Index 调用 */
-  public static Register(opener: () => void, toaster: (message: string) => void): void {
+  /** 注册弹窗宿主（打开动作 / 轻提示 / 关闭动作），由 Index 调用 */
+  public static Register(opener: () => void, toaster: (message: string) => void, closer: () => void): void {
     DialogManager.opener = opener;
     DialogManager.toaster = toaster;
+    DialogManager.closer = closer;
   }
 
   /** 打开弹窗 */
@@ -494,6 +539,13 @@ export class DialogManager {
     //appState.isForegroundBlur = true;
     if (DialogManager.opener !== null) {
       DialogManager.opener();
+    }
+  }
+
+  /** 关闭弹窗（由内容区域自定义按钮在异步保存完成后调用） */
+  public static CloseDialog(): void {
+    if (DialogManager.closer !== null) {
+      DialogManager.closer();
     }
   }
 
@@ -711,24 +763,7 @@ export class DialogManager {
         break;
       }
       case '编辑标签': {
-        const cancel: ButtonOptions = {
-          value: '取消',
-          fontColor: appState.accentColor,
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: (): void => {
-            DialogManager.CancelButtonDialog(key);
-          }
-        };
-        const confirm: ButtonOptions = {
-          value: '保存',
-          fontColor: Color.White,
-          background: appState.accentColor,
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: (): void => {
-            DialogManager.ConfirmButtonDialog(key);
-          }
-        };
-        buttons.push(cancel, confirm);
+        // 按钮在内容区域渲染（自定义按钮支持 loading 态，异步保存完成后手动关闭弹窗）
         break;
       }
       case '选择器': {
@@ -937,6 +972,7 @@ export class DialogManager {
   public static DisappearDialog(key: string): void {
    // appState.isForegroundBlur = false;
     appState.isDialogOpen = false;
+    appState.isDialogSaving = false;
     DialogManager.dialogChangeKey = '';
     if (DialogManager.onDialogClosed !== null) {
       const cb = DialogManager.onDialogClosed;

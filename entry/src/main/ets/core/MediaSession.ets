@@ -205,7 +205,8 @@ export class MediaSession {
     }
     const rawLrc = lyricManager.lyricState.rawLrc;
     if (rawLrc.length > 0) {
-      meta.lyric = rawLrc;
+      // 增强LRC的<mm:ss.xx>逐字标记对系统歌词显示是噪音，剥离后再交给系统
+      meta.lyric = rawLrc.replace(new RegExp('<[\\d:.]+>', 'g'), '');
     }
     return meta;
   }

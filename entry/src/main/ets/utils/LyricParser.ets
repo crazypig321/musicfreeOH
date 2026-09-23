@@ -229,6 +229,7 @@ export class LyricParser {
         item.time = rawTimes !== null ? LyricParser.parseTime(rawTimes[j]) : 0;
         item.lrc = lrc;
         item.index = j;
+        LyricParser.parseWordTags(item);
         rawLrcItems.push(item);
       }
       i += counter;
@@ -237,6 +238,7 @@ export class LyricParser {
         item.time = rawTimes !== null ? LyricParser.parseTime(rawTimes[i]) : 0;
         item.lrc = lrc;
         item.index = j;
+        LyricParser.parseWordTags(item);
         rawLrcItems.push(item);
       }
       rawLrcs.shift();
@@ -260,11 +262,107 @@ export class LyricParser {
     return result;
   }
 
-  /** 计算每行 endTime 并按行时长均分逐字时间戳 */
+  /** <mm:ss.xx> => x s（非法格式返回 -1） */
+  private static parseWordTime(tag: string): number {
+    const validReg = new RegExp('^\\d{1,3}:\\d{1,2}(?:\\.\\d{1,3})?$');
+    if (!validReg.test(tag)) {
+      return -1;
+    }
+    const colonIdx = tag.indexOf(':');
+    const min = Number(tag.substring(0, colonIdx));
+    const rest = tag.substring(colonIdx + 1);
+    const dotIdx = rest.indexOf('.');
+    let sec = 0;
+    let frac = 0;
+    if (dotIdx === -1) {
+      sec = Number(rest);
+    } else {
+      sec = Number(rest.substring(0, dotIdx));
+      frac = Number(rest.substring(dotIdx + 1).padEnd(3, '0'));
+    }
+    return min * 60 + sec + frac / 1000;
+  }
+
+  /**
+   * 解析增强 LRC（A2）逐字标记：[mm:ss.xx]<mm:ss.xx>字<mm:ss.xx>字...
+   * 命中时用真实时间戳填充 item.words，并把标记从 item.lrc 中剥离；
+   * 未命中时不做任何修改（保持原文本，逐字时间由 fillWords 均分兜底）。
+   */
+  private static parseWordTags(item: ParsedLrcItem): void {
+    const text = item.lrc;
+    if (text.indexOf('<') === -1) {
+      return;
+    }
+    const words: Array<LyricWord> = [];
+    let pendingText = '';
+    let pendingTime = -1;
+    let leadPrefix = '';
+    let pos = 0;
+    while (pos < text.length) {
+      const lt = text.indexOf('<', pos);
+      if (lt === -1) {
+        pendingText += text.substring(pos);
+        break;
+      }
+      pendingText += text.substring(pos, lt);
+      const gt = text.indexOf('>', lt);
+      if (gt === -1) {
+        pendingText += text.substring(lt);
+        break;
+      }
+      const time = LyricParser.parseWordTime(text.substring(lt + 1, gt));
+      if (time < 0) {
+        pendingText += text.substring(lt, gt + 1);
+        pos = gt + 1;
+        continue;
+      }
+      if (pendingTime >= 0) {
+        const w = new LyricWord();
+        w.text = words.length === 0 && leadPrefix.length > 0 ? leadPrefix + pendingText : pendingText;
+        w.startTime = pendingTime;
+        w.endTime = 0;
+        words.push(w);
+      } else {
+        leadPrefix = pendingText;
+      }
+      pendingText = '';
+      pendingTime = time;
+      pos = gt + 1;
+    }
+    if (pendingTime >= 0) {
+      const w = new LyricWord();
+      w.text = leadPrefix + pendingText;
+      w.startTime = pendingTime;
+      w.endTime = 0;
+      words.push(w);
+    }
+    if (words.length === 0) {
+      return;
+    }
+    let merged = '';
+    for (const w of words) {
+      merged += w.text;
+    }
+    item.lrc = merged;
+    item.words = words;
+  }
+
+  /** 计算每行 endTime；有真实逐字标记的行直接沿用其时间轴，否则按行时长均分 */
   private static fillWords(items: Array<ParsedLrcItem>): void {
     for (let i = 0; i < items.length; ++i) {
       const item = items[i];
       item.endTime = i < items.length - 1 ? items[i + 1].time : item.time + 5;
+      if (item.words.length > 0) {
+        for (let c = 0; c < item.words.length; ++c) {
+          const w = item.words[c];
+          if (c < item.words.length - 1) {
+            w.endTime = item.words[c + 1].startTime;
+          } else {
+            w.endTime = item.endTime > w.startTime ? item.endTime : w.startTime + 0.05;
+          }
+        }
+        continue;
+      }
       const chars = Array.from(item.lrc);
       if (chars.length === 0) {
         continue;

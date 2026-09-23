@@ -58,7 +58,7 @@ export struct LyricView {
 
   private startProgressTimer(): void {
     if (this.progressTimer === -1) {
-      this.progressTimer = setInterval((): void => this.updateProgress(), 30);
+      this.progressTimer = setInterval((): void => this.updateProgress(), 16);
     }
   }
 
@@ -69,7 +69,7 @@ export struct LyricView {
     }
   }
 
-  /** 30ms 采样：更新当前行索引和渐变进度 */
+  /** 16ms 采样：更新当前行索引和渐变进度 */
   private updateProgress(): void {
     const pos = this.positionProvider() - this.lyricOffset;
     if (this.lyrics.length === 0) {
@@ -90,8 +90,18 @@ export struct LyricView {
       }
     }
     if (idx >= 0) {
-      this.currentWordIndex = this.calcWordIndex(this.lyrics[idx], pos);
-      this.wordProgress = this.calcWordProgress(this.lyrics[idx], pos, this.currentWordIndex);
+      const newWordIndex = this.calcWordIndex(this.lyrics[idx], pos);
+      const newProgress = this.calcWordProgress(this.lyrics[idx], pos, newWordIndex);
+      if (newWordIndex === this.currentWordIndex) {
+        // 同一词内：用 animateTo 平滑插值渐变进度，避免 linearGradient 硬切顿挫
+        this.getUIContext().animateTo({ duration: 48, curve: Curve.Linear }, (): void => {
+          this.wordProgress = newProgress;
+        });
+      } else {
+        // 词切换：直接更新，不做插值（避免从 1 回退到 0 的回扫动画）
+        this.currentWordIndex = newWordIndex;
+        this.wordProgress = newProgress;
+      }
     } else {
       this.currentWordIndex = -1;
       this.wordProgress = 0;
@@ -124,13 +134,14 @@ export struct LyricView {
     return duration > 0 ? Math.min(1, Math.max(0, (pos - w.startTime) / duration)) : 1;
   }
 
-  /** 渐变色 stops：已唱=高亮，未唱=次要色 */
+  /** 渐变色 stops：已唱=高亮，未唱=次要色（边界加微小过渡区间柔化硬切） */
   private gradientColors(value: number): Array<[ResourceColor, number]> {
     const v = Math.max(0, Math.min(1, value));
+    const smooth = 0.012;
     return [
       [this.highlightColor, 0.0],
-      [this.highlightColor, v],
-      [$r('sys.color.font_secondary'), v],
+      [this.highlightColor, Math.max(0, v - smooth)],
+      [$r('sys.color.font_secondary'), Math.min(1, v + smooth)],
       [$r('sys.color.font_secondary'), 1.0]
     ];
   }
