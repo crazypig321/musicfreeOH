@@ -21,7 +21,6 @@ export struct PcTitleBar {
           .width(26)
           .height(26)
           .borderRadius(8)
-          .backgroundColor(appState.accentColor)
 
         Text($r('app.string.home_subtitle'))
           .fontSize(15)
