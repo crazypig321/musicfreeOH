@@ -832,6 +832,7 @@ export struct MySheetsPage {
         (this.showSearchBox && this.hostTabIndex === 1) ?
           { builder: (): void => { this.SearchBuilder() } } : undefined),
       isHideBackButton: true,
+      embedded: true,
       scroller: this.scroller,
       doubleTapToTop: true,
     }) {

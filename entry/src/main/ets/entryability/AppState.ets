@@ -60,6 +60,12 @@ class AppState{
   @Trace isDialogSaving: boolean = false;
   // 批量操作模式（隐藏 tab 栏，返回键退出该模式）
   @Trace isBatchMode: boolean = false;
+  // 启动初始化完成（Bootstrap.setup 后置 true；首页/搜索页依赖插件系统就绪）
+  @Trace bootReady: boolean = false;
+  // PC 布局路由退场动画参数（仅 PcMainLayout 的 customNavContentTransition 驱动；
+  // 手机布局无该接管方，恒为默认值 1，CommonNav 绑定后对手机端为 no-op）
+  @Trace pcNavExitScale: number = 1;
+  @Trace pcNavExitOpacity: number = 1;
   // 当前 tab 页（我的歌单/插件）标题栏搜索框展开时登记的收起回调
   // （tab 页返回键由 Index.onBackPress 统一拦截：优先收起搜索框，再回到主页，主页弹退出确认）
   tabSearchClose: (() => void) | null = null;

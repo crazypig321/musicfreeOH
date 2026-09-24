@@ -1076,6 +1076,7 @@ export struct PluginPage {
       titleBarOp: titleBarOf($r('app.string.tab_plugin'), this.subTitleText(), this.titleMenus(),
         (this.showSearchBox && appState.currTabsIndex === 2) ? { builder: (): void => { this.SearchBuilder() } } : undefined),
       isHideBackButton: true,
+      embedded: true,
       scroller: this.scroller,
       doubleTapToTop: true,
       isSearchBarScroller: false

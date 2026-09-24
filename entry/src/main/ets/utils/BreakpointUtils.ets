@@ -15,7 +15,7 @@ export function sheetGridColumns(widthBp: number): number {
 
 /** 页面内容最大宽度（vp）：lg 限宽居中避免列表行被拉满全屏，其余断点不限 */
 export function contentMaxWidthVp(widthBp: number): number {
-  return widthBp >= 2 ? 600 : 100000;
+  return widthBp >= 2 ? 10000 : 100000;
 }
 
 /** 是否为横屏/矮窗口布局（高度断点为 sm 且宽度不小于 md）：播放页左右分栏 */
@@ -31,7 +31,7 @@ export function isLandscapeLayout(widthBp: number, heightBp: number): boolean {
  *   全屏断点不启用
  */
 export function useSidebarLayout(widthBp: number, windowWidthVp: number, displayWidthVp: number): boolean {
-  if (deviceInfo.deviceType === '2in1') {
+  if (deviceInfo.deviceType === '2in1' || deviceInfo.deviceType === 'tablet') {
     return true;
   }
   if (deviceInfo.deviceType === 'phone') {

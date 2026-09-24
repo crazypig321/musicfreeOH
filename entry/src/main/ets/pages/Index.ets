@@ -8,34 +8,13 @@ import {
   HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
-import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
-  import { ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL, ROUTE_ALBUM_DETAIL, ROUTE_ARTIST_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_WEBDAV_SETTING, ROUTE_APPEARANCE_SETTING } from '../common/model/NavModels';
 import { ArtworkCache } from '../utils/ArtworkCache';
-import { DownloadPage } from './DownloadPage';
-import { PluginPage } from './PluginPage';
-import { MySheetsPage } from './MySheetsPage';
-import { SettingsPage } from './SettingsPage';
-import { SearchPage } from './SearchPage';
-import { SubscriptionPage } from './SubscriptionPage';
-import { LocalMusicPage } from './LocalMusicPage';
-import { RecommendSheetsPage } from './RecommendSheetsPage';
-import { SheetDetailPage } from './SheetDetailPage';
-import { MediaDetailPage } from './MediaDetailPage';
-import { AboutPage } from './settingSecPage/AboutPage';
-import { CachePage } from './settingSecPage/CachePage';
-import { PlaySettingPage } from './settingSecPage/PlaySettingPage';
-import { DownloadSettingPage } from './settingSecPage/DownloadSettingPage';
-import { LyricSettingPage } from './settingSecPage/LyricSettingPage';
-import { PluginSettingPage } from './settingSecPage/PluginSettingPage';
-import { BackupSettingPage } from './settingSecPage/BackupSettingPage';
-import { WebDavSettingPage } from './settingSecPage/WebDavSettingPage';
-import { AppearanceSettingPage } from './settingSecPage/AppearanceSettingPage';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
-import { SideBar } from '../view/SideBar';
 import { useSidebarLayout } from '../utils/BreakpointUtils';
 import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
-import { HomePage } from './HomePage';
+import { PcMainLayout } from './pcUI/PcMainLayout';
+import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';
   import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
 import { ContextHolder } from '../common/ContextHolder';
@@ -47,7 +26,6 @@ struct Index {
   private tabsController: HdsTabsController = new HdsTabsController();
   /** PC 侧边栏布局下的主页面容器（barHeight 0 仅保活页面） */
   private sideTabsController: TabsController = new TabsController();
-  @Local bootReady: boolean = false;
 
   aboutToAppear(): void {
     // 播放页覆盖层初始平移到屏幕外（此时 UIContext 尚未初始化，用 densityPixels 换算 vp）
@@ -79,7 +57,7 @@ struct Index {
   private async initApp(): Promise<void> {
     try {
       await Bootstrap.setup();
-      this.bootReady = true;
+      appState.bootReady = true;
     } catch (e) {
       const message = e instanceof Error ? e.message : '未知错误';
       try {
@@ -90,70 +68,12 @@ struct Index {
     }
   }
 
-  /** 底部 tab：文本选中色直接适配主题色 */
-  private tabBarOf(item: MenuItem): BottomTabBarStyle {
-    const style = new BottomTabBarStyle(tabBarSymbolOf(item), item.label);
-    style.labelStyle({ selectedColor: appState.accentColor });
-    return style;
-  }
-
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       if (useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth)) {
-        // PC 风格布局：Navigation 置于根部，二级页面（设置子页/搜索/歌单详情等）覆盖整个窗口；
-        // 悬浮 PlayBar 在最上层常驻
-        Stack({ alignContent: Alignment.Bottom }) {
-          HdsNavigation(appState.pageInfos) {
-            Row() {
-              SideBar({
-                expanded: appState.sidebarExpanded,
-                onSelect: (index: number): void => {
-                  this.sideTabsController.changeIndex(index);
-                },
-                onToggle: (): void => {
-                  this.getUIContext().animateTo({ duration: 250, curve: Curve.Smooth }, () => {
-                    appState.sidebarExpanded = !appState.sidebarExpanded;
-                  });
-                }
-              })
-              Column() {
-                Tabs({ controller: this.sideTabsController }) {
-                  this.MainTabContents()
-                }
-                .barHeight(0)
-                .vertical(false)
-                .scrollable(false)
-                .animationDuration(appState.tabSwitchAnim ? 500 : 0)
-                .onChange((index: number) => {
-                  appState.currTabsIndex = index
-                  appState.swipeResetTick = appState.swipeResetTick + 1
-                })
-              }
-              .layoutWeight(1)
-              .height('100%')
-            }
-            .width('100%')
-            .height('100%')
-          }
-          .titleMode(HdsNavigationTitleMode.FREE)
-          .mode(NavigationMode.Stack)
-          .navBarWidth('40%')
-          .hideBackButton(true)
-          .hideTitleBar(true)
-          .navDestination(this.pageMap)
-          .width('100%')
-          .height('100%')
-          .backgroundColor($r('sys.color.background_secondary'))
-          .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
-            { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
-
-          // 悬浮迷你播放条：窗口底部居中，二级页面覆盖时仍常驻（批量操作模式下隐藏）
-          if (!appState.isBatchMode) {
-            this.FloatingPlayBar()
-          }
-        }
-        .width('100%')
-        .height('100%')
+        // PC 风格布局（参考 BiliMusic MainLayout）：标题栏 + (侧边栏 + 内容区) + 底部播放栏；
+        // 二级页面仅覆盖内容区，标题栏/侧边栏/播放栏跨页面常驻
+        PcMainLayout({ tabsController: this.sideTabsController })
       } else {
         HdsNavigation(appState.pageInfos) {
           HdsTabs({ controller: this.tabsController }) {
@@ -309,78 +229,15 @@ struct Index {
     });
   }
 
-  /** 主页面 TabContent（手机 HdsTabs 与 PC 侧边栏 Tabs 共用，保持页面状态不丢失） */
+  /** 主页面 TabContent（手机 HdsTabs 使用；页面装配提取到 AppPages 与 PC 布局共用） */
   @Builder
   MainTabContents() {
-    ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
-      TabContent() {
-        if (i === 0) {
-          HomePage({ bootReady: this.bootReady })
-        } else if (i === 1) {
-          MySheetsPage({ hostTabIndex: appState.currTabsIndex })
-        } else if (i === 2) {
-          PluginPage({ hostTabIndex: appState.currTabsIndex })
-        } else if (i === 3) {
-          SubscriptionPage()
-        } else {
-          SettingsPage()
-        }
-      }
-      .tabBar(this.tabBarOf(item))
-    }, (item: MenuItem, i: number) => 'tab_' + i.toString())
-  }
-
-  /** 悬浮迷你播放条（PC 侧边栏布局）：内容区底部居中 */
-  @Builder
-  FloatingPlayBar() {
-    Column() {
-      PlayBar({ floating: true })
-    }
-    .backdropBlur(60)
-    .padding({ top: 7, bottom: 7 })
-    .width(520)
-    .constraintSize({ maxWidth: '90%' })
-    .borderRadius(100)
-    .borderWidth(1)
-    .borderColor('#99ffffff')
-    .backgroundColor('#80ffffff')
-    .shadow({ radius: 24, color: 'rgba(0,0,0,0.15)', offsetX: 0, offsetY: 4 })
-    .margin({ bottom: appState.bottomRect > 0 ? 16 : 12, left: 16, right: 16 })
+    MainTabPagesBuilder()
   }
 
   @Builder
   pageMap(name: string) {
-    if (name === ROUTE_SEARCH) {
-      SearchPage({ bootReady: this.bootReady })
-    } else if (name === ROUTE_DOWNLOAD) {
-      DownloadPage()
-    } else if (name === ROUTE_LOCAL_MUSIC) {
-      LocalMusicPage()
-    } else if (name === ROUTE_RECOMMEND_SHEETS) {
-      RecommendSheetsPage()
-    } else if (name === ROUTE_SHEET_DETAIL) {
-      SheetDetailPage()
-    } else if (name === ROUTE_ALBUM_DETAIL || name === ROUTE_ARTIST_DETAIL) {
-      MediaDetailPage()
-    } else if (name === ROUTE_ABOUT) {
-      AboutPage()
-    } else if (name === ROUTE_CACHE) {
-      CachePage()
-    } else if (name === ROUTE_PLAY_SETTING) {
-      PlaySettingPage()
-    } else if (name === ROUTE_DOWNLOAD_SETTING) {
-      DownloadSettingPage()
-    } else if (name === ROUTE_LYRIC_SETTING) {
-      LyricSettingPage()
-    } else if (name === ROUTE_PLUGIN_SETTING) {
-      PluginSettingPage()
-    } else if (name === ROUTE_BACKUP_SETTING) {
-      BackupSettingPage()
-    } else if (name === ROUTE_WEBDAV_SETTING) {
-      WebDavSettingPage()
-    } else if (name === ROUTE_APPEARANCE_SETTING) {
-      AppearanceSettingPage()
-    }
+    PageMapBuilder(name)
   }
 
   @Builder

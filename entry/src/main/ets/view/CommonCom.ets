@@ -1,5 +1,4 @@
-import { SymbolGlyphModifier, LengthMetrics } from "@kit.ArkUI"
-import { ButtonItem } from "../common/model/home/HomeModel";
+import { SymbolGlyphModifier, LengthMetrics, TabSegmentButtonV2, SegmentButtonV2Items } from "@kit.ArkUI"
 import { SheetItem } from "../common/model/SheetTypes"
 import { appState } from "../entryability/AppState";
 
@@ -146,6 +145,7 @@ export struct CommonNull{
       .fontColor($r('sys.color.font_tertiary'))
       .width('100%')
       .textAlign(TextAlign.Center)
+      .padding({ top: 12, bottom: 12 })
   }
 }
 

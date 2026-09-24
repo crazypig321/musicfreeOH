@@ -10,9 +10,10 @@ export const HomeList: Array<IconTextItem> = [
   { icon: $r('sys.symbol.folder'), text1: $r('app.string.home_local_music') }
 ]
 
-export interface ButtonItem {
-  icon?: Resource;
-  text: ResourceStr
-  label?: ResourceStr
-  color?: ResourceColor
+/** 播放控制按钮配置 */
+export interface ControlButtonConfig {
+  symbol: Resource
+  fontSize: number
+  fontColor: ResourceColor[]
+  action: () => void
 }

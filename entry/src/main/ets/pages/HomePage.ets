@@ -20,7 +20,7 @@ import { PluginAbility } from '../common/Consts';
 import { localMusicSheet } from '../core/LocalMusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 import { MenuUtils } from '../utils/MenuUtils';
-import { sheetGridColumns } from '../utils/BreakpointUtils';
+import { sheetGridColumns, useSidebarLayout } from '../utils/BreakpointUtils';
 
 // ---------- 常量 ----------
 const TOP_LIST_MAX_GROUPS = 3;                 // 榜单最多展示的分组数
@@ -107,8 +107,11 @@ export struct HomePage{
   /** 主体build */
   build() {
     CommonNav({
-      titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle'), this.titleMenus(), { builder: (): void => { this.search() } }),
+      titleBarOp: titleBarOf(TimeTipUtils(), $r('app.string.home_subtitle'), this.titleMenus(),
+      useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? undefined :
+        { builder: (): void => { this.search() } }),
       isHideBackButton: true,
+      embedded: true,
       doubleTapToTop: true,
       scroller: this.scroller
     }) {
@@ -542,10 +545,10 @@ export struct HomePage{
               // 第一组：卡片堆叠轮播（后面卡片露出上边缘，滑动/点击切换）
               CardStack({
                 items: l.data,
-                cardWidth: 160,
+                cardWidth: useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 180 : 160,
                 coverAspect: 0.8,
-                sideCount: 2,
-                spacing: 70,
+                sideCount: useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 3 : 2,
+                spacing: useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 90 : 70,
                 dimOpacity: 0.7,
                 scaleStep: 0.12,
                 itemClick: (sheet: SheetItem): void => {
@@ -686,7 +689,7 @@ function ListStyle(){
   .height('100%')
   .scrollBar(BarState.Off)
   .edgeEffect(EdgeEffect.Spring)
-  .contentStartOffset(appState.topRect + 120)
+  .contentStartOffset(useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 64 : appState.topRect + 120)
   // 上下两排时底栏更高，末尾内容需多留滚动空间
   .contentEndOffset(appState.bottomRect + (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60))
   .padding({ left: 16, right: 16 })

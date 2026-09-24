@@ -45,6 +45,7 @@ export struct SettingsPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_settings')),
       isHideBackButton: true,
+      embedded: true,
       scroller: this.scroller,
       doubleTapToTop: true
     }) {

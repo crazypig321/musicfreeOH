@@ -543,6 +543,7 @@ export struct SubscriptionPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_subscription'), '共 ' + this.sources.length.toString() + ' 个订阅源', this.titleMenus()),
       isHideBackButton: true,
+      embedded: true,
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

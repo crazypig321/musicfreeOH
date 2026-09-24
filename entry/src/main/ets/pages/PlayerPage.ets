@@ -1,4 +1,7 @@
 import { pasteboard } from '@kit.BasicServicesKit';
+import { SegmentButtonV2Items, CapsuleSegmentButtonV2, LengthMetrics, ColorMetrics,
+  TabSegmentButtonV2,
+  SegmentButtonV2ItemOptions} from '@kit.ArkUI';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { AVCastPicker, AVCastPickerState } from '@kit.AVSessionKit';
 import { MusicItem, QualityKey, QUALITY_KEYS, LyricSource } from '../common/model/MediaTypes';
@@ -79,6 +82,8 @@ export struct PlayerPage {
   @Local lyricFontIndex: number = appConfig.getLyricFontSize();
   /** 歌词模式（点击封面或左滑进入，歌词区右滑返回封面） */
   @Local showLyric: boolean = false;
+  /** 封面|歌词 分段按钮选项 */
+  private segmentItems: SegmentButtonV2Items = new SegmentButtonV2Items([]);
   /** 当前激活的半模态（0=无） */
   @Local activeSheet: number = PlayerPage.SHEET_NONE;
   /** sheet 是否可见（关闭动画期间保持 true，内容不闪空） */
@@ -118,6 +123,11 @@ export struct PlayerPage {
   };
 
   aboutToAppear(): void {
+    let itemOptions: SegmentButtonV2ItemOptions[] = [
+      { text: '封面' },
+      { text: '歌词' }
+    ];
+    this.segmentItems = new SegmentButtonV2Items(itemOptions);
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
     const progress = trackPlayer.getProgress();
@@ -186,6 +196,15 @@ export struct PlayerPage {
   /** 进入歌词模式：定位到当前行 */
   private enterLyricMode(): void {
     this.setLyricMode(true);
+  }
+
+  /** 分段按钮选中回调：0=封面，1=歌词 */
+  private onSegmentSelected(index: number): void {
+    if (index === 0) {
+      this.setLyricMode(false);
+    } else {
+      this.enterLyricMode();
+    }
   }
 
   /** 切换封面/歌词模式（显式动画包裹挂载/卸载渐隐） */
@@ -886,6 +905,8 @@ export struct PlayerPage {
     .alignItems(HorizontalAlign.Center)
   }
 
+  @Local currIndex: number = 0
+
   /** 顶部栏：收起 + 封面/歌词切换（居中，宽屏分栏时常驻歌词无需切换） + 分享 */
   @Builder
   PlayerTopBar(showToggle: boolean) {
@@ -904,41 +925,31 @@ export struct PlayerPage {
 
       // 封面 | 歌词 分段切换（宽屏分栏下歌词常驻，隐藏切换）
       if (showToggle) {
-        Row({ space: 2 }) {
-          Text('封面')
-            .fontSize(12)
-            .fontWeight(this.showLyric ? FontWeight.Normal : FontWeight.Medium)
-            .fontColor(this.showLyric ?
-              $r('sys.color.font_secondary') : appState.accentColor)
-            .height(26)
-            .padding({ left: 12, right: 12 })
-            .borderRadius(13)
-            .textAlign(TextAlign.Center)
-            .backgroundColor(this.showLyric ?
-              Color.Transparent : $r('sys.color.comp_background_primary'))
-            .onClick(() => {
-              this.setLyricMode(false);
+        Stack({ alignContent: Alignment.Start }){
+          Row().width('161px').height(26).borderRadius(13)
+            .backgroundColor(Color.White)
+            .offset({x: this.showLyric ? '168px' : 0})
+
+          Row({ space: 2 }) {
+            ForEach(['封面', '歌词'],(v: ResourceStr, i: number)=>{
+              Text(v)
+                .fontSize(12)
+                .fontWeight(this.currIndex === i ? FontWeight.Bold : FontWeight.Normal)
+                .fontColor(this.currIndex === i  ? appState.accentColor : $r('sys.color.font_tertiary'))
+                .height(26)
+                .padding({ left: 12, right: 12 })
+                .textAlign(TextAlign.Center)
+                .onClick(() => {
+                  this.currIndex = i
+                  this.onSegmentSelected(i)
+                })
             })
-          Text('歌词')
-            .fontSize(12)
-            .fontWeight(this.showLyric ? FontWeight.Medium : FontWeight.Normal)
-            .fontColor(this.showLyric ?
-              appState.accentColor : $r('sys.color.font_secondary'))
-            .height(26)
-            .padding({ left: 12, right: 12 })
-            .borderRadius(13)
-            .textAlign(TextAlign.Center)
-            .backgroundColor(this.showLyric ?
-              $r('sys.color.comp_background_primary') : Color.Transparent)
-            .onClick(() => {
-              this.enterLyricMode();
-            })
+          }
         }
         .height(30)
         .borderRadius(15)
         .backgroundColor($r('sys.color.comp_background_tertiary'))
         .padding(2)
-        .alignItems(VerticalAlign.Center)
       }
 
       Row() {
@@ -1014,7 +1025,6 @@ export struct PlayerPage {
           .fontSize(18)
           .fontColor([Color.White])
           .fontWeight(FontWeight.Bold)
-          .opacity(0.7)
       }
       .backdropBlur(10)
       .alignItems(VerticalAlign.Center)
