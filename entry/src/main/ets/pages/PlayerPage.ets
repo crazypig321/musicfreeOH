@@ -927,7 +927,8 @@ export struct PlayerPage {
       if (showToggle) {
         Stack({ alignContent: Alignment.Start }){
           Row().width('161px').height(26).borderRadius(13)
-            .backgroundColor(Color.White)
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .opacity(0.7)
             .offset({x: this.showLyric ? '168px' : 0})
 
           Row({ space: 2 }) {
@@ -949,7 +950,7 @@ export struct PlayerPage {
         .height(30)
         .borderRadius(15)
         .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .padding(2)
+        .padding(3)
       }
 
       Row() {
@@ -1014,12 +1015,14 @@ export struct PlayerPage {
       .layoutWeight(1)
       .justifyContent(FlexAlign.Center)
       .onClick(() => {
+        this.currIndex = 1
         this.enterLyricMode();
       })
       .gesture(
         PanGesture(this.panOptionL)
           .onActionStart((event: GestureEvent) => {
             if(event){
+              this.currIndex = 1
               this.enterLyricMode();
             }
           })
@@ -1103,6 +1106,7 @@ export struct PlayerPage {
       PanGesture(this.panOptionR)
         .onActionStart((event: GestureEvent) => {
           if(event){
+            this.currIndex = 0
             this.setLyricMode(false);
           }
         }),
