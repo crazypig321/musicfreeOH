@@ -970,6 +970,9 @@ export struct PlayerPage {
     .padding({ bottom: this.useSplitLayout() ? 4 : 16 })
   }
 
+  private panOptionL: PanGestureOptions = new PanGestureOptions({ direction: PanDirection.Left, distance: 50 })
+  private panOptionR: PanGestureOptions = new PanGestureOptions({ direction: PanDirection.Right, distance: 50 })
+
   /** 封面区（竖屏专用：点击/左滑进入歌词模式，撑满剩余高度） */
   @Builder
   CoverArea() {
@@ -1014,9 +1017,11 @@ export struct PlayerPage {
         this.enterLyricMode();
       })
       .gesture(
-        SwipeGesture({ direction: SwipeDirection.Horizontal })
-          .onAction(() => {
-            this.enterLyricMode();
+        PanGesture(this.panOptionL)
+          .onActionStart((event: GestureEvent) => {
+            if(event){
+              this.enterLyricMode();
+            }
           })
       )
       // 封面右下角「选择封面」入口（仅本地音乐/已下载歌曲显示）
@@ -1093,11 +1098,14 @@ export struct PlayerPage {
     }
     .width('100%')
     .layoutWeight(1)
+    //右滑滑手势
     .gesture(
-      SwipeGesture({ direction: SwipeDirection.Horizontal })
-        .onAction(() => {
-          this.setLyricMode(false);
-        })
+      PanGesture(this.panOptionR)
+        .onActionStart((event: GestureEvent) => {
+          if(event){
+            this.setLyricMode(false);
+          }
+        }),
     )
     .transition(TransitionEffect.OPACITY)
   }
