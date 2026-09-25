@@ -62,6 +62,8 @@ class AppState{
   @Trace isBatchMode: boolean = false;
   // 启动初始化完成（Bootstrap.setup 后置 true；首页/搜索页依赖插件系统就绪）
   @Trace bootReady: boolean = false;
+  // 外部分享带入的搜索词（ExternalOpen 设置并跳转搜索页；搜索页挂载/就绪后消费并自动搜索）
+  @Trace pendingSearchKeyword: string = '';
   // PC 布局路由退场动画参数（仅 PcMainLayout 的 customNavContentTransition 驱动；
   // 手机布局无该接管方，恒为默认值 1，CommonNav 绑定后对手机端为 no-op）
   @Trace pcNavExitScale: number = 1;

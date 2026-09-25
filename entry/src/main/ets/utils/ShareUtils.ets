@@ -38,16 +38,12 @@ export class MusicShareData {
  * 支持纯文本 / 链接 / 本地沙箱文件；面板拉起失败时回调 onFailure
  */
 export class ShareUtils {
-  /** 分享歌曲：有本地文件直接发文件（接收端导入后可播）；网络歌曲发 .mfsong 标记文件（自定义类型，跨设备直达打开，接收端可播放），构造失败回落纯文本 */
+  /** 分享歌曲：有本地文件直接发文件（接收端导入后可播）；网络歌曲仅分享歌名文本
+   * （接收端 MusicFreeOH 解析标记进入搜索页自动搜索，无需与发送方安装相同插件；其他应用可见歌名） */
   static shareMusic(item: MusicItem, onFailure: (message: string) => void): void {
     const localPath = MediaUtils.getLocalPath(item);
     if (localPath !== null && localPath.length > 0 && !localPath.startsWith('content://')) {
       ShareUtils.shareFile(item.title, localPath, onFailure);
-      return;
-    }
-    const r: MusicShareData = ShareUtils.buildMusicShare(item);
-    if (r.data !== null) {
-      ShareUtils.launch(r.data, false, onFailure);
       return;
     }
     const payload = new SharedSongPayload();

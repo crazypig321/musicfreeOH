@@ -20,12 +20,15 @@ import { musicSheet, backupEntriesFromRecord } from './MusicSheet';
 import { LocalMusicExclusion } from './LocalMusicExclusion';
 import { MusicItem } from '../common/model/MediaTypes';
 import { ResumeMode, LOCAL_PLUGIN_PLATFORM, INTERNAL_SERIALIZE_KEY, SUPPORT_LOCAL_MEDIA_TYPE } from '../common/Consts';
+import { appState } from '../entryability/AppState';
+import { NavPathUtils } from '../utils/NavPathUtils';
+import { ROUTE_SEARCH } from '../common/model/NavModels';
 
 /**
  * 外部内容打开/接收处理（统一串行入口）
  * 1. 文件关联打开（文件管理器/QQ/微信 → 打开方式 → 本应用）：
  *    .js → 安装为单个插件；.json → 备份恢复或订阅源导入（按内容区分）；音频 → 复制到下载目录并立即播放
- * 2. 系统分享接收（ShareReceiveAbility 暂存后拉起）：歌曲标记文本 → 播放；
+ * 2. 系统分享接收（ShareReceiveAbility 暂存后拉起）：歌曲标记文本 → 进搜索页自动搜索；
  *    URL → 安装插件/订阅源；其余文本 → 复制到剪贴板；文件走 1 相同分发
  */
 export class ExternalOpen {
@@ -362,20 +365,18 @@ export class ExternalOpen {
     }
   }
 
-  /** 分享文本：歌曲标记 → 播放；URL → 安装插件(.js)/导入订阅源；其余 → 复制到剪贴板 */
+  /** 分享文本：歌曲标记 → 进搜索页自动搜索；URL → 安装插件(.js)/导入订阅源；其余 → 复制到剪贴板 */
   private static async handleSharedText(text: string): Promise<void> {
     const trimmed = text.trim();
     const markIdx = trimmed.indexOf(MUSICFREE_SONG_MARK);
     if (markIdx !== -1) {
       const rec = JsonUtil.parseRecord(trimmed.substring(markIdx + MUSICFREE_SONG_MARK.length));
-      if (rec !== null) {
-        const platform = JsonUtil.recStr(rec, 'platform');
-        const id = JsonUtil.recStr(rec, 'id');
-        if (platform.length > 0 && id.length > 0) {
-          await ExternalOpen.playSharedSong(platform, id,
-            JsonUtil.recStr(rec, 'title'), JsonUtil.recStr(rec, 'artist'));
-          return;
-        }
+      const title = rec !== null ? JsonUtil.recStr(rec, 'title') : '';
+      if (title.length > 0) {
+        // 接收方无需安装发送方平台的插件：带歌名进搜索页直接搜索
+        const artist = rec !== null ? JsonUtil.recStr(rec, 'artist') : '';
+        ExternalOpen.openSearchWithKeyword(artist.length > 0 ? title + ' ' + artist : title);
+        return;
       }
     }
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
@@ -420,18 +421,13 @@ export class ExternalOpen {
     });
   }
 
-  /** 结构化歌曲（MusicFree 分享标记）：构造 MusicItem 直接播放（需接收端装有对应平台插件） */
-  private static async playSharedSong(platform: string, id: string, title: string, artist: string): Promise<void> {
-    const item = new MusicItem();
-    item.id = id;
-    item.platform = platform;
-    item.title = title.length > 0 ? title : '未知歌曲';
-    item.artist = artist.length > 0 ? artist : '未知歌手';
+  /** 携带搜索词进入搜索页（搜索页挂载/就绪后消费搜索词并自动搜索） */
+  private static openSearchWithKeyword(keyword: string): void {
+    appState.pendingSearchKeyword = keyword;
     try {
-      await trackPlayer.playWithReplacePlayList(item, [item]);
-      ExternalOpen.toast('正在播放：' + item.title);
+      NavPathUtils.push(ROUTE_SEARCH);
     } catch (e) {
-      ExternalOpen.toast('播放失败：请先安装「' + platform + '」插件');
+      // 导航栈未就绪：搜索词已暂存，下次进入搜索页时消费
     }
   }
 

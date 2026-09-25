@@ -90,6 +90,7 @@ export struct SearchPage {
   aboutToAppear(): void {
     this.refreshPlugins();
     this.loadSearchHistory();
+    this.consumePendingSearch();
     pluginManager.onOrderUpdated((): void => {
       this.refreshPlugins();
     });
@@ -102,6 +103,20 @@ export struct SearchPage {
   onBootReadyChange(): void {
     if (this.bootReady) {
       this.refreshPlugins();
+      this.consumePendingSearch();
+    }
+  }
+
+  /** 消费外部分享带入的搜索词（分享歌曲文本接收 → 跳转搜索页自动搜索） */
+  private consumePendingSearch(): void {
+    const kw = appState.pendingSearchKeyword.trim();
+    if (kw.length === 0) {
+      return;
+    }
+    appState.pendingSearchKeyword = '';
+    this.keyword = kw;
+    if (this.bootReady) {
+      this.doSearch();
     }
   }
 
