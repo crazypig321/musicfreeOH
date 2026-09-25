@@ -101,6 +101,7 @@ export struct PlayerPage {
   @Local audioEffectOn: boolean = true;
   /** 用户拖动进度条期间不回写进度事件 */
   @Local isSeeking: boolean = false;
+  @Local currIndex: number = 0
   private commentsPage: number = 1;
   /** 评论请求序号：仅采纳最新一次请求的结果 */
   private commentsReqId: number = 0;
@@ -176,6 +177,7 @@ export struct PlayerPage {
     // 收起完成时重置歌词态，保证下次展开时封面占位可测量
     playerAnim.onCollapsed = (): void => {
       this.showLyric = false;
+      this.currIndex = 0
     };
   }
 
@@ -905,8 +907,6 @@ export struct PlayerPage {
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
   }
-
-  @Local currIndex: number = 0
 
   /** 顶部栏：收起 + 封面/歌词切换（居中，宽屏分栏时常驻歌词无需切换） + 分享 */
   @Builder
