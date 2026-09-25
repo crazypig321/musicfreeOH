@@ -1,5 +1,6 @@
 import { downloader, DownloadTaskInfo, DownloadStatus, DownloadFailReason } from '../core/Downloader';
 import { ArtworkCache } from '../utils/ArtworkCache';
+import { ShareUtils } from '../utils/ShareUtils';
 import { downloadedSheet, localMusicSheet, LocalMusicSheet } from '../core/LocalMusicSheet';
 import { LocalMusicExclusion } from '../core/LocalMusicExclusion';
 import { musicSheet } from '../core/MusicSheet';
@@ -18,7 +19,6 @@ import { StringDataSource } from '../common/model/StringDataSource';
 import { MediaUtils } from '../utils/MediaUtils';
 import { CoverSearch } from '../utils/CoverSearch';
 import { pluginManager } from '../plugin/PluginManager';
-import { pasteboard } from '@kit.BasicServicesKit';
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
@@ -542,15 +542,10 @@ export struct DownloadPage {
     this.showToast('将在下一首播放');
   }
 
-  /** 分享歌曲信息（复制到剪贴板） */
+  /** 分享：本地文件直接发文件；网络歌曲发带标记文本（接收端 MusicFreeOH 可导入/播放） */
   private shareCurrent(): void {
-    const text = '「' + this.optionsItem.title + '」 - ' + this.optionsItem.artist +
-      '（来自 ' + this.optionsItem.platform + '）';
-    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
-    pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.showToast('已复制歌曲信息，可粘贴分享');
-    }).catch((_e: Object): void => {
-      this.showToast('复制失败');
+    ShareUtils.shareMusic(this.optionsItem, (message: string): void => {
+      this.showToast(message);
     });
   }
 
@@ -1303,23 +1298,36 @@ export struct DownloadPage {
     this.exitBatchMode();
   }
 
-  /** 批量分享：复制选中歌曲信息 */
+  /** 批量分享：系统分享面板分享选中歌曲信息（合并为一段文本） */
   private batchShare(): void {
     const items = this.selectedAllMusic();
     if (items.length === 0) {
       this.showToast('请先勾选歌曲');
       return;
     }
+    // 有本地文件的直接批量发文件（接收端 MusicFreeOH 导入后可播）
+    const paths: Array<string> = [];
+    for (const it of items) {
+      const lp = MediaUtils.getLocalPath(it);
+      if (lp !== null && lp.length > 0 && !lp.startsWith('content://')) {
+        paths.push(lp);
+      }
+    }
+    if (paths.length > 0) {
+      ShareUtils.shareFiles('本地音乐（' + paths.length.toString() + ' 首）', paths,
+        (message: string): void => {
+          this.showToast(message);
+        });
+      return;
+    }
     const lines: Array<string> = [];
     for (const it of items) {
       lines.push('「' + it.title + '」 - ' + it.artist + '（来自 ' + it.platform + '）');
     }
-    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, lines.join('\n'));
-    pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.showToast('已复制 ' + items.length.toString() + ' 首歌曲信息，可粘贴分享');
-    }).catch((_e: Object): void => {
-      this.showToast('复制失败');
-    });
+    ShareUtils.shareText('歌曲信息（' + items.length.toString() + ' 首）', lines.join('\n'),
+      (message: string): void => {
+        this.showToast(message);
+      });
   }
 
   /** 批量移出列表 / 删除歌曲文件（按当前批量范围）；删除文件时弹窗确认（取消不删除）；

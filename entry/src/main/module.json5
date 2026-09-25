@@ -67,7 +67,32 @@
               },
               {
                 "scheme": "file",
+                "type": "general.text",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
                 "type": "general.audio",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "com.crazypig321.musicfreeoh.song",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "com.crazypig321.musicfreeoh.sheets",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "com.crazypig321.musicfreeoh.plugin",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "com.crazypig321.musicfreeoh.sub",
                 "linkFeature": "FileOpen"
               }
             ]
@@ -76,6 +101,69 @@
       }
     ],
     "extensionAbilities": [
+      {
+        "name": "ShareReceiveAbility",
+        "srcEntry": "./ets/sharereceive/ShareReceiveAbility.ets",
+        "type": "share",
+        "description": "$string:module_desc",
+        "exported": true,
+        "label": "$string:EntryAbility_label",
+        "icon": "$media:layered_image",
+        "skills": [
+          {
+            "actions": [
+              "ohos.want.action.sendData"
+            ],
+            "uris": [
+              {
+                "scheme": "file",
+                "utd": "general.text",
+                "maxFileSupported": 1
+              },
+              {
+                "scheme": "file",
+                "utd": "general.hyperlink",
+                "maxFileSupported": 1
+              },
+              {
+                "scheme": "file",
+                "utd": "general.java-script",
+                "maxFileSupported": 1
+              },
+              {
+                "scheme": "file",
+                "utd": "general.json",
+                "maxFileSupported": 1
+              },
+              {
+                "scheme": "file",
+                "utd": "general.audio",
+                "maxFileSupported": 10
+              },
+              {
+                "scheme": "file",
+                "utd": "com.crazypig321.musicfreeoh.song",
+                "maxFileSupported": 1
+              },
+              {
+                "scheme": "file",
+                "utd": "com.crazypig321.musicfreeoh.sheets",
+                "maxFileSupported": 1
+              },
+              {
+                "scheme": "file",
+                "utd": "com.crazypig321.musicfreeoh.plugin",
+                "maxFileSupported": 10
+              },
+              {
+                "scheme": "file",
+                "utd": "com.crazypig321.musicfreeoh.sub",
+                "maxFileSupported": 10
+              }
+            ]
+          }
+        ]
+      },
       {
         "name": "EntryBackupAbility",
         "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",

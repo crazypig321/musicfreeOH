@@ -1,7 +1,7 @@
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
-import { pasteboard } from '@kit.BasicServicesKit';
+import { ShareUtils } from '../utils/ShareUtils';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { CommonBlur, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
@@ -474,13 +474,22 @@ export struct SubscriptionPage {
     this.updateSource(url);
   }
 
-  /** 分享订阅源地址（复制到剪贴板） */
+  /** 分享订阅源（统一 .mfsub 直达导入文件：网络源内容为源 URL；本地源内容为源 json 文本） */
   private shareDetailUrl(): void {
-    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, this.detailUrl);
-    pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.showToast('已复制源地址，可粘贴分享');
-    }).catch((_e: Object): void => {
-      this.showToast('复制失败');
+    const title = SubscriptionPage.sourceTitle(this.detailUrl);
+    if (SubscriptionPage.isLocalSource(this.detailUrl)) {
+      const text = FileUtils.readFileText(this.detailUrl.substring('file://'.length));
+      if (text === null || text.trim().length === 0) {
+        this.showToast('读取订阅源失败');
+        return;
+      }
+      ShareUtils.shareSubscription(title, text, (message: string): void => {
+        this.showToast(message);
+      });
+      return;
+    }
+    ShareUtils.shareSubscription(title, this.detailUrl, (message: string): void => {
+      this.showToast(message);
     });
   }
 
@@ -914,27 +923,18 @@ export struct SubscriptionPage {
             .fontSize(15)
             .fontColor($r('sys.color.font_primary'))
             .layoutWeight(1)
-          if (SubscriptionPage.isLocalSource(this.detailUrl)) {
-            // 本地文件分享待接入鸿蒙系统分享能力，暂不可用
-            Text('开发中')
-              .fontSize(11)
-              .fontColor($r('sys.color.font_tertiary'))
-          } else {
-            Text(this.detailUrl)
-              .fontSize(11)
-              .fontColor($r('sys.color.font_tertiary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .constraintSize({ maxWidth: '45%' })
-          }
+          Text(SubscriptionPage.isLocalSource(this.detailUrl)
+            ? SubscriptionPage.sourceTitle(this.detailUrl) : this.detailUrl)
+            .fontSize(11)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .constraintSize({ maxWidth: '45%' })
         }
         .width('100%')
         .height(48)
         .padding({ left: 16, right: 16 })
         .onClick(() => {
-          if (SubscriptionPage.isLocalSource(this.detailUrl)) {
-            return;
-          }
           this.shareDetailUrl();
         })
 

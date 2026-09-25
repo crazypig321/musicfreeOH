@@ -1,5 +1,6 @@
 import { pasteboard } from '@kit.BasicServicesKit';
 import { ArtworkCache } from '../utils/ArtworkCache';
+import { ShareUtils } from '../utils/ShareUtils';
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
 import { pluginManager } from '../plugin/PluginManager';
@@ -304,13 +305,9 @@ export struct MusicOptionsSheet {
   }
 
   private shareCurrent(): void {
-    const text = '「' + this.optionsItem.title + '」 - ' + this.optionsItem.artist +
-      '（来自 ' + this.optionsItem.platform + '）';
-    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
-    pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.showToast('已复制歌曲信息，可粘贴分享');
-    }).catch((_e: Object): void => {
-      this.showToast('复制失败');
+    // 本地文件直接发文件；网络歌曲发带标记文本（接收端 MusicFreeOH 可导入/播放）
+    ShareUtils.shareMusic(this.optionsItem, (message: string): void => {
+      this.showToast(message);
     });
   }
 

@@ -13,6 +13,7 @@ import { themeUtils } from '../utils/ThemeUtils';
 import { WebDav } from '../core/WebDav';
 import { downloader } from '../core/Downloader';
 import { ExternalOpen } from '../core/ExternalOpen';
+import { HarmonyShareRecv } from '../sharereceive/HarmonyShareRecv';
 
 const DOMAIN = 0x0000;
 
@@ -86,6 +87,11 @@ export default class EntryAbility extends UIAbility {
         ContextHolder.initUiContext(windowStage.getMainWindowSync().getUIContext(), application.getApplicationContext())
         // 获取顶部 和底部避让以及断点
         screenInfo.info(windowStage)
+        // 华为分享跨设备沙箱接收（碰一碰轻贴直达；设备不支持时内部静默失败）
+        windowStage.getMainWindowSync().getProperties().then((props: window.WindowProperties): void => {
+          HarmonyShareRecv.register(props.id);
+        }).catch((_e: Object): void => {
+        });
       }catch (e) {
 
       }
@@ -97,6 +103,7 @@ export default class EntryAbility extends UIAbility {
   onWindowStageDestroy(): void {
     // Main window is destroyed, release UI related resources
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
+    HarmonyShareRecv.unregister();
   }
 
   onForeground(): void {

@@ -1,5 +1,6 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
+import { ShareUtils } from '../utils/ShareUtils';
 import { CommonBlur, CommonSearch, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
@@ -12,7 +13,6 @@ import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
-import { pasteboard } from '@kit.BasicServicesKit';
 import { SheetDetailNavParams, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
@@ -529,6 +529,14 @@ export struct MySheetsPage {
     const options: HdsSwipeActionOptions = {
       icons: [
         {
+          icon: new SymbolGlyphModifier($r('sys.symbol.share'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.shareRowSheet(row);
+          }
+        },
+        {
           icon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil'))
             .fontColor([Color.White]).fontSize(20),
           backgroundColor: appState.accentColor,
@@ -552,6 +560,27 @@ export struct MySheetsPage {
       }
     };
     return options;
+  }
+
+    /** 按 id 查歌单实体 */
+  private sheetById(id: string): SheetItem | null {
+    for (const sheet of musicSheet.sheets) {
+      if (sheet.id === id) {
+        return sheet;
+      }
+    }
+    return null;
+  }
+
+  /** 左滑分享单个歌单（可导入的 json 文件，接收端 MusicFreeOH 打开后自动导入） */
+  private shareRowSheet(row: SheetRow): void {
+    const sheet = this.sheetById(row.id);
+    if (sheet === null) {
+      return;
+    }
+    ShareUtils.shareSheets(sheet.title, [sheet], (message: string): void => {
+      this.showToast(message);
+    });
   }
 
   /** 打开编辑歌单半模态（预填当前名称/简介） */
@@ -756,7 +785,7 @@ export struct MySheetsPage {
     return result;
   }
 
-  /** 批量分享：复制选中歌单的曲目清单文本 */
+  /** 批量分享：系统分享面板分享选中歌单的曲目清单文本 */
   private batchShare(): void {
     const sheets = this.selectedSheets();
     if (sheets.length === 0) {
@@ -772,11 +801,22 @@ export struct MySheetsPage {
       }
       parts.push(lines.join('\n'));
     }
-    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, parts.join('\n\n'));
-    pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.showToast('已复制 ' + sheets.length.toString() + ' 个歌单的曲目清单，可粘贴分享');
-    }).catch((_e: Object): void => {
-      this.showToast('复制失败');
+    const title = sheets.length === 1 ? sheets[0].title : '歌单曲目清单（' + sheets.length.toString() + ' 个歌单）';
+    ShareUtils.shareText(title, parts.join('\n\n'), (message: string): void => {
+      this.showToast(message);
+    });
+  }
+
+  /** 批量分享选中歌单（可导入的 json 文件，接收端 MusicFreeOH 打开后自动导入；多歌单合并为一个文件） */
+  private batchShareSheets(): void {
+    const sheets = this.selectedSheets();
+    if (sheets.length === 0) {
+      this.showToast('请先勾选歌单');
+      return;
+    }
+    const title = sheets.length === 1 ? sheets[0].title : '歌单分享（' + sheets.length.toString() + ' 个歌单）';
+    ShareUtils.shareSheets(title, sheets, (message: string): void => {
+      this.showToast(message);
     });
   }
 
@@ -905,7 +945,7 @@ export struct MySheetsPage {
                     if (i === 0) {// 全选/取消全选
                       this.toggleSelectAll();
                     } else if (i === 1) {// 分享
-                      this.batchShare();
+                      this.batchShareSheets();
                     } else {// 删除
                       this.batchDelete();
                     }
@@ -1365,7 +1405,7 @@ function ListStyle(extraTop: number){
   // 搜索框展开时为固定搜索框让位
   .contentStartOffset(appState.topRect + 66 + extraTop)
   // 批量模式/上下两排时底栏更高，末尾内容需多留滚动空间
-  .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 :
+  .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 216 :
     (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60)))
   .padding({ left: 16, right: 16 })
 }

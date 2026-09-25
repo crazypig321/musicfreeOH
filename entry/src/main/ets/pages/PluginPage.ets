@@ -16,7 +16,7 @@ import { CommonBlur, MenuItemParams, CommonSearch } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { fileIo as fs, picker } from '@kit.CoreFileKit';
-import { pasteboard } from '@kit.BasicServicesKit';
+import { ShareUtils } from '../utils/ShareUtils';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from '../utils/FileUtils';
@@ -32,6 +32,19 @@ interface PluginRow {
   state: PluginState;
   hash: string;
   enabled: boolean;
+}
+
+/** 插件详情弹窗行项配置 */
+interface DetailRow {
+  icon: Resource
+  title: ResourceStr
+  onClick: () => void
+  /** 行高，默认 48 */
+  height?: number
+  /** 是否显示右箭头 */
+  showChevron?: boolean
+  /** 尾部 URL 文本（分享插件行） */
+  trailingUrl?: string
 }
 
 const ADD_ANCHOR_ID = 'plugin_add_anchor';
@@ -514,17 +527,12 @@ export struct PluginPage {
     });
   }
 
-  /** 分享源地址 */
+  /** 分享插件：优先分享本地插件文件（.mfplugin 直达安装）；文件缺失回落源地址文件（接收端从 URL 安装） */
   private shareDetailSrc(): void {
-    if (this.detailSrcUrl.length === 0) {
-      this.showToast('该插件没有源地址');
-      return;
-    }
-    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, this.detailSrcUrl);
-    pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.showToast('已复制源地址，可粘贴分享');
-    }).catch((_e: Object): void => {
-      this.showToast('复制失败');
+    const plugin = pluginManager.getByName(this.detailName);
+    const path = plugin !== null ? plugin.path : '';
+    ShareUtils.sharePlugin(this.detailName, path, this.detailSrcUrl, (message: string): void => {
+      this.showToast(message);
     });
   }
 
@@ -653,26 +661,34 @@ export struct PluginPage {
     }
   }
 
-  /** 批量分享：复制选中插件的源地址 */
+  /** 批量分享：每个插件生成 .mfplugin 直达安装文件（本地 js 或源地址回落），一次性分享 */
   private batchShare(): void {
     const plugins = this.selectedPlugins();
-    const urls: Array<string> = [];
+    const files: Array<string> = [];
     for (const p of plugins) {
+      if (p.path.length > 0 && FileUtils.exists(p.path)) {
+        const path: string = ShareUtils.buildPluginShare(p.name, p.path);
+        if (path.length > 0) {
+          files.push(path);
+          continue;
+        }
+      }
       const srcUrl = p.instanceInfo !== null ? p.instanceInfo.srcUrl : '';
-      if (srcUrl.length > 0) {
-        urls.push(srcUrl);
+      if (srcUrl.startsWith('http://') || srcUrl.startsWith('https://')) {
+        const path: string = ShareUtils.buildPluginUrlShare(p.name, srcUrl);
+        if (path.length > 0) {
+          files.push(path);
+        }
       }
     }
-    if (urls.length === 0) {
-      this.showToast('选中插件没有源地址');
+    if (files.length > 0) {
+      ShareUtils.shareFiles(files.length === 1 ? '插件' : '插件（' + files.length.toString() + ' 个）',
+        files, (message: string): void => {
+          this.showToast(message);
+        });
       return;
     }
-    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, urls.join('\n'));
-    pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.showToast('已复制 ' + urls.length.toString() + ' 个源地址，可粘贴分享');
-    }).catch((_e: Object): void => {
-      this.showToast('复制失败');
-    });
+    this.showToast('选中插件没有可分享的内容');
   }
 
   /** 批量卸载选中插件（弹窗确认，取消不卸载） */
@@ -1426,253 +1442,186 @@ export struct PluginPage {
   }
 
   @Builder
-  DetailSheetBuilder() {
-    Column() {
-      // 头部：名字 + 版本 + 作者
-      Text(this.detailName)
-        .fontSize(19)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ top: 4 })
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text((this.detailVersion.length > 0 ? 'v' + this.detailVersion : '') +
-        (this.detailAuthor.length > 0 ? ' · ' + this.detailAuthor : ''))
-        .fontSize(12)
-        .fontColor($r('sys.color.font_tertiary'))
-        .width('100%')
-        .margin({ top: 4, bottom: 12 })
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-      // 支持能力 / 使用说明（点击弹窗显示）
-      Column() {
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('支持能力')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(16)
-            .fontColor([$r('sys.color.icon_tertiary')])
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.showAbilitiesDialog();
-        })
-
-        Divider().DividerStyle()
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.info_circle'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('使用说明')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(16)
-            .fontColor([$r('sys.color.icon_tertiary')])
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.showUsageDialog();
-        })
-      }
+  DetailSectionTitle(title: ResourceStr) {
+    Text(title)
+      .fontSize(14)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('sys.color.font_secondary'))
       .width('100%')
+      .margin({ top: 20, bottom: 6 })
+  }
+
+  @Builder
+  DetailRowItem(row: DetailRow) {
+    Row({ space: 12 }) {
+      SymbolGlyph(row.icon)
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_secondary')])
+      Text(row.title)
+        .fontSize(15)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+      if (row.showChevron === true) {
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      if (row.trailingUrl !== undefined && row.trailingUrl.length > 0) {
+        Text(row.trailingUrl)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .constraintSize({ maxWidth: '45%' })
+      }
+    }
+    .width('100%')
+    .height(row.height !== undefined ? row.height : 48)
+    .padding({ left: 16, right: 16 })
+    .onClick(() => {
+      row.onClick();
+    })
+  }
+
+  /** 支持能力 / 使用说明 */
+  private detailAbilityRows(): DetailRow[] {
+    return [
+      { icon: $r('sys.symbol.dot_radiowaves_left_and_right'), title: '支持能力', showChevron: true,
+        onClick: (): void => { this.showAbilitiesDialog(); } },
+      { icon: $r('sys.symbol.info_circle'), title: '使用说明', showChevron: true,
+        onClick: (): void => { this.showUsageDialog(); } }
+    ];
+  }
+
+  /** 配置-变量 */
+  private detailConfigRows(): DetailRow[] {
+    return [
+      { icon: $r('sys.symbol.highlighter_line'), title: '变量', height: 44, showChevron: true,
+        onClick: (): void => { this.openVarDialog(); } }
+    ];
+  }
+
+  /** 功能-导入入口 */
+  private detailImportRows(): DetailRow[] {
+    const rows: DetailRow[] = [];
+    if (this.detailHasMethod('importMusicItem')) {
+      rows.push({ icon: $r('sys.symbol.music'), title: '导入单曲', showChevron: true,
+        onClick: (): void => { this.openPluginImportSheet(true); } });
+    }
+    if (this.detailHasMethod('importMusicSheet')) {
+      rows.push({ icon: $r('sys.symbol.square_and_arrow_down'), title: '导入歌单', showChevron: true,
+        onClick: (): void => { this.openPluginImportSheet(false); } });
+    }
+    return rows;
+  }
+
+  /** 操作分组 */
+  private detailActionRows(): DetailRow[] {
+    return [
+      { icon: $r('sys.symbol.arrow_clockwise'), title: '检查更新',
+        onClick: (): void => { this.checkDetailUpdate(); } },
+      { icon: $r('sys.symbol.share'), title: '分享插件', trailingUrl: this.detailSrcUrl,
+        onClick: (): void => { this.shareDetailSrc(); } },
+      { icon: $r('sys.symbol.square_and_arrow_down'), title: '导出插件文件',
+        onClick: (): void => { this.exportDetailFile(); } },
+      { icon: $r('sys.symbol.trash'), title: '卸载插件',
+        onClick: (): void => { this.uninstallDetail(); } }
+    ];
+  }
+
+  @Builder
+  DetailSheetBuilder() {
+    List({ space: 0 }) {
+      // 头部：名字 + 版本 + 作者
+      ListItem() {
+        Column() {
+          Text(this.detailName)
+            .fontSize(19)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .width('100%')
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text((this.detailVersion.length > 0 ? 'v' + this.detailVersion : '') +
+            (this.detailAuthor.length > 0 ? ' · ' + this.detailAuthor : ''))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .width('100%')
+            .margin({ top: 4 })
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .width('100%')
+        .padding({ top: 4, bottom: 12 })
+      }
+
+      // 支持能力 / 使用说明
+      ListItemGroup() {
+        ForEach(this.detailAbilityRows(), (row: DetailRow, index: number) => {
+          ListItem() {
+            this.DetailRowItem(row)
+          }
+        }, (row: DetailRow, index: number) => index.toString())
+      }
+      .divider({ strokeWidth: 0.5, color: $r('sys.color.comp_divider'), startMargin: 48, endMargin: 12 })
       .borderRadius(16)
       .backgroundColor($r('sys.color.comp_background_list_card'))
 
-      // 配置：用户变量（点击弹窗统一填写）
+      // 配置：用户变量
       if (this.detailVars.length > 0) {
-        Text('配置')
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_secondary'))
-          .width('100%')
-          .margin({ top: 20, bottom: 6 })
-        Column() {
-          Row({ space: 12 }) {
-            SymbolGlyph($r('sys.symbol.highlighter_line'))
-              .fontSize(20)
-              .fontColor([$r('sys.color.icon_secondary')])
-            Text('变量')
-              .fontSize(15)
-              .fontColor($r('sys.color.font_primary'))
-              .layoutWeight(1)
-            SymbolGlyph($r('sys.symbol.chevron_right'))
-              .fontSize(16)
-              .fontColor([$r('sys.color.icon_tertiary')])
-          }
-          .width('100%')
-          .height(44)
-          .padding({ left: 16, right: 16 })
-          .onClick(() => {
-            this.openVarDialog();
-          })
+        ListItem() {
+          this.DetailSectionTitle('配置')
         }
-        .width('100%')
+        ListItemGroup() {
+          ForEach(this.detailConfigRows(), (row: DetailRow, index: number) => {
+            ListItem() {
+              this.DetailRowItem(row)
+            }
+          }, (row: DetailRow, index: number) => index.toString())
+        }
         .borderRadius(16)
         .backgroundColor($r('sys.color.comp_background_list_card'))
       }
 
-      // 功能：插件支持的导入入口（单曲 → 加入所选歌单；歌单 → 建新歌单）
+      // 功能：导入入口
       if (this.detailHasMethod('importMusicItem') || this.detailHasMethod('importMusicSheet')) {
-        Text('功能')
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_secondary'))
-          .width('100%')
-          .margin({ top: 20, bottom: 6 })
-        Column() {
-          if (this.detailHasMethod('importMusicItem')) {
-            Row({ space: 12 }) {
-              SymbolGlyph($r('sys.symbol.music'))
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
-              Text('导入单曲')
-                .fontSize(15)
-                .fontColor($r('sys.color.font_primary'))
-                .layoutWeight(1)
-              SymbolGlyph($r('sys.symbol.chevron_right'))
-                .fontSize(16)
-                .fontColor([$r('sys.color.icon_tertiary')])
-            }
-            .width('100%')
-            .height(48)
-            .padding({ left: 16, right: 16 })
-            .onClick(() => {
-              this.openPluginImportSheet(true);
-            })
-          }
-          if (this.detailHasMethod('importMusicItem') && this.detailHasMethod('importMusicSheet')) {
-            Divider().DividerStyle()
-          }
-          if (this.detailHasMethod('importMusicSheet')) {
-            Row({ space: 12 }) {
-              SymbolGlyph($r('sys.symbol.square_and_arrow_down'))
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
-              Text('导入歌单')
-                .fontSize(15)
-                .fontColor($r('sys.color.font_primary'))
-                .layoutWeight(1)
-              SymbolGlyph($r('sys.symbol.chevron_right'))
-                .fontSize(16)
-                .fontColor([$r('sys.color.icon_tertiary')])
-            }
-            .width('100%')
-            .height(48)
-            .padding({ left: 16, right: 16 })
-            .onClick(() => {
-              this.openPluginImportSheet(false);
-            })
-          }
+        ListItem() {
+          this.DetailSectionTitle('功能')
         }
-        .width('100%')
+        ListItemGroup() {
+          ForEach(this.detailImportRows(), (row: DetailRow, index: number) => {
+            ListItem() {
+              this.DetailRowItem(row)
+            }
+          }, (row: DetailRow, index: number) => index.toString())
+        }
+        .divider({ strokeWidth: 0.5, color: $r('sys.color.comp_divider'), startMargin: 48, endMargin: 12 })
         .borderRadius(16)
         .backgroundColor($r('sys.color.comp_background_list_card'))
       }
 
-      // 操作分组：检查更新 / 分享源地址 / 卸载插件（卡片内以分割线隔开）
-      Text('操作')
-        .fontSize(14)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-        .margin({ top: 20, bottom: 6 })
-      Column() {
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('检查更新')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.checkDetailUpdate();
-        })
-
-        Divider()
-          .DividerStyle()
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.share'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('分享源地址')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-          if (this.detailSrcUrl.length > 0) {
-            Text(this.detailSrcUrl)
-              .fontSize(11)
-              .fontColor($r('sys.color.font_tertiary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .constraintSize({ maxWidth: '45%' })
-          }
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.shareDetailSrc();
-        })
-
-        Divider().DividerStyle()
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.square_and_arrow_down'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('导出插件文件')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.exportDetailFile();
-        })
-
-        Divider().DividerStyle()
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.trash'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('卸载插件')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.uninstallDetail();
-        })
+      // 操作：检查更新 / 分享 / 导出 / 卸载
+      ListItem() {
+        this.DetailSectionTitle('操作')
       }
-      .width('100%')
+      ListItemGroup() {
+        ForEach(this.detailActionRows(), (row: DetailRow, index: number) => {
+          ListItem() {
+            this.DetailRowItem(row)
+          }
+        }, (row: DetailRow, index: number) => index.toString())
+      }
+      .divider({ strokeWidth: 0.5, color: $r('sys.color.comp_divider'), startMargin: 48, endMargin: 12 })
       .borderRadius(16)
       .backgroundColor($r('sys.color.comp_background_list_card'))
     }
     .width('100%')
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
-    .alignItems(HorizontalAlign.Start)
+    .scrollBar(BarState.Off)
+    .nestedScroll({
+      scrollForward: NestedScrollMode.PARENT_FIRST,
+      scrollBackward: NestedScrollMode.SELF_FIRST
+    })
     .bindSheet(!!this.showPluginImportSheet, this.PluginImportSheetBuilder(), {
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true,
@@ -1774,10 +1723,4 @@ function ListStyle(extraTop: number){
   .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 170 :
     (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60)))
   .padding({ left: 16, right: 16 })
-}
-
-@Extend(Divider)
-function DividerStyle(){
-  .color($r('sys.color.comp_divider'))
-  .margin({ left: 48, right: 12 })
 }

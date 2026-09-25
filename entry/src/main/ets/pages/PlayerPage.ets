@@ -3,6 +3,8 @@ import { SegmentButtonV2Items, CapsuleSegmentButtonV2, LengthMetrics, ColorMetri
   TabSegmentButtonV2,
   SegmentButtonV2ItemOptions} from '@kit.ArkUI';
 import { ArtworkCache } from '../utils/ArtworkCache';
+import { ShareUtils } from '../utils/ShareUtils';
+import { HarmonyShareSend } from '../sharereceive/HarmonyShareSend';
 import { AVCastPicker, AVCastPickerState } from '@kit.AVSessionKit';
 import { MusicItem, QualityKey, QUALITY_KEYS, LyricSource } from '../common/model/MediaTypes';
 import { CommentItem, CommentsResult } from '../common/model/SheetTypes';
@@ -123,6 +125,8 @@ export struct PlayerPage {
   };
 
   aboutToAppear(): void {
+    // 碰一碰/隔空手势分享当前歌曲（仅播放页可见期间生效）
+    HarmonyShareSend.start((): MusicItem | null => trackPlayer.currentMusic);
     let itemOptions: SegmentButtonV2ItemOptions[] = [
       { text: '封面' },
       { text: '歌词' }
@@ -176,6 +180,7 @@ export struct PlayerPage {
   }
 
   aboutToDisappear(): void {
+    HarmonyShareSend.stop();
     playerAnim.onCollapsed = null;
     this.offCurrent();
     this.offState();
@@ -577,18 +582,14 @@ export struct PlayerPage {
     });
   }
 
-  /** 分享：复制歌曲信息 */
+  /** 分享：本地文件直接发文件；网络歌曲发带标记文本（接收端 MusicFreeOH 可导入/播放） */
   private shareCurrent(): void {
     const current = this.currentMusic;
     if (current === null) {
       return;
     }
-    const text = '「' + current.title + '」 - ' + current.artist + '（来自 ' + current.platform + '）';
-    const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
-    pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.showToast('已复制歌曲信息，可粘贴分享');
-    }).catch((_e: Object): void => {
-      this.showToast('复制失败');
+    ShareUtils.shareMusic(current, (message: string): void => {
+      this.showToast(message);
     });
   }
 

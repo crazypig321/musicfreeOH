@@ -19,6 +19,9 @@ export class PathConst {
    */
   static readonly RESERVED_DOWNLOAD_FOLDERS: Array<string> = ['订阅源', '插件'];
 
+  /** 系统分享接收暂存目录（相对 filesDir；主应用与分享扩展进程共用同一沙箱） */
+  static readonly SHARE_RECEIVED_REL: string = '/data/share_received/';
+
   static basePath: string = '';
   static pluginPath: string = '';
   static logPath: string = '';
