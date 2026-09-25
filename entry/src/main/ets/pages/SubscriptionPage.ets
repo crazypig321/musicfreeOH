@@ -175,8 +175,8 @@ export struct SubscriptionPage {
 
   /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」） */
   private batchButtonLabels(): Array<string> {
-    const allSelected = this.sources.length > 0 && this.batchSelected.length === this.sources.length;
-    return [allSelected ? '取消全选' : '全选', '导出', '删除'];
+    const allSelected = this.batchSelected.length > 0 && this.batchSelected.length === this.sources.length;
+    return [allSelected ? '取消全选' : '全选', '导出', '分享', '删除'];
   }
 
   /** 批量导出选中订阅源文件到 下载目录/订阅源 文件夹 */
@@ -207,6 +207,32 @@ export struct SubscriptionPage {
     } else {
       this.showToast('导出完成：' + ok.toString() + ' 成功，' + fail.toString() + ' 失败');
     }
+  }
+
+  /** 批量分享选中订阅源：每个源生成一个 .mfsub 文件，BATCH 模式一次性分享（单个选中即单分享） */
+  private batchShare(): void {
+    if (this.batchSelected.length === 0) {
+      this.showToast('请先勾选订阅源');
+      return;
+    }
+    const paths: Array<string> = [];
+    for (const url of this.batchSelected) {
+      const content = SubscriptionPage.sourceShareContent(url);
+      if (content === null) {
+        continue;
+      }
+      const path = ShareUtils.buildSubscriptionShare(SubscriptionPage.sourceTitle(url), content);
+      if (path.length > 0) {
+        paths.push(path);
+      }
+    }
+    if (paths.length === 0) {
+      this.showToast('生成分享文件失败');
+      return;
+    }
+    ShareUtils.shareFiles('订阅源', paths, (message: string): void => {
+      this.showToast(message);
+    });
   }
 
   /** 批量删除选中订阅源（弹窗确认，取消不删除） */
@@ -396,13 +422,21 @@ export struct SubscriptionPage {
 
   // ===== 左滑编辑/删除（UI 同我的歌单页） =====
 
-  /** 横滑操作（左滑呼出 编辑/删除）；批量模式下不提供 */
+  /** 横滑操作（左滑呼出 分享/编辑/删除）；批量模式下不提供 */
   private swipeOptions(url: string): HdsSwipeActionOptions | undefined {
     if (appState.isBatchMode) {
       return undefined;
     }
     const options: HdsSwipeActionOptions = {
       icons: [
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.share'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.shareSource(url);
+          }
+        },
         {
           icon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil'))
             .fontColor([Color.White]).fontSize(20),
@@ -474,23 +508,33 @@ export struct SubscriptionPage {
     this.updateSource(url);
   }
 
-  /** 分享订阅源（统一 .mfsub 直达导入文件：网络源内容为源 URL；本地源内容为源 json 文本） */
-  private shareDetailUrl(): void {
-    const title = SubscriptionPage.sourceTitle(this.detailUrl);
-    if (SubscriptionPage.isLocalSource(this.detailUrl)) {
-      const text = FileUtils.readFileText(this.detailUrl.substring('file://'.length));
-      if (text === null || text.trim().length === 0) {
-        this.showToast('读取订阅源失败');
-        return;
-      }
-      ShareUtils.shareSubscription(title, text, (message: string): void => {
-        this.showToast(message);
-      });
+  /** 订阅源分享内容：网络源为源 URL；本地源为源 json 文本（读取失败返回 null） */
+  private static sourceShareContent(url: string): string | null {
+    if (!SubscriptionPage.isLocalSource(url)) {
+      return url;
+    }
+    const text = FileUtils.readFileText(url.substring('file://'.length));
+    if (text === null || text.trim().length === 0) {
+      return null;
+    }
+    return text;
+  }
+
+  /** 分享单个订阅源（左滑与详情面板共用）：统一 .mfsub 直达导入文件 */
+  private shareSource(url: string): void {
+    const content = SubscriptionPage.sourceShareContent(url);
+    if (content === null) {
+      this.showToast('读取订阅源失败');
       return;
     }
-    ShareUtils.shareSubscription(title, this.detailUrl, (message: string): void => {
+    ShareUtils.shareSubscription(SubscriptionPage.sourceTitle(url), content, (message: string): void => {
       this.showToast(message);
     });
+  }
+
+  /** 分享订阅源（统一 .mfsub 直达导入文件：网络源内容为源 URL；本地源内容为源 json 文本） */
+  private shareDetailUrl(): void {
+    this.shareSource(this.detailUrl);
   }
 
   /** 拉取订阅源内容并写入 下载目录/订阅源，成功返回目标路径，失败返回 null */
@@ -673,6 +717,8 @@ export struct SubscriptionPage {
                       this.toggleSelectAll();
                     } else if (i === 1) {// 批量导出
                       this.batchExport();
+                    } else if (i === 2) {// 批量分享
+                      this.batchShare();
                     } else {// 删除
                       this.batchDelete();
                     }
