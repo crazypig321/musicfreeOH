@@ -98,7 +98,7 @@ export struct PlayerPage {
   /** 音效开关 */
   @Local audioEffectOn: boolean = true;
   /** 用户拖动进度条期间不回写进度事件 */
-  private isSeeking: boolean = false;
+  @Local isSeeking: boolean = false;
   private commentsPage: number = 1;
   /** 评论请求序号：仅采纳最新一次请求的结果 */
   private commentsReqId: number = 0;
@@ -1199,15 +1199,17 @@ export struct PlayerPage {
         .trackThickness(this.isSeeking ? 8 : 5)
         .width('100%')
         .onChange((value: number, mode: SliderChangeMode) => {
-          if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
-            this.isSeeking = true;
-            this.currentPosition = value;
-          } else {
-            // End（拖动结束）/ Click（点按）：提交进度
-            this.isSeeking = false;
-            this.currentPosition = value;
-            trackPlayer.seekTo(value);
-          }
+          this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, (): void => {
+            if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
+              this.isSeeking = true;
+              this.currentPosition = value;
+            } else {
+              // End（拖动结束）/ Click（点按）：提交进度
+              this.isSeeking = false;
+              this.currentPosition = value;
+              trackPlayer.seekTo(value);
+            }
+          });
         })
       Row() {
         Text(PlayerPage.formatDuration(this.currentPosition))

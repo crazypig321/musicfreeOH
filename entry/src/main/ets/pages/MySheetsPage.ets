@@ -285,15 +285,7 @@ export struct MySheetsPage {
         this.openImportSheet(true);
       });
     };
-    const sortItem = new MenuItemParams();
-    sortItem.icon = $r('sys.symbol.line_3_horizontal');
-    sortItem.label = '歌单排序';
-    sortItem.onAction = (): void => {
-      this.runMenuAction((): void => {
-        this.openSortSheet();
-      });
-    };
-    MenuUtils.Open(this.getUIContext(), ADD_ANCHOR_ID, [newItem, importSheetItem, importMusicItem, sortItem], {
+    MenuUtils.Open(this.getUIContext(), ADD_ANCHOR_ID, [newItem, importSheetItem, importMusicItem], {
       placement: Placement.BottomRight
     });
   }
