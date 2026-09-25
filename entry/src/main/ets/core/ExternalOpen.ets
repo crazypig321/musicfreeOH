@@ -102,7 +102,8 @@ export class ExternalOpen {
       return;
     }
     if (clean.endsWith('.txt') || clean.endsWith('.mfsong')) {
-      const text = FileUtils.readFileText(FileUtils.normalizePath(uri));
+      // 外部打开的 URI 为 file://docs/... 形式，normalizePath 会剥成相对路径导致读取失败，须经 openSync 按 URI 读取
+      const text = PluginImport.readUriText(uri, 'txt');
       if (text !== null && text.length > 0) {
         await ExternalOpen.handleSharedText(text);
       } else {
@@ -121,8 +122,9 @@ export class ExternalOpen {
 
   /** .js / .mfplugin → 安装为插件（.mfplugin 内容为插件源地址时从 URL 安装） */
   private static async handlePlugin(uri: string): Promise<void> {
-    // 回落格式：文件内容为插件源地址（本地插件文件缺失时生成），转 URL 安装
-    const head = FileUtils.readFileText(FileUtils.normalizePath(uri));
+    // 回落格式：文件内容为插件源地址（本地插件文件缺失时生成），转 URL 安装；
+    // file://docs URI 需经 openSync 读取，normalizePath 剥前缀后是相对路径
+    const head = PluginImport.readUriText(uri, 'txt');
     if (head !== null) {
       const trimmedHead = head.trim();
       if (trimmedHead.startsWith('http://') || trimmedHead.startsWith('https://')) {
@@ -141,7 +143,8 @@ export class ExternalOpen {
 
   /** .mfsub → 订阅源直达导入：内容为源 URL（逐行）直接添加；否则视为源 json 内容保存为本地订阅源 */
   private static async handleMfSub(uri: string): Promise<void> {
-    const text = FileUtils.readFileText(FileUtils.normalizePath(uri));
+    // 外部打开的 URI 为 file://docs/... 形式，须经 openSync 按 URI 读取（normalizePath 剥前缀后是相对路径）
+    const text = PluginImport.readUriText(uri, 'mfsub');
     if (text === null || text.trim().length === 0) {
       ExternalOpen.toast('读取订阅源失败');
       return;
