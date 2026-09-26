@@ -3,7 +3,7 @@ import { ArtworkCache } from '../utils/ArtworkCache';
 import { trackPlayer } from '../core/TrackPlayer';
 import { PlayState } from '../core/PlayerEngine';
 import { appState } from '../entryability/AppState';
-import { playerAnim, PlayerExpandAnimController } from './PlayerExpandAnim';
+import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAnim';
 import { QueueSheet } from './QueueSheet';
 import { HdsBarStyle } from '@kit.UIDesignKit';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';

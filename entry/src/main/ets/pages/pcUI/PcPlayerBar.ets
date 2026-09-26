@@ -4,7 +4,7 @@ import { ArtworkCache } from '../../utils/ArtworkCache';
 import { trackPlayer } from '../../core/TrackPlayer';
 import { PlayState } from '../../core/PlayerEngine';
 import { appState } from '../../entryability/AppState';
-import { playerAnim, PlayerExpandAnimController } from '../../view/PlayerExpandAnim';
+import { playerAnim, PlayerExpandAnimController } from '../../utils/PlayerExpandAnim';
 import { QueueSheet } from '../../view/QueueSheet';
 import { MusicRepeatMode } from '../../common/Consts';
 import { musicSheet } from '../../core/MusicSheet';

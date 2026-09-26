@@ -12,7 +12,7 @@ import { ArtworkCache } from '../utils/ArtworkCache';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
 import { useSidebarLayout } from '../utils/BreakpointUtils';
-import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
+import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAnim';
 import { PcMainLayout } from './pcUI/PcMainLayout';
 import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';

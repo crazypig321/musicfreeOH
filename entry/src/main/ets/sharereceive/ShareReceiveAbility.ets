@@ -15,7 +15,7 @@ export default class ShareReceiveAbility extends ShareExtensionAbility {
           session.terminateSelf();
           return;
         }
-        session.loadContent('pages/ShareReceivePage');
+        session.loadContent('view/ShareReceivePage');
       })
       .catch((_e: Object): void => {
         session.terminateSelf();

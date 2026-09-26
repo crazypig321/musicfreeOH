@@ -2,7 +2,7 @@ import window from '@ohos.window';
 import { display } from '@kit.ArkUI';
 import { ContextHolder } from '../common/ContextHolder';
 import { appState } from '../entryability/AppState';
-import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
+import { playerAnim, PlayerExpandAnimController } from './PlayerExpandAnim';
 
 @ObservedV2
 class ScreenInfo{

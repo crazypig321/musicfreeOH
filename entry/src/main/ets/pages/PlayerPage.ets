@@ -21,7 +21,7 @@ import { MediaUtils } from '../utils/MediaUtils';
 import { CoverSearch } from '../utils/CoverSearch';
 import { MediaExtra } from '../core/MediaExtra';
 import { appState } from '../entryability/AppState';
-import { playerAnim, PlayerExpandAnimController } from '../view/PlayerExpandAnim';
+import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAnim';
 import { QueueSheet } from '../view/QueueSheet';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { pluginManager } from '../plugin/PluginManager';

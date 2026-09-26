@@ -12,7 +12,7 @@ import { appState } from "../entryability/AppState";
 import { LengthMetrics } from "@kit.ArkUI";
 import { PlayBar } from "./PlayBar";
 import { themeUtils } from "../utils/ThemeUtils";
-import { playerAnim, PlayerExpandAnimController } from "./PlayerExpandAnim";
+import { playerAnim, PlayerExpandAnimController } from "../utils/PlayerExpandAnim";
 import { appConfig } from "../core/AppConfig";
 import { contentMaxWidthVp, useSidebarLayout } from "../utils/BreakpointUtils";
 

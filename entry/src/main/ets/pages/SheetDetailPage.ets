@@ -4,6 +4,7 @@ import { CommonBlur, CommonSearch } from '../view/CommonCom';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicItem } from '../common/model/MediaTypes';
+import { MusicRow } from '../view/MusicRow';
 import { SheetItem, SheetInfoResult, TopListInfoResult } from '../common/model/SheetTypes';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { SheetDetailNavParams } from '../common/model/NavModels';
@@ -1198,168 +1199,37 @@ export struct SheetDetailPage {
     .alignItems(HorizontalAlign.Start)
   }
 
-  /** 歌曲行（风格同本地音乐页条目）：点击播放，更多操作进半模态；批量模式下点击勾选、长按进入批量模式。
-    * 智感握姿：左手握持时 更多按钮+时长 镜像到行首，歌名与下方文本右对齐，封面镜像到最右 */
+  /** 歌曲行：复用 MusicRow 公共组件，支持批量勾选、时长、来源标签、长按进入批量模式 */
   @Builder
   MusicRowBuilder(item: MusicItem, index: number) {
-    Column() {
-      Row({ space: 12 }) {
-        // 批量模式：勾选圈
-        if (appState.isBatchMode) {
-          SymbolGlyph(this.isSelected(item) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
-            .fontSize(24)
-            .fontColor([this.isSelected(item) ? appState.accentColor : $r('sys.color.icon_tertiary')])
-            .transition(TransitionEffect.OPACITY)
-        }
-        // 智感握姿左手：更多按钮 + 时长镜像到行首
-        if (appState.holdingHand === 'left') {
-          if (!appState.isBatchMode) {
-            SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-              .fontSize(20)
-              .fontColor([$r('sys.color.icon_secondary')])
-              .transition(TransitionEffect.OPACITY)
-              .onClick(() => {
-                this.openOptions(item);
-              })
-          }
-          Text(SheetDetailPage.formatDuration(item.duration))
-            .fontSize(12)
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        // 封面：有图用 Image，无图用音符占位（左手时镜像到行尾）
-        if (appState.holdingHand !== 'left') {
-          if (item.artwork.length > 0) {
-            Image(ArtworkCache.resolve(item.artwork))
-              .width(40)
-              .height(40)
-              .borderRadius(10)
-              .objectFit(ImageFit.Cover)
-              .alt($r('app.media.altImage'))
-          } else {
-            Column() {
-              SymbolGlyph($r('sys.symbol.music'))
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
-            }
-            .width(40)
-            .height(40)
-            .borderRadius(10)
-            .backgroundColor($r('sys.color.comp_background_tertiary'))
-            .justifyContent(FlexAlign.Center)
-          }
-        }
-
-        Column({ space: 2 }) {
-          Text(item.title)
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Row({ space: 5 }) {
-            // 来源标签（样式同首页来源标签；左手时镜像到文本右侧）
-            if (appState.holdingHand !== 'left' && item.platform.length > 0) {
-              Text(item.platform)
-                .fontSize(10)
-                .fontColor($r('sys.color.font_tertiary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .constraintSize({ maxWidth: 64 })
-                .padding({ top: 3, bottom: 3, left: 5, right: 5 })
-                .borderRadius(3)
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-            }
-            Text(item.artist + (item.album.length > 0 ? ' · ' + item.album : ''))
-              .fontSize(12)
-              .fontColor($r('sys.color.font_tertiary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-              .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-            if (appState.holdingHand === 'left' && item.platform.length > 0) {
-              Text(item.platform)
-                .fontSize(10)
-                .fontColor($r('sys.color.font_tertiary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .constraintSize({ maxWidth: 64 })
-                .padding({ top: 3, bottom: 3, left: 5, right: 5 })
-                .borderRadius(3)
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-            }
-          }
-          .width('100%')
-        }
-        .layoutWeight(1)
-        .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
-
-        // 右手：时长 + 更多按钮保持行尾原顺序
-        if (appState.holdingHand !== 'left') {
-          Text(SheetDetailPage.formatDuration(item.duration))
-            .fontSize(12)
-            .fontColor($r('sys.color.font_tertiary'))
-          if (!appState.isBatchMode) {
-            SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-              .fontSize(20)
-              .fontColor([$r('sys.color.icon_secondary')])
-              .transition(TransitionEffect.OPACITY)
-              .onClick(() => {
-                this.openOptions(item);
-              })
-          }
-        }
-        // 智感握姿左手：封面镜像到行尾
-        if (appState.holdingHand === 'left') {
-          if (item.artwork.length > 0) {
-            Image(ArtworkCache.resolve(item.artwork))
-              .width(40)
-              .height(40)
-              .borderRadius(10)
-              .objectFit(ImageFit.Cover)
-              .alt($r('app.media.altImage'))
-          } else {
-            Column() {
-              SymbolGlyph($r('sys.symbol.music'))
-                .fontSize(20)
-                .fontColor([$r('sys.color.icon_secondary')])
-            }
-            .width(40)
-            .height(40)
-            .borderRadius(10)
-            .backgroundColor($r('sys.color.comp_background_tertiary'))
-            .justifyContent(FlexAlign.Center)
-          }
-        }
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 10, bottom: 10 })
-      .gesture(
-        LongPressGesture({ repeat: false, duration: 500 })
-          .onAction((_event: GestureEvent) => {
-            // 长按进入批量模式并勾选当前条目
-            if (appState.isBatchMode) {
-              return;
-            }
-            this.enterBatchMode();
-            this.toggleBatchSelect(item);
-          })
-      )
-      .onClick(() => {
+    MusicRow({
+      item: item,
+      showCheckbox: appState.isBatchMode,
+      selected: this.isSelected(item),
+      showDuration: true,
+      showPlatform: true,
+      showMore: true,
+      usePaddingHeight: true,
+      showDivider: index < this.dataSource.totalCount() - 1,
+      wideDivider: true,
+      onTap: (): void => {
         if (appState.isBatchMode) {
           this.toggleBatchSelect(item);
         } else {
           this.playItem(item);
         }
-      })
-
-      // 条目间分割线（智感握姿左手时镜像边距，避让行尾封面）
-      if (index < this.dataSource.totalCount() - 1) {
-        Divider()
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-          .margin(appState.holdingHand === 'left' ? { left: 20, right: 68 } : { left: 68, right: 20 })
+      },
+      onMore: (): void => {
+        this.openOptions(item);
+      },
+      onLongPress: (): void => {
+        if (appState.isBatchMode) {
+          return;
+        }
+        this.enterBatchMode();
+        this.toggleBatchSelect(item);
       }
-    }
-    .width('100%')
+    })
   }
 
   /** 批量「添加到歌单」歌单选择半模态（列表样式同本地音乐页） */

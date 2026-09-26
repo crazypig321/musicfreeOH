@@ -4,7 +4,7 @@ import { ContextHolder } from '../common/ContextHolder';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { appConfig } from '../core/AppConfig';
 import { appState } from '../entryability/AppState';
-import { useSidebarLayout } from '../utils/BreakpointUtils';
+import { useSidebarLayout } from './BreakpointUtils';
 
 /** 展开/收起时长与曲线（官方 miniplayeranimation 案例） */
 const ANIM_DURATION = 500;
