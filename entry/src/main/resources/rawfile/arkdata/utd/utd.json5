@@ -1,0 +1,36 @@
+{
+  "UniformDataTypeDeclarations": [
+    {
+      "TypeId": "com.crazypig321.musicfreeoh.song",
+      "BelongingToTypes": ["general.plain-text"],
+      "FilenameExtensions": [".mfsong"],
+      "MIMETypes": ["text/x-musicfree-song"],
+      "Description": "MusicFree song share file.",
+      "ReferenceURL": ""
+    },
+    {
+      "TypeId": "com.crazypig321.musicfreeoh.sheets",
+      "BelongingToTypes": ["general.json"],
+      "FilenameExtensions": [".mfsheets"],
+      "MIMETypes": ["application/x-musicfree-sheets"],
+      "Description": "MusicFree sheets share file.",
+      "ReferenceURL": ""
+    },
+    {
+      "TypeId": "com.crazypig321.musicfreeoh.plugin",
+      "BelongingToTypes": ["general.java-script"],
+      "FilenameExtensions": [".mfplugin"],
+      "MIMETypes": ["application/x-musicfree-plugin"],
+      "Description": "MusicFree plugin share file.",
+      "ReferenceURL": ""
+    },
+    {
+      "TypeId": "com.crazypig321.musicfreeoh.sub",
+      "BelongingToTypes": ["general.plain-text"],
+      "FilenameExtensions": [".mfsub"],
+      "MIMETypes": ["text/x-musicfree-subscription"],
+      "Description": "MusicFree subscription source share file.",
+      "ReferenceURL": ""
+    }
+  ]
+}
