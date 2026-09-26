@@ -5,6 +5,8 @@ import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicItem } from '../common/model/MediaTypes';
 import { MusicRow } from '../view/MusicRow';
+import { DetailHeader } from '../view/DetailHeader';
+import { BatchSheetPicker } from '../view/BatchSheetPicker';
 import { SheetItem, SheetInfoResult, TopListInfoResult } from '../common/model/SheetTypes';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { SheetDetailNavParams } from '../common/model/NavModels';
@@ -1088,115 +1090,25 @@ export struct SheetDetailPage {
       .transition(TransitionEffect.move(TransitionEdge.TOP))
   }
 
-  /** 头部：封面渐变图 + 歌单/榜单名 + 榜单规则 + 全部播放/批量操作 */
+  /** 头部：复用 DetailHeader 公共组件 */
   @Builder
   HeaderBuilder() {
-    Column() {
-      // 封面：全宽、从屏幕顶端开始（不避让标题栏），向下渐变融入页面背景
-      Stack({ alignContent: Alignment.Bottom }) {
-        Image(ArtworkCache.resolve(this.coverUrl))
-          .width('100%')
-          .height(240)
-          .objectFit(ImageFit.Cover)
-          .alt($r('app.media.altImage'))
-        Column()
-          .width('100%')
-          .height(240)
-          .linearGradient({
-            angle: 180,
-            colors: [
-              ['transparent', 0.0],
-              ['transparent', 0.45],
-              [$r('sys.color.background_secondary'), 1.0]
-            ]
-          })
+    DetailHeader({
+      coverUrl: this.coverUrl,
+      title: this.sheetTitle,
+      description: this.description,
+      musicCount: this.visibleMusicCount(),
+      showImport: !this.isLocalSheet,
+      onPlayAll: (): void => {
+        this.playAll();
+      },
+      onImport: (): void => {
+        this.importToMySheets();
+      },
+      onBatchMode: (): void => {
+        this.enterBatchMode();
       }
-      .width('100%')
-
-      // 歌单/榜单名
-      Text(this.sheetTitle)
-        .fontSize(22)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .padding({ left: 16, right: 16 })
-        .margin({ top: 12 })
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-      // 榜单规则/歌单简介
-      if (this.description.length > 0) {
-        Text(this.description)
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-          .margin({ top: 8 })
-          .maxLines(3)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-
-      // 全部播放 + 导入我的歌单 + 批量操作（智感握姿左手：全部播放与右侧图标互换）
-      Row({ space: 12 }) {
-        if (appState.holdingHand !== 'left') {
-          Row({ space: 6 }) {
-            SymbolGlyph($r('sys.symbol.play_circle_fill'))
-              .fontSize(36)
-              .fontColor([$r('sys.color.font')])
-            Text('全部播放' + (this.visibleMusicCount() > 0 ? ' · ' + this.visibleMusicCount().toString() : ''))
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font'))
-          }
-          .layoutWeight(1)
-          .height(40)
-          .onClick(() => {
-            this.playAll();
-          })
-        }
-
-        // 本地歌单（我的歌单进入）不显示导入按钮
-        if (!this.isLocalSheet) {
-          SymbolGlyph($r('sys.symbol.music_note_list_square'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-            .onClick(() => {
-              this.importToMySheets();
-            })
-        }
-
-        SymbolGlyph($r('sys.symbol.list_checkmask'))
-          .fontSize(20)
-          .fontColor([$r('sys.color.icon_secondary')])
-          .onClick(() => {
-            this.enterBatchMode();
-          })
-
-        if (appState.holdingHand === 'left') {
-          Row({ space: 6 }) {
-            Text('全部播放' + (this.visibleMusicCount() > 0 ? ' · ' + this.visibleMusicCount().toString() : ''))
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font'))
-            SymbolGlyph($r('sys.symbol.play_circle_fill'))
-              .fontSize(36)
-              .fontColor([$r('sys.color.font')])
-          }
-          .layoutWeight(1)
-          .height(40)
-          .justifyContent(FlexAlign.End)
-          .onClick(() => {
-            this.playAll();
-          })
-        }
-      }
-      .justifyContent(FlexAlign.SpaceBetween)
-      .width('100%')
-      .padding({ left: 16, right: 16 })
-      .margin({ top: 16 })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
+    })
   }
 
   /** 歌曲行：复用 MusicRow 公共组件，支持批量勾选、时长、来源标签、长按进入批量模式 */
@@ -1232,56 +1144,14 @@ export struct SheetDetailPage {
     })
   }
 
-  /** 批量「添加到歌单」歌单选择半模态（列表样式同本地音乐页） */
+  /** 批量「添加到歌单」歌单选择半模态 */
   @Builder
   BatchSheetPickerBuilder() {
-    Column() {
-      Text('添加到歌单')
-        .fontSize(17)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ top: 4, bottom: 4 })
-      if (this.getUserSheets().length === 0) {
-        Text('暂无自建歌单，请先在歌单页创建')
-          .fontSize(14)
-          .fontColor($r('sys.color.font_tertiary'))
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .margin({ top: 32, bottom: 32 })
-      } else {
-        List() {
-          ForEach(this.getUserSheets(), (sheet: SheetItem, index: number) => {
-            ListItem() {
-              Row({ space: 12 }) {
-                Text(sheet.title)
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .layoutWeight(1)
-                Text(sheet.worksNum.toString() + ' 首')
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.batchAddToSheet(sheet);
-              })
-            }
-          }, (sheet: SheetItem, index: number) => sheet.id + '_' + index.toString())
-        }
-        .width('100%')
-        .margin({ top: 4 })
-        .nestedScroll({
-          scrollForward: NestedScrollMode.PARENT_FIRST,
-          scrollBackward: NestedScrollMode.SELF_FIRST
-        })
+    BatchSheetPicker({
+      sheets: this.getUserSheets(),
+      onPick: (sheet: SheetItem): void => {
+        this.batchAddToSheet(sheet);
       }
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
-    .alignItems(HorizontalAlign.Start)
+    })
   }
 }

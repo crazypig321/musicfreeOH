@@ -123,10 +123,11 @@ export class HttpClient {
    * @param resumeFrom 断点续传：磁盘上半成品的字节数，>0 时发送 Range 请求并从末尾追加写入；
    *   服务器不支持续传（返回非 206）或资源总大小与 expectedTotal 不符时自动清空从头下载
    * @param expectedTotal 上次已知的资源总字节数（校验续传内容一致性，<=0 不校验）
+   * @param timeoutMs 连接/传输超时毫秒数；<=0 不设置超时（保持 rcp 默认行为，同历史行为）
    */
   static async downloadToFile(url: string, toPath: string, headers?: Record<string, string>,
     onProgress?: (downloadedSize: number, totalSize: number) => void,
-    resumeFrom?: number, expectedTotal?: number): Promise<boolean> {
+    resumeFrom?: number, expectedTotal?: number, timeoutMs: number = 0): Promise<boolean> {
     const target = toPath.startsWith('file://') ? toPath.substring('file://'.length) : toPath;
     const dir = target.lastIndexOf('/') === -1 ? target : target.substring(0, target.lastIndexOf('/'));
     let file: fs.File | null = null;
@@ -238,7 +239,10 @@ export class HttpClient {
           }
         }
       };
-      const config: rcp.Configuration = { tracing: { httpEventsHandler: events } };
+      const config: rcp.Configuration = timeoutMs > 0 ? {
+        tracing: { httpEventsHandler: events },
+        transfer: { timeout: { connectMs: timeoutMs, transferMs: timeoutMs } }
+      } : { tracing: { httpEventsHandler: events } };
       const req = new rcp.Request(url, 'GET', reqHeaders, undefined, undefined, undefined, config);
       const resp = await HttpClient.getSession().fetch(req);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
