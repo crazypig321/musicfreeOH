@@ -336,6 +336,18 @@ export struct ConfirmDeleteDialogContent {
 }
 
 
+/** 「发现新版本」弹窗内容：确认文案 */
+@ComponentV2
+export struct UpdateAvailableDialogContent {
+  build() {
+    Text(DialogManager.updateAvailableMessage)
+      .fontSize(14)
+      .fontColor($r('sys.color.font_primary'))
+      .width('100%')
+  }
+}
+
+
 /** 「选择器」弹窗内容：TextPicker 滚轮选择 */
 @ComponentV2
 export struct TextPickerDialogContent {
@@ -625,6 +637,10 @@ export class DialogManager {
   public static confirmDeleteMessage: string = '';
   /** 「确认删除」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
   public static confirmDeleteConfirm: (() => void) | null = null;
+  /** 「发现新版本」正文（打开前由调用方赋值） */
+  public static updateAvailableMessage: string = '';
+  /** 「发现新版本」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
+  public static updateAvailableConfirm: (() => void) | null = null;
 
   /** 弹窗关闭回调（一次性，关闭后自动清空） */
   public static onDialogClosed: (() => void) | null = null;
@@ -663,6 +679,13 @@ export class DialogManager {
     DialogManager.confirmDeleteMessage = message;
     DialogManager.confirmDeleteConfirm = onConfirm;
     DialogManager.OpenDialog('确认删除');
+  }
+
+  /** 版本更新确认弹窗：message 提示文案，onConfirm 点击「下载」后才执行（取消不执行） */
+  public static ConfirmUpdate(message: string, onConfirm: () => void): void {
+    DialogManager.updateAvailableMessage = message;
+    DialogManager.updateAvailableConfirm = onConfirm;
+    DialogManager.OpenDialog('发现新版本');
   }
 
   /** 手动选择封面弹窗：item 目标歌曲，onConfirm(artwork) 选中封面后执行（取消/关闭不触发） */
@@ -717,6 +740,8 @@ export class DialogManager {
         return '清除缓存';
       case '确认删除':
         return '删除';
+      case '发现新版本':
+        return '发现新版本';
       case '免责声明':
         return '免责声明';
     }
@@ -1015,6 +1040,27 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '发现新版本': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          fontColor: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '下载',
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
       case '免责声明': {
         const ok: ButtonOptions = {
           value: '我知道了',
@@ -1091,6 +1137,11 @@ export class DialogManager {
       case '确认删除':
         if (DialogManager.confirmDeleteConfirm !== null) {
           DialogManager.confirmDeleteConfirm();
+        }
+        break;
+      case '发现新版本':
+        if (DialogManager.updateAvailableConfirm !== null) {
+          DialogManager.updateAvailableConfirm();
         }
         break;
     }
@@ -1184,6 +1235,11 @@ export class DialogManager {
     if (key === '确认删除') {
       DialogManager.confirmDeleteMessage = '';
       DialogManager.confirmDeleteConfirm = null;
+    }
+    // 发现新版本同理（取消或关闭弹窗不触发下载）
+    if (key === '发现新版本') {
+      DialogManager.updateAvailableMessage = '';
+      DialogManager.updateAvailableConfirm = null;
     }
 
     switch (key) {

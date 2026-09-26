@@ -54,6 +54,7 @@ export class ConfigKeys {
   static readonly APPEARANCE_SMART_REACH = 'appearance.smartReach';
   static readonly APPEARANCE_ORIENTATION = 'appearance.orientation';
   static readonly PLUGIN_SUBSCRIBE_URL = 'plugin.subscribeUrl';
+  static readonly UPDATE_PROXY_DOWNLOAD = 'update.proxyDownload';
   static readonly WEBDAV_URL = 'webdav.url';
   static readonly WEBDAV_PATH = 'webdav.path';
   static readonly WEBDAV_USERNAME = 'webdav.username';
@@ -318,6 +319,15 @@ export class AppConfig {
 
   getPluginSubscribeUrl(): string {
     return this.getString(ConfigKeys.PLUGIN_SUBSCRIBE_URL, '');
+  }
+
+  /** 检查更新：下载新版本时优先走国内代理加速（默认关闭：直连优先，代理仅作回退） */
+  getUpdateProxyDownload(): boolean {
+    return this.getBoolean(ConfigKeys.UPDATE_PROXY_DOWNLOAD, false);
+  }
+
+  setUpdateProxyDownload(enabled: boolean): void {
+    this.setConfig(ConfigKeys.UPDATE_PROXY_DOWNLOAD, enabled);
   }
 
   /** 主题色（空串 = 跟随系统） */

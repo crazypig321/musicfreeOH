@@ -119,6 +119,11 @@ export class Downloader {
     DownloadNotify.showSummary(this.batchDone, this.batchFailed);
   }
 
+  /** 当前是否有下载批次运行中（更新下载据此决定是否接管数据传输长时任务） */
+  isBatchActive(): boolean {
+    return this.batchActive;
+  }
+
   // ---------- 任务持久化（KVStore 'Downloader'：重启后恢复失败/未完成任务并断点续传） ----------
 
   private static readonly STORE_NAME = 'Downloader';

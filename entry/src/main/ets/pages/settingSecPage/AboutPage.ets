@@ -5,8 +5,10 @@ import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { DialogManager } from '../../utils/DialogUtils';
 import { WebUtils } from '../../utils/WebUtils';
 import { HttpClient } from '../../infra/HttpClient';
-import { MenuUtils } from '../../utils/MenuUtils';
-import { MenuItemParams } from '../../view/CommonCom';
+import { UpdateNotify } from '../../utils/UpdateNotify';
+import { BackgroundTask } from '../../utils/BackgroundTask';
+import { downloader } from '../../core/Downloader';
+import { appConfig } from '../../core/AppConfig';
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import { ContextHolder } from '../../common/ContextHolder';
 import { PathConst } from '../../common/PathConst';
@@ -18,15 +20,10 @@ const REPO_ORIGIN: string = 'https://github.com/maotoumao/MusicFree.git';
 const DEV_HOME: string = 'https://github.com/crazypig321';
 const DEP_DATE_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate';
 const DEP_COLOR_PICKER_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker';
-/** GitHub 最新 release 接口与发布页 */
+/** GitHub 最新 release 接口 */
 const RELEASE_API_URL: string = 'https://api.github.com/repos/crazypig321/musicfreeOH/releases/latest';
-const RELEASE_PAGE_URL: string = 'https://github.com/crazypig321/musicfreeOH/releases/latest';
-/** 国内加速前缀型代理（拼接在目标 URL 前），依次回退尝试 */
+/** 国内加速前缀型代理（拼接在目标 URL 前），检查更新与下载均依次回退尝试 */
 const GH_PROXY_PREFIXES: Array<string> = ['https://gh-proxy.com/', 'https://ghfast.top/'];
-/** 国内换域型浏览镜像（github.com → kkgithub.com） */
-const GH_MIRROR_PAGE_URL: string = 'https://kkgithub.com/crazypig321/musicfreeOH/releases/latest';
-/** 更新标签菜单锚点 id */
-const UPDATE_TAG_ANCHOR_ID: string = 'about_update_tag';
 
 /** GitHub latest release 接口返回体（仅声明所需字段） */
 interface ReleaseRaw {
@@ -97,17 +94,21 @@ function isNewerVersion(a: string, b: string): boolean {
   return false;
 }
 
-/** 关于页条目行：头像/图标 + 标题 + 右侧说明 + chevron，可选点击行为 */
+/** 关于页条目行：头像/图标 + 标题 + 右侧说明/开关 + chevron，可选点击行为 */
 interface AboutRow {
   /** 头像图片（设置后优先于 icon 显示） */
   avatar?: Resource;
   /** SymbolGlyph 图标 */
   icon: Resource;
   title: string;
+  /** 标题下方的小字说明 */
+  subtitle?: string;
   /** 右侧说明文字 */
   trailing?: string;
   /** 右侧说明是否按长文本（地址）省略 */
   trailingEllipsis?: boolean;
+  /** 右侧显示代理下载开关（代替 chevron/trailing） */
+  trailingSwitch?: boolean;
   showChevron?: boolean;
   action?: () => void;
 }
@@ -127,6 +128,8 @@ export struct AboutPage {
   scroller: Scroller = new Scroller();
   /** GitHub 最新 release 版本号；为空表示无需更新（标签不展示） */
   @Local latestVersion: string = '';
+  /** 下载新版本时优先走国内代理加速（关闭时直连优先，代理仅作失败回退） */
+  @Local proxyDownload: boolean = appConfig.getUpdateProxyDownload();
 
   aboutToAppear(): void {
     this.checkUpdate();
@@ -138,10 +141,7 @@ export struct AboutPage {
       'User-Agent': 'musicfreeOH',
       'Accept': 'application/vnd.github+json'
     };
-    const urls: Array<string> = [RELEASE_API_URL];
-    for (const prefix of GH_PROXY_PREFIXES) {
-      urls.push(prefix + RELEASE_API_URL);
-    }
+    const urls = this.orderedUrls(RELEASE_API_URL);
     for (const url of urls) {
       const result = await HttpClient.get(url, headers, 6000);
       if (result === null || result.statusCode !== 200) {
@@ -172,7 +172,23 @@ export struct AboutPage {
     }
   }
 
-  /** 「检查更新」条目点击：有新版本时选择存放位置并下载软件包 */
+  /** 按代理开关排序候选地址（检查与下载共用）：
+   *  开启 = 国内代理在前、直连兜底；关闭 = 直连在前、代理回退；均含全部来源，失败自动切换 */
+  private orderedUrls(targetUrl: string): Array<string> {
+    const urls: Array<string> = [];
+    if (!this.proxyDownload) {
+      urls.push(targetUrl);
+    }
+    for (const prefix of GH_PROXY_PREFIXES) {
+      urls.push(prefix + targetUrl);
+    }
+    if (this.proxyDownload) {
+      urls.push(targetUrl);
+    }
+    return urls;
+  }
+
+  /** 检查更新入口（新版本标签与「检查更新」条目共用）：无新版本时提示；有新版本时弹窗确认下载 */
   private async doCheckUpdate(): Promise<void> {
     this.showToast('正在检查更新…');
     const release = await this.fetchLatestRelease();
@@ -191,7 +207,10 @@ export struct AboutPage {
       this.showToast('发布页未提供软件包，请到发布页查看');
       return;
     }
-    this.pickSaveLocationAndDownload(asset);
+    DialogManager.ConfirmUpdate('发现新版本 ' + tag + '，是否下载新版本安装包？', () => {
+      UpdateNotify.ensureEnabled();
+      this.pickSaveLocationAndDownload(asset);
+    });
   }
 
   /** 弹出系统保存器选择存放位置（同备份导出），确认后下载软件包写入 */
@@ -213,24 +232,48 @@ export struct AboutPage {
     }
   }
 
-  /** 下载软件包：直连不通时依次走国内代理，经缓存目录中转写入保存位置 */
+  /** 下载软件包：直连不通时依次走国内代理，经缓存目录中转写入保存位置；
+   *  通知栏进度同歌曲下载（dataTransfer 长时任务实况进度条 + 完成摘要通知） */
   private async downloadUpdate(asset: ReleaseAsset, destUri: string): Promise<void> {
     this.showToast('正在下载新版本…');
+    const version = this.latestVersion.length > 0 ? this.latestVersion : asset.name;
+    const nameText = '新版本 ' + version;
     const tempPath = PathConst.cachePath + 'update_' + Date.now().toString() + '_' + asset.name;
-    const urls: Array<string> = [asset.url];
-    for (const prefix of GH_PROXY_PREFIXES) {
-      urls.push(prefix + asset.url);
-    }
+    const urls = this.orderedUrls(asset.url);
     const headers: Record<string, string> = { 'User-Agent': 'musicfreeOH' };
+    // 无歌曲下载批次运行时接管数据传输长时任务（进度实况通知 + 后台保活）；
+    // 有批次运行时不接管，避免抢占/提前取消歌曲下载的任务与进度通知
+    const holdTransfer = !downloader.isBatchActive();
+    UpdateNotify.ensureEnabled();
+    UpdateNotify.resetProgress();
+    if (holdTransfer) {
+      BackgroundTask.startTransfer((notificationId: number): void => {
+        UpdateNotify.setSystemNotificationId(notificationId);
+      });
+    }
     let ok = false;
-    for (const url of urls) {
-      ok = await HttpClient.downloadToFile(url, tempPath, headers, undefined, undefined, undefined, 300000);
-      if (ok) {
-        break;
+    try {
+      for (const url of urls) {
+        ok = await HttpClient.downloadToFile(url, tempPath, headers,
+          (downloaded: number, total: number): void => {
+            const percent = total > 0 ? Math.floor(downloaded * 100 / total) : 0;
+            const sizeText = total > 0
+              ? (downloaded / 1024 / 1024).toFixed(1) + 'MB/' + (total / 1024 / 1024).toFixed(1) + 'MB'
+              : (downloaded / 1024 / 1024).toFixed(1) + 'MB';
+            UpdateNotify.updateProgress(nameText, percent, sizeText);
+          }, undefined, undefined, 300000);
+        if (ok) {
+          break;
+        }
+      }
+    } finally {
+      if (holdTransfer) {
+        BackgroundTask.stopTransfer();
       }
     }
     if (!ok) {
       FileUtils.unlink(tempPath);
+      UpdateNotify.showFailed();
       this.showToast('下载失败，请稍后重试');
       return;
     }
@@ -243,43 +286,13 @@ export struct AboutPage {
         fs.closeSync(src);
         fs.closeSync(dst);
       }
+      UpdateNotify.showDone(asset.name);
       this.showToast('新版本 ' + asset.name + ' 已保存');
     } catch (e) {
       this.showToast('保存文件失败');
     } finally {
       FileUtils.unlink(tempPath);
     }
-  }
-
-  /** 点击更新标签：弹出菜单选择发布页打开方式（官方/国内代理/镜像） */
-  private openUpdateMenu(): void {
-    const items: Array<MenuItemParams> = [];
-    const official = new MenuItemParams();
-    official.label = 'GitHub 官方';
-    official.onAction = (): void => {
-      MenuUtils.Dismiss();
-      this.openWeb(RELEASE_PAGE_URL);
-    };
-    items.push(official);
-    for (const prefix of GH_PROXY_PREFIXES) {
-      const item = new MenuItemParams();
-      item.label = '国内代理 ' + prefix.replace(/^https?:\/\//, '').replace(/\/$/, '');
-      item.onAction = (): void => {
-        MenuUtils.Dismiss();
-        this.openWeb(prefix + RELEASE_PAGE_URL);
-      };
-      items.push(item);
-    }
-    const mirror = new MenuItemParams();
-    mirror.label = '镜像站 kkgithub';
-    mirror.onAction = (): void => {
-      MenuUtils.Dismiss();
-      this.openWeb(GH_MIRROR_PAGE_URL);
-    };
-    items.push(mirror);
-    MenuUtils.Open(this.getUIContext(), UPDATE_TAG_ANCHOR_ID, items, {
-      placement: Placement.Bottom
-    });
   }
 
   private showToast(message: string): void {
@@ -348,6 +361,12 @@ export struct AboutPage {
             action: (): void => {
               this.doCheckUpdate();
             }
+          },
+          {
+            icon: $r('sys.symbol.paperplane'),
+            title: '代理下载新版本',
+            subtitle: '经国内代理加速下载新版本安装包，开启后优先走代理',
+            trailingSwitch: true
           }
         ]
       },
@@ -409,10 +428,19 @@ export struct AboutPage {
           .fontSize(20)
           .fontColor([$r('sys.color.icon_secondary')])
       }
-      Text(row.title)
-        .fontSize(15)
-        .fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1)
+      Column({ space: 2 }) {
+        Text(row.title)
+          .fontSize(15)
+          .fontColor($r('sys.color.font_primary'))
+        if (row.subtitle) {
+          Text(row.subtitle)
+            .fontSize(11)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(2)
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
       if (row.trailing) {
         Text(row.trailing)
           .fontSize(11)
@@ -421,6 +449,14 @@ export struct AboutPage {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .constraintSize({ maxWidth: row.trailingEllipsis ? '50%' : '100%' })
       }
+      if (row.trailingSwitch) {
+        Toggle({ type: ToggleType.Switch, isOn: this.proxyDownload })
+          .selectedColor(appState.accentColor)
+          .onChange((isOn: boolean) => {
+            this.proxyDownload = isOn;
+            appConfig.setUpdateProxyDownload(isOn);
+          })
+      }
       if (row.showChevron) {
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(14)
@@ -428,7 +464,7 @@ export struct AboutPage {
       }
     }
     .width('100%')
-    .height(52)
+    .height(row.subtitle ? 60 : 52)
     .onClick(() => {
       const action = row.action;
       if (action) {
@@ -477,9 +513,8 @@ export struct AboutPage {
                     .padding({ top: 3, bottom: 3, left: 5, right: 5 })
                     .borderRadius(3)
                     .backgroundColor($r('sys.color.comp_background_tertiary'))
-                    .id(UPDATE_TAG_ANCHOR_ID)
                     .onClick(() => {
-                      this.openUpdateMenu();
+                      this.doCheckUpdate();
                     })
                 }
               }

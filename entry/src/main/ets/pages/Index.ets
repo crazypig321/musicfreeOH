@@ -16,7 +16,7 @@ import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAni
 import { PcMainLayout } from './pcUI/PcMainLayout';
 import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';
-  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent } from '../utils/DialogUtils';
+  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, UpdateAvailableDialogContent } from '../utils/DialogUtils';
 import { ContextHolder } from '../common/ContextHolder';
 
 @Entry
@@ -312,6 +312,8 @@ struct Index {
       ClearCacheDialogContent()
     } else if (key === '确认删除') {
       ConfirmDeleteDialogContent()
+    } else if (key === '发现新版本') {
+      UpdateAvailableDialogContent()
     }
   }
 }
