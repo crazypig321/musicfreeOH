@@ -17,6 +17,8 @@ import { pasteboard } from '@kit.BasicServicesKit';
 export struct DownloadSettingPage {
   scroller: Scroller = new Scroller();
   @Local useCellularDownload: boolean = appConfig.getUseCellularNetworkDownload();
+  /** 下载文件简洁命名（歌曲名-歌手） */
+  @Local simpleFilename: boolean = appConfig.getDownloadSimpleFilename();
   /** 下载音质展示文本（设置成功后刷新） */
   @Local downloadQualityText: string = '';
   /** 首选音质不可用时展示文本 */
@@ -456,30 +458,82 @@ export struct DownloadSettingPage {
               Divider()
                 .DividerStyle()
 
+              // 下载文件简洁命名
+              Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.simpleFilename })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.simpleFilename = isOn;
+                      appConfig.setConfig(ConfigKeys.DOWNLOAD_SIMPLE_FILENAME, isOn);
+                    })
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.textformat'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                Column({ space: 2 }){
+                  Text('下载文件简洁命名')
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                    .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+
+                  Text('开启后新下载的音频以「歌曲名-歌手」命名')
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .width('100%')
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.simpleFilename })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.simpleFilename = isOn;
+                      appConfig.setConfig(ConfigKeys.DOWNLOAD_SIMPLE_FILENAME, isOn);
+                    })
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.textformat'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+              }
+              .width('100%')
+              .padding({ top: 12, bottom: 12 })
+
+              Divider()
+                .DividerStyle()
+
               // 下载位置
               Column() {
                 Row({ space: 12 }) {
                   SymbolGlyph($r('sys.symbol.folder'))
                     .fontSize(20)
                     .fontColor([$r('sys.color.icon_secondary')])
-                  Text('下载位置')
-                    .fontSize(15)
-                    .fontColor($r('sys.color.font_primary'))
-                    .layoutWeight(1)
+                  Column({space: 2}){
+                    Text('下载位置')
+                      .fontSize(15)
+                      .fontColor($r('sys.color.font_primary'))
+
+                    Text(this.downloadPathText)
+                      .fontSize(11)
+                      .fontColor($r('sys.color.font_tertiary'))
+                      .maxLines(3)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis })
+                      .width('100%')
+                  }
+                  .layoutWeight(1)
+                  .alignItems(HorizontalAlign.Start)
+
                   Text('点击复制')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
                 }
                 .width('100%')
-                .height(52)
-
-                Text(this.downloadPathText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .maxLines(3)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .width('100%')
-                  .padding({ bottom: 12 })
+                .padding({ top: 12, bottom: 12 })
               }
               .width('100%')
               .onClick(() => {

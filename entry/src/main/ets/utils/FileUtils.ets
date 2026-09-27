@@ -160,6 +160,23 @@ export class FileUtils {
     }
   }
 
+  /** 重命名文件（目标已存在时不覆盖，直接失败） */
+  static renameFile(from: string, to: string): boolean {
+    try {
+      const src = FileUtils.normalizePath(from);
+      const dest = FileUtils.normalizePath(to);
+      if (FileUtils.exists(dest)) {
+        return false;
+      }
+      fs.renameSync(src, dest);
+      return true;
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : '';
+      Log.error('重命名文件失败: ' + from + ' -> ' + to + ' 原因: ' + detail);
+      return false;
+    }
+  }
+
   static unlink(path: string): boolean {
     try {
       const p = FileUtils.normalizePath(path);

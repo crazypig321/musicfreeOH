@@ -24,6 +24,7 @@ export class ConfigKeys {
   static readonly DEFAULT_DOWNLOAD_QUALITY = 'basic.defaultDownloadQuality';
   static readonly DOWNLOAD_QUALITY_ORDER = 'basic.downloadQualityOrder';
   static readonly DOWNLOAD_TASK_INTERVAL = 'basic.downloadTaskInterval';
+  static readonly DOWNLOAD_SIMPLE_FILENAME = 'basic.downloadSimpleFilename';
   static readonly MAX_HISTORY_LEN = 'basic.maxHistoryLen';
   static readonly MUSIC_ORDER_IN_LOCAL_SHEET = 'basic.musicOrderInLocalSheet';
   static readonly AUTO_UPDATE_PLUGIN = 'basic.autoUpdatePlugin';
@@ -216,6 +217,11 @@ export class AppConfig {
   /** 下载任务启动间隔（秒，0 表示不间隔） */
   getDownloadTaskInterval(): number {
     return this.getNumber(ConfigKeys.DOWNLOAD_TASK_INTERVAL, 0);
+  }
+
+  /** 下载文件简洁命名（歌曲名-歌手，默认关闭） */
+  getDownloadSimpleFilename(): boolean {
+    return this.getBoolean(ConfigKeys.DOWNLOAD_SIMPLE_FILENAME, false);
   }
 
   getMaxHistoryLen(): number {

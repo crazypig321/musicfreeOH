@@ -1,4 +1,4 @@
-import { downloader, DownloadTaskInfo, DownloadStatus, DownloadFailReason } from '../core/Downloader';
+import { downloader, Downloader, DownloadTaskInfo, DownloadStatus, DownloadFailReason } from '../core/Downloader';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { ShareUtils } from '../utils/ShareUtils';
 import { downloadedSheet, localMusicSheet, LocalMusicSheet } from '../core/LocalMusicSheet';
@@ -778,13 +778,16 @@ export struct DownloadPage {
     this.batchSelected = all.length > 0 && this.batchSelected.length === all.length ? [] : all;
   }
 
-  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「搜索封面」） */
+  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「搜索封面」；
+   *  下载页已下载区追加「转换简洁命名」） */
   private batchTopLabels(): Array<string> {
     const total = this.batchScope === 'task' ? this.selectableTaskCount() : this.dataSource.totalCount();
     const allSelected = total > 0 && this.batchSelected.length === total;
     const labels: Array<string> = [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单', '搜索歌词'];
     if (this.isLocalMode) {
       labels.push('搜索封面');
+    } else if (this.batchScope === 'downloaded') {
+      labels.push('转换简洁命名');
     }
     return labels;
   }
@@ -950,6 +953,68 @@ export struct DownloadPage {
       });
     };
     searchNext(0);
+  }
+
+  /** 批量转换简洁命名（仅下载页已下载区）：将选中歌曲的本地文件重命名为「歌曲名-歌手.ext」，
+   *  同名冲突追加序号，正在播放/无本地文件/已是简洁命名的跳过；重命名后同步两域记录的本地路径 */
+  private batchRenameSimple(): void {
+    const items = this.selectedItems();
+    if (items.length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    let ok = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const it of items) {
+      const lp = MediaUtils.getLocalPath(it);
+      if (lp === null || lp.length === 0 || lp.startsWith('content://')) {
+        failed++;
+        continue;
+      }
+      // 正在播放的歌曲重命名文件会中断播放，跳过
+      if (trackPlayer.isCurrentMusic(it)) {
+        skipped++;
+        continue;
+      }
+      const src = FileUtils.normalizePath(lp);
+      const dir = FileUtils.getDirectory(src);
+      const slashIdx = src.lastIndexOf('/');
+      const dotIdx = src.lastIndexOf('.');
+      const ext = dotIdx > slashIdx && dotIdx !== -1 ? src.substring(dotIdx) : '';
+      const simpleBase = Downloader.simpleFilename(it);
+      // 已是简洁命名（无冲突后缀）则跳过
+      if (FileUtils.getFileName(src, true) === simpleBase) {
+        skipped++;
+        continue;
+      }
+      let dest = dir + '/' + simpleBase + ext;
+      if (FileUtils.exists(dest)) {
+        // 同名冲突：追加 (2) (3) …
+        let dupIndex = 2;
+        while (FileUtils.exists(dest) && dupIndex <= 999) {
+          dest = dir + '/' + simpleBase + ' (' + dupIndex.toString() + ')' + ext;
+          dupIndex++;
+        }
+      }
+      if (FileUtils.exists(dest) || !FileUtils.renameFile(src, dest)) {
+        failed++;
+        continue;
+      }
+      const schemePath = FileUtils.addFileScheme(dest);
+      localMusicSheet.patchLocalPath(it, schemePath);
+      downloadedSheet.patchLocalPath(it, schemePath);
+      ok++;
+    }
+    let message = '已转换 ' + ok.toString() + ' 首';
+    if (skipped > 0) {
+      message += '，跳过 ' + skipped.toString() + ' 首';
+    }
+    if (failed > 0) {
+      message += '，失败 ' + failed.toString() + ' 首';
+    }
+    this.showToast(message);
+    this.refreshDownloaded();
   }
 
   /** 打开「添加标签」弹窗（仅本地模式：输入标签名，在下载目录下创建同名子文件夹） */
@@ -1881,7 +1946,7 @@ export struct DownloadPage {
                 Button(v)
                   .layoutWeight(1)
                   .height(36)
-                  .fontSize(this.isLocalMode ? 9 : 10)
+                  .fontSize(this.batchTopLabels().length > 4 ? 9 : 10)
                   .fontWeight(FontWeight.Medium)
                   .borderRadius(10)
                   .backgroundColor($r('sys.color.comp_background_tertiary'))
@@ -1896,6 +1961,8 @@ export struct DownloadPage {
                       this.openBatchSheetPicker();
                     } else if (v === '搜索歌词') {
                       this.batchSearchLyric();
+                    } else if (v === '转换简洁命名') {
+                      this.batchRenameSimple();
                     } else {
                       // 搜索封面（仅本地模式）
                       this.batchSearchCover();

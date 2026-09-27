@@ -341,7 +341,23 @@ export class Downloader {
     await PathConst.bootstrapPublicDownloadDir();
   }
 
+  /** 简洁命名（歌曲名-歌手） */
+  static simpleFilename(musicItem: MusicItem): string {
+    const title = FileUtils.escapeCharacter(musicItem.title);
+    const artist = FileUtils.escapeCharacter(musicItem.artist);
+    if (title.length === 0 && artist.length === 0) {
+      return '未知歌曲';
+    }
+    if (artist.length === 0) {
+      return title.slice(0, 200);
+    }
+    return `${title}-${artist}`.slice(0, 200);
+  }
+
   private static generateFilename(musicItem: MusicItem): string {
+    if (appConfig.getDownloadSimpleFilename()) {
+      return Downloader.simpleFilename(musicItem);
+    }
     const name = `${FileUtils.escapeCharacter(musicItem.platform)}@${FileUtils.escapeCharacter(musicItem.id)}` +
       `@${FileUtils.escapeCharacter(musicItem.title)}@${FileUtils.escapeCharacter(musicItem.artist)}`;
     return name.slice(0, 200);
@@ -600,8 +616,22 @@ export class Downloader {
     const cacheDownloadPath = FileUtils.addFileScheme(
       this.getCacheDownloadPath(nextTask.cacheFilename)
     );
+    let targetName = `${nextTask.filename}.${extension}`;
+    if (appConfig.getDownloadSimpleFilename()) {
+      // 简洁命名可能同名：目标已存在时追加序号，避免覆盖已有文件
+      let probe = this.getDownloadPath(targetName, nextTask.folder);
+      let dupIndex = 2;
+      while (FileUtils.exists(probe)) {
+        targetName = `${nextTask.filename} (${dupIndex}).${extension}`;
+        probe = this.getDownloadPath(targetName, nextTask.folder);
+        dupIndex++;
+        if (dupIndex > 999) {
+          break;
+        }
+      }
+    }
     const targetDownloadPath = FileUtils.addFileScheme(
-      this.getDownloadPath(`${nextTask.filename}.${extension}`, nextTask.folder)
+      this.getDownloadPath(targetName, nextTask.folder)
     );
 
     if (!FileUtils.exists(FileUtils.getDirectory(targetDownloadPath))) {
