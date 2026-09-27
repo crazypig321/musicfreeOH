@@ -138,6 +138,10 @@ export class TrackPlayer {
   setupTrackPlayer(): Promise<void> {
     const rate = PersistStatus.getRate();
     this.repeatModeValue = PersistStatus.getRepeatMode();
+    // 播放页等常驻组件在 aboutToAppear 时读到的还是默认值，恢复后需广播同步
+    const modeEv = new RepeatModeChangedEvent();
+    modeEv.mode = this.repeatModeValue;
+    this.ee.emit('repeat-mode-changed', modeEv);
     if (rate !== 1) {
       playerEngine.setRate(rate);
     }

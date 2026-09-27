@@ -69,7 +69,7 @@ export struct LyricView {
     }
   }
 
-  /** 16ms 采样：更新当前行索引和渐变进度 */
+  /** 16ms 采样：更新当前行索引和渐变进度，直接驱动 shaderStyle 每帧重算 */
   private updateProgress(): void {
     const pos = this.positionProvider() - this.lyricOffset;
     if (this.lyrics.length === 0) {
@@ -92,16 +92,9 @@ export struct LyricView {
     if (idx >= 0) {
       const newWordIndex = this.calcWordIndex(this.lyrics[idx], pos);
       const newProgress = this.calcWordProgress(this.lyrics[idx], pos, newWordIndex);
-      if (newWordIndex === this.currentWordIndex) {
-        // 同一词内：用 animateTo 平滑插值渐变进度，避免 linearGradient 硬切顿挫
-        this.getUIContext().animateTo({ duration: 48, curve: Curve.Linear }, (): void => {
-          this.wordProgress = newProgress;
-        });
-      } else {
-        // 词切换：直接更新，不做插值（避免从 1 回退到 0 的回扫动画）
-        this.currentWordIndex = newWordIndex;
-        this.wordProgress = newProgress;
-      }
+      // 直接更新：shaderStyle 每帧重新计算渐变位置，60fps 逐字渐变
+      this.currentWordIndex = newWordIndex;
+      this.wordProgress = newProgress;
     } else {
       this.currentWordIndex = -1;
       this.wordProgress = 0;
@@ -157,7 +150,7 @@ export struct LyricView {
     }
   }
 
-  /** 第 i 个词的线性渐变样式（直接作用于 Text 文字像素，无需 blendMode 离屏渲染） */
+  /** 第 i 个词的线性渐变样式 */
   private wordShader(i: number): ShaderStyle {
     const opts: LinearGradientOptions = {
       direction: GradientDirection.Right,
@@ -256,7 +249,6 @@ export struct LyricView {
                           .fontSize(Math.round(20 * this.fontScale))
                           .fontWeight(FontWeight.Bold)
                           .shaderStyle(this.wordShader(i))
-                          .animation({ duration: 200, curve: Curve.Smooth })
                       }, (word: LyricWord, i: number) => i.toString())
                     }.width('100%')
                   } else {
@@ -267,7 +259,7 @@ export struct LyricView {
                       .textAlign(TextAlign.Center)
                       .maxLines(2)
                       .textOverflow({ overflow: TextOverflow.Ellipsis })
-                      .animation({ duration: 300, curve: Curve.EaseInOut })
+                      .animation({ duration: 200, curve: Curve.Linear })
                   }
                 } else {
                   Text(item.lrc)
@@ -276,7 +268,7 @@ export struct LyricView {
                     .textAlign(TextAlign.Center)
                     .maxLines(2)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    .animation({ duration: 300, curve: Curve.EaseInOut })
+                    .animation({ duration: 200, curve: Curve.Linear })
                 }
                 if (this.showTranslation && this.hasTranslation && item.translation.length > 0) {
                   Text(item.translation)
@@ -287,7 +279,7 @@ export struct LyricView {
                     .textAlign(TextAlign.Center)
                     .maxLines(2)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    .animation({ duration: 300, curve: Curve.EaseInOut })
+                    .animation({ duration: 200, curve: Curve.Linear })
                 }
               }
               .width('100%')
