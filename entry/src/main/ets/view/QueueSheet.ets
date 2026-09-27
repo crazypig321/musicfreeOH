@@ -42,10 +42,10 @@ struct PlayingBars {
       for (let i = 0; i < 5; i++) {
         next.push(4 + Math.random() * 14);
       }
-      this.getUIContext().animateTo({ duration: 300, curve: Curve.EaseInOut }, (): void => {
+      this.getUIContext().animateTo({ duration: 300, curve: Curve.Linear }, (): void => {
         this.heights = next;
       });
-    }, 800);
+    }, 300);
   }
 
   private stopTimer(): void {
@@ -337,7 +337,6 @@ export struct QueueSheet {
               .fontSize(12)
               .fontColor($r('sys.color.font_tertiary'))
               .maxLines(1)
-           //   .fontWeight(FontWeight.Bold)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .layoutWeight(1)
               .padding({right: 10})
