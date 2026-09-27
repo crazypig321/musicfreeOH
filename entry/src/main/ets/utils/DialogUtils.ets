@@ -54,7 +54,7 @@ export struct VarFieldsDialogContent {
               .fontSize(13)
               .fontColor($r('sys.color.font_secondary'))
               .width('100%')
-              .maxLines(1)
+              //.maxLines(2)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
             if (VarFieldsDialogContent.isCookieField(f)) {
               TextArea({ text: f.value, placeholder: f.key })
@@ -91,6 +91,7 @@ export struct VarFieldsDialogContent {
       .width('100%')
       .alignItems(HorizontalAlign.Start)
     }
+    .scrollBar(BarState.Off)
     .constraintSize({ maxHeight: 360 })
     .nestedScroll({
       scrollForward: NestedScrollMode.PARALLEL,
