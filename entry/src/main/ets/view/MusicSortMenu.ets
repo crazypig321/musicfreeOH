@@ -68,19 +68,18 @@ export struct MusicSortMenu {
   SortMenuBuilder() {
     Menu() {
       ForEach(MusicSortUtil.OPTIONS, (opt: SortOption) => {
-        MenuItem({
-          content: opt.label,
-          endIcon: opt.key === this.current ? $r('sys.symbol.checkmark') : ''
-        })
+        MenuItem({ content: opt.label, endIcon: opt.key === this.current ? $r('sys.media.ohos_ic_public_ok') : undefined })
           .onClick(() => {
             this.onPick(opt.key);
           })
       }, (opt: SortOption) => opt.key)
     }
-    .menuItemDivider({ color: $r("sys.color.comp_divider"),
+    .menuItemDivider({
+      color: $r('sys.color.comp_divider'),
       strokeWidth: LengthMetrics.vp(0.5),
       startMargin: LengthMetrics.vp(2),
-      endMargin: LengthMetrics.vp(2)})
+      endMargin: LengthMetrics.vp(2)
+    })
   }
 
   build() {

@@ -64,9 +64,13 @@ export struct SheetDetailPage {
   /** 搜索框输入内容 */
   @Local searchInput: string = '';
   /** 列表排序方式（正序=默认顺序，其余按选项重排；仅影响显示顺序，不改动存储） */
-  @Local sortKey: string = MusicSortUtil.KEY_DEFAULT;
+  @Local sortKey: string = SheetDetailPage.lastSortKey;
+  /** 记忆排序方式（页面退出重进保留；应用重启后恢复默认） */
+  private static lastSortKey: string = MusicSortUtil.KEY_DEFAULT;
 
   dataSource: MusicDataSource = new MusicDataSource();
+  /** 原始加载顺序的歌曲列表（排序切换时以此为基础重建数据源，保证正序可还原） */
+  private originItems: Array<MusicItem> = [];
   /** 搜索结果数据源（关键词生效时替代全量列表展示） */
   private searchSource: MusicDataSource = new MusicDataSource();
   private scroller: Scroller = new Scroller();
@@ -122,11 +126,9 @@ export struct SheetDetailPage {
       return;
     }
     const list = musicSheet.getMusicList(sheet.id);
-    this.dataSource.clear();
-    this.dataSource.appendData(list);
-    this.musicCount = list.length;
+    this.originItems = list;
+    this.rebuildDataSource();
     this.isEnd = true;
-    this.applySort();
   }
 
   aboutToDisappear(): void {
@@ -190,11 +192,9 @@ export struct SheetDetailPage {
     this.isEnd = isEnd;
     if (reset) {
       this.dataSource.clear();
+      this.originItems = [];
     }
-    this.dataSource.appendData(musicList);
-    this.musicCount = this.dataSource.totalCount();
-    // 应用排序（非默认排序时重排数据源；仅显示层，不改动存储）
-    this.applySort();
+    this.appendOrigin(musicList);
     // 搜索中：新到达的页同样纳入过滤结果
     this.applySearchFilter();
     if (item !== null) {
@@ -210,14 +210,30 @@ export struct SheetDetailPage {
     }
   }
 
-  /** 应用排序到数据源（正序=默认顺序原样返回；其余按选项重排，纯显示层不改动存储） */
-  private applySort(): void {
-    if (this.sortKey === MusicSortUtil.KEY_DEFAULT) {
-      return;
+  /** 追加一页歌曲到原始列表并重建数据源（应用排序；纯显示层，不改动存储） */
+  private appendOrigin(musicList: Array<MusicItem>): void {
+    for (const it of musicList) {
+      this.originItems.push(it);
     }
-    const sorted = MusicSortUtil.sortItems(this.dataSource.getItems(), this.sortKey);
+    this.rebuildDataSource();
+  }
+
+  /** 以原始加载顺序为基础重建数据源（按 platform+id 去重后应用排序，正序=原始顺序） */
+  private rebuildDataSource(): void {
+    const seen: Set<string> = new Set<string>();
+    const unique: Array<MusicItem> = [];
+    for (const it of this.originItems) {
+      const key = it.platform + '_' + it.id;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      unique.push(it);
+    }
+    const sorted = MusicSortUtil.sortItems(unique, this.sortKey);
     this.dataSource.clear();
     this.dataSource.appendData(sorted);
+    this.musicCount = this.dataSource.totalCount();
   }
 
   /** 加载失败 */
@@ -389,9 +405,7 @@ export struct SheetDetailPage {
     this.isEnd = isEnd || musicList.length === 0;
     if (musicList.length > 0) {
       if (this.pageAlive) {
-        this.dataSource.appendData(musicList);
-        this.musicCount = this.dataSource.totalCount();
-        this.applySort();
+        this.appendOrigin(musicList);
       }
       const copies: Array<MusicItem> = [];
       for (const it of musicList) {
@@ -463,9 +477,7 @@ export struct SheetDetailPage {
       // 空页但未声明结束：视为结束，防止死循环
       this.isEnd = isEnd || musicList.length === 0;
       if (musicList.length > 0) {
-        this.dataSource.appendData(musicList);
-        this.musicCount = this.dataSource.totalCount();
-        this.applySort();
+        this.appendOrigin(musicList);
       }
       if (this.isEnd) {
         this.finishImport();
@@ -1121,7 +1133,8 @@ export struct SheetDetailPage {
       sortKey: this.sortKey,
       onSortPick: (key: string): void => {
         this.sortKey = key;
-        this.applySort();
+        SheetDetailPage.lastSortKey = key;
+        this.rebuildDataSource();
       },
       onPlayAll: (): void => {
         this.playAll();

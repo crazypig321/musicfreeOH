@@ -78,6 +78,9 @@ export struct DownloadPage {
   @Local searchInput: string = '';
   /** 列表排序方式（正序=默认顺序，其余按选项重排；仅影响显示顺序，不改动存储） */
   @Local sortKey: string = MusicSortUtil.KEY_DEFAULT;
+  /** 记忆排序方式（页面退出重进保留；应用重启后恢复默认；下载页与本地音乐页各自独立） */
+  private static lastSortKeyDownloaded: string = MusicSortUtil.KEY_DEFAULT;
+  private static lastSortKeyLocal: string = MusicSortUtil.KEY_DEFAULT;
   /** 滑动勾选：手势起点坐标（windowX/windowY，vp） */
   private slideStartX: number = 0;
   private slideStartY: number = 0;
@@ -100,6 +103,7 @@ export struct DownloadPage {
   }
 
   aboutToAppear(): void {
+    this.sortKey = this.isLocalMode ? DownloadPage.lastSortKeyLocal : DownloadPage.lastSortKeyDownloaded;
     if (!this.isLocalMode) {
       this.refreshTasks();
       // 下载任务状态/进度变化 → 刷新任务行
@@ -1147,6 +1151,11 @@ export struct DownloadPage {
       current: this.sortKey,
       onPick: (key: string): void => {
         this.sortKey = key;
+        if (this.isLocalMode) {
+          DownloadPage.lastSortKeyLocal = key;
+        } else {
+          DownloadPage.lastSortKeyDownloaded = key;
+        }
         this.refreshDownloaded();
       }
     })
