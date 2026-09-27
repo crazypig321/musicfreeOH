@@ -16,6 +16,7 @@
 
 > 🙏 本项目移植于猫头猫的 MusicFree，感谢原项目提供的优秀设计与插件生态。
 > 🔗 原项目仓库：<https://github.com/maotoumao/MusicFree>
+> 🔗 插件项目仓库：<https://github.com/maotoumao/MusicFreePlugins>
 
 ---
 
