@@ -22,6 +22,7 @@ import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
+import { MusicSortUtil } from '../view/MusicSortMenu';
 
 /**
  * 歌单详情页：主页榜单卡片 / 推荐歌单网格点击进入
@@ -62,6 +63,8 @@ export struct SheetDetailPage {
   @Local searchKeyword: string = '';
   /** 搜索框输入内容 */
   @Local searchInput: string = '';
+  /** 列表排序方式（正序=默认顺序，其余按选项重排；仅影响显示顺序，不改动存储） */
+  @Local sortKey: string = MusicSortUtil.KEY_DEFAULT;
 
   dataSource: MusicDataSource = new MusicDataSource();
   /** 搜索结果数据源（关键词生效时替代全量列表展示） */
@@ -123,6 +126,7 @@ export struct SheetDetailPage {
     this.dataSource.appendData(list);
     this.musicCount = list.length;
     this.isEnd = true;
+    this.applySort();
   }
 
   aboutToDisappear(): void {
@@ -189,6 +193,8 @@ export struct SheetDetailPage {
     }
     this.dataSource.appendData(musicList);
     this.musicCount = this.dataSource.totalCount();
+    // 应用排序（非默认排序时重排数据源；仅显示层，不改动存储）
+    this.applySort();
     // 搜索中：新到达的页同样纳入过滤结果
     this.applySearchFilter();
     if (item !== null) {
@@ -202,6 +208,16 @@ export struct SheetDetailPage {
         this.description = item.description;
       }
     }
+  }
+
+  /** 应用排序到数据源（正序=默认顺序原样返回；其余按选项重排，纯显示层不改动存储） */
+  private applySort(): void {
+    if (this.sortKey === MusicSortUtil.KEY_DEFAULT) {
+      return;
+    }
+    const sorted = MusicSortUtil.sortItems(this.dataSource.getItems(), this.sortKey);
+    this.dataSource.clear();
+    this.dataSource.appendData(sorted);
   }
 
   /** 加载失败 */
@@ -375,6 +391,7 @@ export struct SheetDetailPage {
       if (this.pageAlive) {
         this.dataSource.appendData(musicList);
         this.musicCount = this.dataSource.totalCount();
+        this.applySort();
       }
       const copies: Array<MusicItem> = [];
       for (const it of musicList) {
@@ -448,6 +465,7 @@ export struct SheetDetailPage {
       if (musicList.length > 0) {
         this.dataSource.appendData(musicList);
         this.musicCount = this.dataSource.totalCount();
+        this.applySort();
       }
       if (this.isEnd) {
         this.finishImport();
@@ -1099,6 +1117,12 @@ export struct SheetDetailPage {
       description: this.description,
       musicCount: this.visibleMusicCount(),
       showImport: !this.isLocalSheet,
+      showSort: true,
+      sortKey: this.sortKey,
+      onSortPick: (key: string): void => {
+        this.sortKey = key;
+        this.applySort();
+      },
       onPlayAll: (): void => {
         this.playAll();
       },

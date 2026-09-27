@@ -28,6 +28,7 @@ import { PathConst } from '../common/PathConst';
 import { FileUtils } from '../utils/FileUtils';
 import { ContextHolder } from '../common/ContextHolder';
 import { DialogManager } from '../utils/DialogUtils';
+import { MusicSortMenu, MusicSortUtil } from '../view/MusicSortMenu';
 
 /**
  * 下载页面：上半部分为下载任务（等待/准备中/下载中/失败，带进度条），
@@ -75,6 +76,8 @@ export struct DownloadPage {
   @Local searchKeyword: string = '';
   /** 搜索框实时输入内容（未提交，不参与过滤） */
   @Local searchInput: string = '';
+  /** 列表排序方式（正序=默认顺序，其余按选项重排；仅影响显示顺序，不改动存储） */
+  @Local sortKey: string = MusicSortUtil.KEY_DEFAULT;
   /** 滑动勾选：手势起点坐标（windowX/windowY，vp） */
   private slideStartX: number = 0;
   private slideStartY: number = 0;
@@ -171,8 +174,10 @@ export struct DownloadPage {
           filtered.push(item);
         }
       }
+      // 按物理路径去重兜底 + 应用排序（仅显示层）
+      const sorted = MusicSortUtil.sortItems(DownloadPage.dedupeByPath(filtered), this.sortKey);
       this.dataSource.clear();
-      this.dataSource.appendData(filtered);
+      this.dataSource.appendData(sorted);
       return;
     }
     this.computeDateTags(items);
@@ -184,8 +189,30 @@ export struct DownloadPage {
     }
     // 最近下载的排前面；无下载时间记录的条目保持相对顺序排在最后
     filtered.sort((a: MusicItem, b: MusicItem): number => this.itemDownloadedAt(b) - this.itemDownloadedAt(a));
+    // 按物理路径去重兜底 + 应用排序（仅显示层；倒序=默认顺序的反向）
+    const sorted = MusicSortUtil.sortItems(DownloadPage.dedupeByPath(filtered), this.sortKey);
     this.dataSource.clear();
-    this.dataSource.appendData(filtered);
+    this.dataSource.appendData(sorted);
+  }
+
+  /** 按物理路径去重（兜底：存储层同文件双记录只在列表显示一条，路径归一化后比较） */
+  private static dedupeByPath(items: Array<MusicItem>): Array<MusicItem> {
+    const seen: Record<string, boolean> = {};
+    const result: Array<MusicItem> = [];
+    for (const it of items) {
+      const lp = MediaUtils.getLocalPath(it);
+      if (lp === null || lp.length === 0) {
+        result.push(it);
+        continue;
+      }
+      const key = FileUtils.normalizePath(lp);
+      if (seen[key] === true) {
+        continue;
+      }
+      seen[key] = true;
+      result.push(it);
+    }
+    return result;
   }
 
   /** 计算分组标签：全部 + 下载日期 M月D日（最近在前）+ 更早 + 来源歌单 */
@@ -1114,6 +1141,15 @@ export struct DownloadPage {
           this.openAddTagDialog();
         })
     }
+
+    // 排序（仅影响当前列表显示顺序）
+    MusicSortMenu({
+      current: this.sortKey,
+      onPick: (key: string): void => {
+        this.sortKey = key;
+        this.refreshDownloaded();
+      }
+    })
 
     // 已下载/本地音乐区批量操作
     SymbolGlyph($r('sys.symbol.list_checkmask'))

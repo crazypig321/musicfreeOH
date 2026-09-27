@@ -1,8 +1,9 @@
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { appState } from '../entryability/AppState';
+import { MusicSortMenu, MusicSortUtil } from './MusicSortMenu';
 
 /**
- * 详情页头部：封面渐变图 + 标题 + 副标题 + 简介 + 全部播放/导入/批量操作
+ * 详情页头部：封面渐变图 + 标题 + 副标题 + 简介 + 全部播放/导入/排序/批量操作
  * 智感握姿：左手握持时 全部播放与右侧图标互换
  */
 @ComponentV2
@@ -13,8 +14,13 @@ export struct DetailHeader {
   @Param description: string = '';
   @Param musicCount: number = 0;
   @Param showImport: boolean = true;
+  /** 是否显示排序按钮（多选按钮前面） */
+  @Param showSort: boolean = false;
+  /** 当前排序方式（MusicSortUtil.KEY_*，仅用于菜单选中态展示） */
+  @Param sortKey: string = MusicSortUtil.KEY_DEFAULT;
   @Event onPlayAll: () => void = (): void => {};
   @Event onImport: () => void = (): void => {};
+  @Event onSortPick: (key: string) => void = (_key: string): void => {};
   @Event onBatchMode: () => void = (): void => {};
 
   build() {
@@ -96,6 +102,15 @@ export struct DetailHeader {
             .onClick(() => {
               this.onImport();
             })
+        }
+
+        if (this.showSort) {
+          MusicSortMenu({
+            current: this.sortKey,
+            onPick: (key: string): void => {
+              this.onSortPick(key);
+            }
+          })
         }
 
         SymbolGlyph($r('sys.symbol.list_checkmask'))

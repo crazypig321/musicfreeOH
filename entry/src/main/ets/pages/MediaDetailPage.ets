@@ -22,6 +22,7 @@ import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
+import { MusicSortUtil } from '../view/MusicSortMenu';
 
 /** 一次分页加载结果（专辑/歌手统一封装） */
 class MediaDetailPageResult {
@@ -74,6 +75,8 @@ export struct MediaDetailPage {
   @Local searchKeyword: string = '';
   /** 搜索框输入内容 */
   @Local searchInput: string = '';
+  /** 列表排序方式（正序=默认顺序，其余按选项重排；仅影响显示顺序，不改动存储） */
+  @Local sortKey: string = MusicSortUtil.KEY_DEFAULT;
 
   dataSource: MusicDataSource = new MusicDataSource();
   /** 搜索结果数据源（关键词生效时替代全量列表展示） */
@@ -191,6 +194,8 @@ export struct MediaDetailPage {
     }
     this.dataSource.appendData(r.musicList);
     this.musicCount = this.dataSource.totalCount();
+    // 应用排序（非默认排序时重排数据源；仅显示层，不改动存储）
+    this.applySort();
     // 搜索中：新到达的页同样纳入过滤结果
     this.applySearchFilter();
     // 专辑模式：首页返回的合并信息补全头部
@@ -205,6 +210,16 @@ export struct MediaDetailPage {
         this.description = r.albumItem.description;
       }
     }
+  }
+
+  /** 应用排序到数据源（正序=默认顺序原样返回；其余按选项重排，纯显示层不改动存储） */
+  private applySort(): void {
+    if (this.sortKey === MusicSortUtil.KEY_DEFAULT) {
+      return;
+    }
+    const sorted = MusicSortUtil.sortItems(this.dataSource.getItems(), this.sortKey);
+    this.dataSource.clear();
+    this.dataSource.appendData(sorted);
   }
 
   /** 加载失败 */
@@ -365,6 +380,7 @@ export struct MediaDetailPage {
       if (this.pageAlive) {
         this.dataSource.appendData(r.musicList);
         this.musicCount = this.dataSource.totalCount();
+        this.applySort();
       }
       const copies: Array<MusicItem> = [];
       for (const it of r.musicList) {
@@ -442,6 +458,7 @@ export struct MediaDetailPage {
       if (r.musicList.length > 0) {
         this.dataSource.appendData(r.musicList);
         this.musicCount = this.dataSource.totalCount();
+        this.applySort();
       }
       if (this.isEnd) {
         this.finishImport();
@@ -1073,6 +1090,12 @@ export struct MediaDetailPage {
       description: this.description,
       musicCount: this.visibleMusicCount(),
       showImport: true,
+      showSort: true,
+      sortKey: this.sortKey,
+      onSortPick: (key: string): void => {
+        this.sortKey = key;
+        this.applySort();
+      },
       onPlayAll: (): void => {
         this.playAll();
       },

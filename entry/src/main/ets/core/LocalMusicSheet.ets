@@ -61,11 +61,35 @@ export class LocalMusicSheet {
             sheet.push(MusicItem.fromRecord(rec));
           }
         }
+        // 过滤失效文件 + 同一物理文件（localPath 相同）只保留一条记录：
+        // 文件被简洁命名/外部改名后，文件名不再含 platform@id，扫描会按 md5(路径)
+        // 生成 local 平台新条目，与原平台记录重复，这里按路径去重并优先保留平台记录
         const validSheet: Array<MusicItem> = [];
+        const keptByPath: Record<string, MusicItem> = {};
         for (const musicItem of sheet) {
           const localPath = MediaUtils.getLocalPath(musicItem);
-          if (localPath !== null && FileUtils.exists(localPath)) {
+          if (localPath === null || !FileUtils.exists(localPath)) {
+            continue;
+          }
+          if (localPath.length === 0) {
             validSheet.push(musicItem);
+            continue;
+          }
+          const pathKey = FileUtils.normalizePath(localPath);
+          const kept = keptByPath[pathKey];
+          if (kept === undefined) {
+            keptByPath[pathKey] = musicItem;
+            validSheet.push(musicItem);
+          } else {
+            const winner = LocalMusicSheet.pickPathDuplicate(kept, musicItem);
+            if (winner === musicItem) {
+              const idx = validSheet.indexOf(kept);
+              if (idx !== -1) {
+                validSheet[idx] = musicItem;
+              }
+              keptByPath[pathKey] = musicItem;
+            }
+            // kept 胜出：丢弃当前重复项
           }
         }
         if (validSheet.length !== sheet.length) {
@@ -79,6 +103,16 @@ export class LocalMusicSheet {
       return Promise.resolve();
     };
     return task();
+  }
+
+  /** 同一物理文件的多条记录中优先保留平台来源记录（platform@id 可关联歌单/已下载/播放历史） */
+  private static pickPathDuplicate(a: MusicItem, b: MusicItem): MusicItem {
+    const aLocal = a.platform === LOCAL_PLUGIN_PLATFORM;
+    const bLocal = b.platform === LOCAL_PLUGIN_PLATFORM;
+    if (aLocal !== bLocal) {
+      return aLocal ? b : a;
+    }
+    return a;
   }
 
   private saveItems(items: Array<MusicItem>): void {
@@ -100,8 +134,20 @@ export class LocalMusicSheet {
     let changed = false;
     for (const mi of rawItems) {
       let exists = false;
-      for (const it of this.localSheetItems) {
-        if (MediaUtils.isSameMediaItem(it, mi)) {
+      const newPath = MediaUtils.getLocalPath(mi);
+      const newPathKey = newPath === null ? '' : FileUtils.normalizePath(newPath);
+      // 对 newSheet 去重（而非 localSheetItems）：同一批次的重复扫描项互相可见，
+      // 否则同批次内两条相同记录会同时入库（表现为数量偶发 +1，重启后被 setup 清理）
+      for (const it of newSheet) {
+        const oldPath = MediaUtils.getLocalPath(it);
+        const oldPathKey = oldPath === null ? '' : FileUtils.normalizePath(oldPath);
+        // 同曲目（platform@id 相同），或同一物理文件（本地路径相同）均视为已存在：
+        // 简洁命名/外部改名后的文件名不含 platform@id，扫描生成的 id 与原记录不同，
+        // 仅按 id 去重会重复入库，需按路径兜底；路径统一剥掉 file:// 前缀后比较
+        // （存量记录 url 为 file:// 时 getLocalPath 返回裸路径，扫描项 extras 带
+        // file:// 前缀，格式不一致会导致比较失败）
+        if (MediaUtils.isSameMediaItem(it, mi) ||
+          (newPathKey.length > 0 && newPathKey === oldPathKey)) {
           exists = true;
           // 旧条目无封面或封面文件已失效（如重装后缓存被清）、重新扫描提取到封面时补上
           if (mi.artwork.length > 0 &&
@@ -111,9 +157,7 @@ export class LocalMusicSheet {
           }
           // 文件被移动后重新扫描：同曲目出现在新路径 → 更新本地路径（两域同步，
           // 保证文件夹分组标签与播放路径随文件实际位置刷新）
-          const newPath = MediaUtils.getLocalPath(mi);
-          const oldPath = MediaUtils.getLocalPath(it);
-          if (newPath !== null && newPath.length > 0 && newPath !== oldPath &&
+          if (newPath !== null && newPath.length > 0 && newPathKey !== oldPathKey &&
             FileUtils.exists(newPath)) {
             LocalMusicSheet.setItemLocalPath(it, newPath);
             changed = true;
