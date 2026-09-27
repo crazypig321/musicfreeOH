@@ -286,6 +286,16 @@ export class LocalMusicSheet {
     return null;
   }
 
+  /** 是否为本地音乐且本地文件仍存在（文件被外部删除时视为非本地，供下载拦截判断用） */
+  isLocalMusicExisting(musicItem: MusicItem | null): MusicItem | null {
+    const matched = this.isLocalMusic(musicItem);
+    if (matched === null) {
+      return null;
+    }
+    const localPath = MediaUtils.getLocalPath(matched);
+    return localPath !== null && FileUtils.exists(localPath) ? matched : null;
+  }
+
   /** 更新匹配条目的封面（搜索封面命中后写回；无匹配或封面为空不处理） */
   setArtwork(musicItem: MusicItem, artwork: string): void {
     if (artwork.length === 0) {

@@ -708,6 +708,44 @@ export class Downloader {
     }
   }
 
+  /** 记录的本地文件是否仍在磁盘上（无记录视为存活） */
+  private static localFileAlive(item: MusicItem | null): boolean {
+    if (item === null) {
+      return true;
+    }
+    const localPath = MediaUtils.getLocalPath(item);
+    return localPath !== null && FileUtils.exists(localPath);
+  }
+
+  /**
+   * 本地/已下载记录存在但文件已被外部删除（如文件管理器删除）时，
+   * 清理两域失效记录与下载标记，返回 true 允许重新下载；
+   * 文件仍在则返回 false（本地歌曲无需重复下载）
+   */
+  private static ensureLocalRecordAlive(m: MusicItem): boolean {
+    const local = localMusicSheet.isLocalMusic(m);
+    const downloaded = downloadedSheet.isLocalMusic(m);
+    if (local === null && downloaded === null) {
+      return true;
+    }
+    const localAlive = Downloader.localFileAlive(local);
+    const downloadedAlive = Downloader.localFileAlive(downloaded);
+    if (localAlive && downloadedAlive) {
+      return false;
+    }
+    // 文件已丢失：移除本域记录（deleteOriginalFile=true 会联动移除另一域记录）
+    if (local !== null && !localAlive) {
+      localMusicSheet.removeMusic(local, true);
+    }
+    if (downloaded !== null && !downloadedAlive) {
+      downloadedSheet.removeMusic(downloaded, true);
+    }
+    MediaExtra.removeMediaExtraProperty(m, 'downloaded');
+    MediaExtra.removeMediaExtraProperty(m, 'localPath');
+    Log.info('本地文件已失效，清理记录并重新下载: ' + m.title);
+    return true;
+  }
+
   download(musicItems: MusicItem | Array<MusicItem>, quality?: QualityKey, folder?: string): void {
     const network = Network.getInstance();
     if (network.isOffline) {
@@ -734,7 +772,7 @@ export class Downloader {
       if (this.downloadTasks.has(key)) {
         continue;
       }
-      if (localMusicSheet.isLocalMusic(m) !== null || downloadedSheet.isLocalMusic(m) !== null) {
+      if (!Downloader.ensureLocalRecordAlive(m)) {
         continue;
       }
       const task = new DownloadTaskInfo();

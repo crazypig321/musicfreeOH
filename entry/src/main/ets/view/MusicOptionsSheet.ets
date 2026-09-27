@@ -264,7 +264,7 @@ export struct MusicOptionsSheet {
   /** 更换音源：打开弹窗并发搜索可用音源（弹窗内加载动画→插件选择列表），确认后替换并保存（队列/我的歌单） */
   private changeSource(): void {
     const item = this.optionsItem;
-    if (localMusicSheet.isLocalMusic(item) !== null || downloadedSheet.isLocalMusic(item) !== null ||
+    if (localMusicSheet.isLocalMusicExisting(item) !== null || downloadedSheet.isLocalMusicExisting(item) !== null ||
       item.platform === LOCAL_PLUGIN_PLATFORM) {
       this.showToast('本地音乐不支持更换音源');
       return;
@@ -609,9 +609,9 @@ export struct MusicOptionsSheet {
             }
           })
         }
-        // 本地/已下载音乐已在设备上，不提供下载入口
-        if (localMusicSheet.isLocalMusic(this.optionsItem) === null &&
-          downloadedSheet.isLocalMusic(this.optionsItem) === null) {
+        // 本地/已下载音乐已在设备上，不提供下载入口（文件被外部删除时恢复入口）
+        if (localMusicSheet.isLocalMusicExisting(this.optionsItem) === null &&
+          downloadedSheet.isLocalMusicExisting(this.optionsItem) === null) {
           ListItem() {
             ActionRowItem({
               icon: $r('sys.symbol.square_and_arrow_down'),

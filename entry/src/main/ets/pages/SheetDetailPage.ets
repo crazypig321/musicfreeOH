@@ -595,7 +595,7 @@ export struct SheetDetailPage {
     const targets: Array<MusicItem> = [];
     let playingSkipped = 0;
     for (const it of items) {
-      if (localMusicSheet.isLocalMusic(it) !== null || downloadedSheet.isLocalMusic(it) !== null ||
+      if (localMusicSheet.isLocalMusicExisting(it) !== null || downloadedSheet.isLocalMusicExisting(it) !== null ||
         it.platform === LOCAL_PLUGIN_PLATFORM) {
         continue;
       }
@@ -760,7 +760,7 @@ export struct SheetDetailPage {
       if (downloader.getDownloadTask(it) !== null) {
         continue;
       }
-      if (downloadedSheet.isLocalMusic(it) !== null) {
+      if (downloadedSheet.isLocalMusicExisting(it) !== null) {
         continue;
       }
       fresh.push(it);

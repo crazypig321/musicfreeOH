@@ -441,7 +441,7 @@ export struct PlayerPage {
     if (current === null) {
       return;
     }
-    if (localMusicSheet.isLocalMusic(current) !== null || downloadedSheet.isLocalMusic(current) !== null) {
+    if (localMusicSheet.isLocalMusicExisting(current) !== null || downloadedSheet.isLocalMusicExisting(current) !== null) {
       this.showToast('本地音乐无需下载');
       return;
     }
