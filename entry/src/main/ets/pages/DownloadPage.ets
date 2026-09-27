@@ -742,6 +742,11 @@ export struct DownloadPage {
     return !this.isLocalMode && this.batchScope === 'task';
   }
 
+  /** 批量底栏「转换简洁命名」行是否显示：仅已下载区批量模式（下载页与本地音乐页一致） */
+  private batchRenameRowVisible(): boolean {
+    return this.batchScope === 'downloaded';
+  }
+
   /** 行是否被勾选 */
   private isSelected(item: MusicItem): boolean {
     return this.batchSelected.indexOf(DownloadPage.itemKey(item)) !== -1;
@@ -778,16 +783,13 @@ export struct DownloadPage {
     this.batchSelected = all.length > 0 && this.batchSelected.length === all.length ? [] : all;
   }
 
-  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「搜索封面」；
-   *  下载页已下载区追加「转换简洁命名」） */
+  /** 批量操作按钮文案·第一行（全部勾选后「全选」切换为「取消全选」；本地模式追加「搜索封面」） */
   private batchTopLabels(): Array<string> {
     const total = this.batchScope === 'task' ? this.selectableTaskCount() : this.dataSource.totalCount();
     const allSelected = total > 0 && this.batchSelected.length === total;
     const labels: Array<string> = [allSelected ? '取消全选' : '全选', '收藏', '添加到歌单', '搜索歌词'];
     if (this.isLocalMode) {
       labels.push('搜索封面');
-    } else if (this.batchScope === 'downloaded') {
-      labels.push('转换简洁命名');
     }
     return labels;
   }
@@ -955,57 +957,43 @@ export struct DownloadPage {
     searchNext(0);
   }
 
-  /** 批量转换简洁命名（仅下载页已下载区）：将选中歌曲的本地文件重命名为「歌曲名-歌手.ext」，
-   *  同名冲突追加序号，正在播放/无本地文件/已是简洁命名的跳过；重命名后同步两域记录的本地路径 */
-  private batchRenameSimple(): void {
+  /** 批量转换简洁命名（已下载区，下载页与本地音乐页通用）：先弹窗确认，确认后带 loading 执行 */
+  private confirmBatchRenameSimple(): void {
     const items = this.selectedItems();
     if (items.length === 0) {
       this.showToast('请先勾选歌曲');
       return;
     }
+    DialogManager.ConfirmSimpleRename(
+      '是否确认将' + (this.isLocalMode ? '本地音乐' : '已下载的歌曲') + '转换为「歌曲名-歌手」简洁命名？',
+      (): void => {
+        this.doBatchRenameSimple(items);
+      });
+  }
+
+  /** 执行批量转换简洁命名：逐首将本地文件重命名为「歌曲名-歌手.ext」（同名冲突追加序号，
+   *  正在播放/无本地文件/已是简洁命名的跳过），完成后关闭弹窗并提示结果 */
+  private async doBatchRenameSimple(items: Array<MusicItem>): Promise<void> {
+    // 显示 loading，让出主线程让 loading 渲染后再执行重命名
+    appState.isDialogSaving = true;
+    await new Promise<void>((resolve: () => void): void => {
+      setTimeout(resolve, 300);
+    });
     let ok = 0;
     let skipped = 0;
     let failed = 0;
     for (const it of items) {
-      const lp = MediaUtils.getLocalPath(it);
-      if (lp === null || lp.length === 0 || lp.startsWith('content://')) {
-        failed++;
-        continue;
-      }
-      // 正在播放的歌曲重命名文件会中断播放，跳过
-      if (trackPlayer.isCurrentMusic(it)) {
+      const result = Downloader.renameToSimpleFilename(it);
+      if (result === 1) {
+        ok++;
+      } else if (result === 0) {
         skipped++;
-        continue;
-      }
-      const src = FileUtils.normalizePath(lp);
-      const dir = FileUtils.getDirectory(src);
-      const slashIdx = src.lastIndexOf('/');
-      const dotIdx = src.lastIndexOf('.');
-      const ext = dotIdx > slashIdx && dotIdx !== -1 ? src.substring(dotIdx) : '';
-      const simpleBase = Downloader.simpleFilename(it);
-      // 已是简洁命名（无冲突后缀）则跳过
-      if (FileUtils.getFileName(src, true) === simpleBase) {
-        skipped++;
-        continue;
-      }
-      let dest = dir + '/' + simpleBase + ext;
-      if (FileUtils.exists(dest)) {
-        // 同名冲突：追加 (2) (3) …
-        let dupIndex = 2;
-        while (FileUtils.exists(dest) && dupIndex <= 999) {
-          dest = dir + '/' + simpleBase + ' (' + dupIndex.toString() + ')' + ext;
-          dupIndex++;
-        }
-      }
-      if (FileUtils.exists(dest) || !FileUtils.renameFile(src, dest)) {
+      } else {
         failed++;
-        continue;
       }
-      const schemePath = FileUtils.addFileScheme(dest);
-      localMusicSheet.patchLocalPath(it, schemePath);
-      downloadedSheet.patchLocalPath(it, schemePath);
-      ok++;
     }
+    appState.isDialogSaving = false;
+    DialogManager.CloseDialog();
     let message = '已转换 ' + ok.toString() + ' 首';
     if (skipped > 0) {
       message += '，跳过 ' + skipped.toString() + ' 首';
@@ -1897,7 +1885,8 @@ export struct DownloadPage {
       })
       .contentStartOffset(appState.topRect + 55 + (this.showSearchBox ? 56 : 0))
       .contentEndOffset(appState.bottomRect +
-        (appState.isBatchMode ? 216 + (this.batchFailedRowVisible() ? 46 : 0) : 60))
+        (appState.isBatchMode ? 216 + (this.batchFailedRowVisible() ? 46 : 0) +
+          (this.batchRenameRowVisible() ? 46 : 0) : 60))
       .padding({ left: 16, right: 16 })
       .bindSheet(!this.isLocalMode && !!this.showOptions, this.OptionsSheetBuilder(), {
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
@@ -1914,13 +1903,14 @@ export struct DownloadPage {
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
         // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词（本地模式追加 搜索封面）；
         // 第二行 播放 / 分享 / 移出 / 删除（本地模式在 移出 前多一个 移动）；
-        // 第三行 换源 / 重新下载（仅任务区批量模式显示）
+        // 第三行 换源 / 重新下载（仅任务区批量模式）或 转换简洁命名（仅已下载区批量模式）
         if (appState.isBatchMode) {
           // 渐变模糊高度与底栏内容高度保持一致：
           // 14(顶距) + 22(已选行) + 10 + 36(按钮行1) + 10 + 36(按钮行2) + 12(底距) + 导航栏避让
-          // 存在失败任务时追加 10 + 36(按钮行3)
+          // 存在第三行（换源/重新下载 或 转换简洁命名）时追加 10 + 36(按钮行3)
           CommonBlur({ heightValue: appState.bottomRect + 140 +
-            (this.batchFailedRowVisible() ? 46 : 0) }).position({ bottom: 0 })
+            (this.batchFailedRowVisible() ? 46 : 0) +
+            (this.batchRenameRowVisible() ? 46 : 0) }).position({ bottom: 0 })
             .transition(TransitionEffect.OPACITY)
 
 
@@ -1961,8 +1951,6 @@ export struct DownloadPage {
                       this.openBatchSheetPicker();
                     } else if (v === '搜索歌词') {
                       this.batchSearchLyric();
-                    } else if (v === '转换简洁命名') {
-                      this.batchRenameSimple();
                     } else {
                       // 搜索封面（仅本地模式）
                       this.batchSearchCover();
@@ -2023,6 +2011,24 @@ export struct DownloadPage {
                   .fontColor($r('sys.color.font_primary'))
                   .onClick(() => {
                     this.batchRedownload();
+                  })
+              }
+              .width('100%')
+            }
+
+            // 第三行：转换简洁命名（仅已下载区批量模式，下载页与本地音乐页通用）
+            if (this.batchRenameRowVisible()) {
+              Row({ space: 8 }) {
+                Button('转换简洁命名')
+                  .layoutWeight(1)
+                  .height(36)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .borderRadius(10)
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    this.confirmBatchRenameSimple();
                   })
               }
               .width('100%')

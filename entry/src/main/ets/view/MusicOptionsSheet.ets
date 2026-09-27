@@ -8,10 +8,11 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { musicSheet } from '../core/MusicSheet';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
 import { LocalMusicExclusion } from '../core/LocalMusicExclusion';
-import { downloader } from '../core/Downloader';
+import { downloader, Downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { ScheduleClose } from '../utils/ScheduleClose';
 import { MediaUtils } from '../utils/MediaUtils';
+import { FileUtils } from '../utils/FileUtils';
 import { CoverSearch } from '../utils/CoverSearch';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
@@ -179,6 +180,62 @@ export struct MusicOptionsSheet {
       });
     } catch (error) {
       this.showToast('复制失败');
+    }
+  }
+
+  /** 本地文件名（本地音乐/已下载条目详情行展示；无本地文件时为空） */
+  private localFileNameText(): string {
+    const lp = MediaUtils.getLocalPath(this.optionsItem);
+    if (lp === null || lp.length === 0 || lp.startsWith('content://')) {
+      return '';
+    }
+    return FileUtils.getFileName(FileUtils.normalizePath(lp));
+  }
+
+  /** 转换为简洁命名：先校验（正在播放/媒体库歌曲/已是简洁命名直接提示），再弹窗确认 */
+  private confirmSimpleRename(): void {
+    if (trackPlayer.isCurrentMusic(this.optionsItem)) {
+      this.showToast('正在播放的歌曲无法转换');
+      return;
+    }
+    const lp = MediaUtils.getLocalPath(this.optionsItem);
+    if (lp === null || lp.length === 0) {
+      this.showToast('未找到本地文件');
+      return;
+    }
+    if (lp.startsWith('content://')) {
+      this.showToast('媒体库歌曲不支持转换');
+      return;
+    }
+    const src = FileUtils.normalizePath(lp);
+    // 已是简洁命名（无冲突后缀）则直接提示
+    if (FileUtils.getFileName(src, true) === Downloader.simpleFilename(this.optionsItem)) {
+      this.showToast('当前已是简洁命名');
+      return;
+    }
+    DialogManager.ConfirmSimpleRename(
+      '是否将「' + FileUtils.getFileName(src) + '」转换为「歌曲名-歌手」简洁命名？',
+      (): void => {
+        this.doSimpleRename(this.optionsItem);
+      });
+  }
+
+  /** 执行转换为简洁命名：弹窗内显示 loading，完成后关闭弹窗并提示结果 */
+  private async doSimpleRename(item: MusicItem): Promise<void> {
+    // 显示 loading，让出主线程让 loading 渲染后再执行重命名
+    appState.isDialogSaving = true;
+    await new Promise<void>((resolve: () => void): void => {
+      setTimeout(resolve, 300);
+    });
+    const result = Downloader.renameToSimpleFilename(item);
+    appState.isDialogSaving = false;
+    DialogManager.CloseDialog();
+    if (result === 1) {
+      this.showToast('已转换为「' + Downloader.simpleFilename(item) + '」');
+    } else if (result === 0) {
+      this.showToast('已是简洁命名或正在播放，已跳过');
+    } else {
+      this.showToast('转换失败');
     }
   }
 
@@ -608,6 +665,20 @@ export struct MusicOptionsSheet {
               this.copyText(this.optionsItem.album, '专辑');
             }
           })
+        }
+        // 本地音乐/已下载条目：显示实际文件名，点击弹窗确认后转换为简洁命名
+        if (localMusicSheet.isLocalMusicExisting(this.optionsItem) !== null ||
+          downloadedSheet.isLocalMusicExisting(this.optionsItem) !== null) {
+          ListItem() {
+            ActionRowItem({
+              icon: $r('sys.symbol.doc_plaintext'),
+              label: '本地文件名',
+              value: this.localFileNameText(),
+              onTap: (): void => {
+                this.confirmSimpleRename();
+              }
+            })
+          }
         }
         // 本地/已下载音乐已在设备上，不提供下载入口（文件被外部删除时恢复入口）
         if (localMusicSheet.isLocalMusicExisting(this.optionsItem) === null &&

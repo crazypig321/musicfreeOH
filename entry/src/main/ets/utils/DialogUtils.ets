@@ -349,6 +349,63 @@ export struct UpdateAvailableDialogContent {
 }
 
 
+/** 「转换简洁命名」弹窗内容：确认文案 + 自定义按钮（支持 loading 态，重命名完成后手动关闭弹窗） */
+@ComponentV2
+export struct SimpleRenameDialogContent {
+  build() {
+    Column({ space: 12 }) {
+      Text(DialogManager.simpleRenameMessage)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+      Row({ space: 10 }) {
+        Button('取消')
+          .layoutWeight(1)
+          .height(40)
+          .fontSize(15)
+          .fontColor(appState.accentColor)
+          .backgroundColor(Color.Transparent)
+          .borderRadius(100)
+          .enabled(!appState.isDialogSaving)
+          .onClick(() => {
+            DialogManager.CloseDialog();
+          })
+        if (appState.isDialogSaving) {
+          Column() {
+            LoadingProgress()
+              .width(24)
+              .height(24)
+              .color(Color.White)
+          }
+          .layoutWeight(1)
+          .height(40)
+          .justifyContent(FlexAlign.Center)
+          .borderRadius(100)
+          .backgroundColor(appState.accentColor)
+        } else {
+          Button('转换')
+            .layoutWeight(1)
+            .height(40)
+            .fontSize(15)
+            .fontColor(Color.White)
+            .backgroundColor(appState.accentColor)
+            .borderRadius(100)
+            .onClick(() => {
+              if (DialogManager.simpleRenameConfirm !== null) {
+                DialogManager.simpleRenameConfirm();
+              }
+            })
+        }
+      }
+      .width('100%')
+      .margin({ top: 4 })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+}
+
+
 /** 「选择器」弹窗内容：TextPicker 滚轮选择 */
 @ComponentV2
 export struct TextPickerDialogContent {
@@ -642,6 +699,10 @@ export class DialogManager {
   public static updateAvailableMessage: string = '';
   /** 「发现新版本」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
   public static updateAvailableConfirm: (() => void) | null = null;
+  /** 「转换简洁命名」正文（打开前由调用方赋值） */
+  public static simpleRenameMessage: string = '';
+  /** 「转换简洁命名」确认回调（执行重命名耗时操作，完成后由回调自行关闭弹窗并提示） */
+  public static simpleRenameConfirm: (() => void) | null = null;
 
   /** 弹窗关闭回调（一次性，关闭后自动清空） */
   public static onDialogClosed: (() => void) | null = null;
@@ -687,6 +748,14 @@ export class DialogManager {
     DialogManager.updateAvailableMessage = message;
     DialogManager.updateAvailableConfirm = onConfirm;
     DialogManager.OpenDialog('发现新版本');
+  }
+
+  /** 转换简洁命名确认弹窗：message 提示文案，onConfirm 点击「转换」后执行（取消/关闭不触发；
+   *  回调内部负责显示 loading、执行重命名并手动关闭弹窗） */
+  public static ConfirmSimpleRename(message: string, onConfirm: () => void): void {
+    DialogManager.simpleRenameMessage = message;
+    DialogManager.simpleRenameConfirm = onConfirm;
+    DialogManager.OpenDialog('转换简洁命名');
   }
 
   /** 手动选择封面弹窗：item 目标歌曲，onConfirm(artwork) 选中封面后执行（取消/关闭不触发） */
@@ -745,6 +814,8 @@ export class DialogManager {
         return '发现新版本';
       case '免责声明':
         return '免责声明';
+      case '转换简洁命名':
+        return '转换简洁命名';
     }
     return '';
   }
@@ -913,6 +984,10 @@ export class DialogManager {
       }
       case '编辑标签': {
         // 按钮在内容区域渲染（自定义按钮支持 loading 态，异步保存完成后手动关闭弹窗）
+        break;
+      }
+      case '转换简洁命名': {
+        // 按钮在内容区域渲染（自定义按钮支持 loading 态，重命名完成后手动关闭弹窗）
         break;
       }
       case '选择器': {
@@ -1241,6 +1316,11 @@ export class DialogManager {
     if (key === '发现新版本') {
       DialogManager.updateAvailableMessage = '';
       DialogManager.updateAvailableConfirm = null;
+    }
+    // 转换简洁命名同理（取消或关闭弹窗不触发转换）
+    if (key === '转换简洁命名') {
+      DialogManager.simpleRenameMessage = '';
+      DialogManager.simpleRenameConfirm = null;
     }
 
     switch (key) {

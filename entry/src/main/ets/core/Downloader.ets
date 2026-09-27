@@ -16,6 +16,7 @@ import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
 import { musicSheet } from './MusicSheet';
 import { LocalMusicExclusion } from './LocalMusicExclusion';
 import { MediaExtra, MediaExtraProperties } from './MediaExtra';
+import { trackPlayer } from './TrackPlayer';
 import { pluginManager } from '../plugin/PluginManager';
 import { BackgroundTask } from '../utils/BackgroundTask';
 import { DownloadNotify } from '../utils/DownloadNotify';
@@ -361,6 +362,46 @@ export class Downloader {
     const name = `${FileUtils.escapeCharacter(musicItem.platform)}@${FileUtils.escapeCharacter(musicItem.id)}` +
       `@${FileUtils.escapeCharacter(musicItem.title)}@${FileUtils.escapeCharacter(musicItem.artist)}`;
     return name.slice(0, 200);
+  }
+
+  /** 单首歌曲转换为简洁命名：将本地文件重命名为「歌曲名-歌手.ext」，同名冲突追加序号，
+   *  成功后同步本地音乐/已下载两域记录的本地路径；
+   *  返回 1 成功 / 0 跳过（正在播放或已是简洁命名）/ -1 失败（无本地文件或重命名失败） */
+  static renameToSimpleFilename(item: MusicItem): number {
+    const lp = MediaUtils.getLocalPath(item);
+    if (lp === null || lp.length === 0 || lp.startsWith('content://')) {
+      return -1;
+    }
+    // 正在播放的歌曲重命名文件会中断播放，跳过
+    if (trackPlayer.isCurrentMusic(item)) {
+      return 0;
+    }
+    const src = FileUtils.normalizePath(lp);
+    const dir = FileUtils.getDirectory(src);
+    const slashIdx = src.lastIndexOf('/');
+    const dotIdx = src.lastIndexOf('.');
+    const ext = dotIdx > slashIdx && dotIdx !== -1 ? src.substring(dotIdx) : '';
+    const simpleBase = Downloader.simpleFilename(item);
+    // 已是简洁命名（无冲突后缀）则跳过
+    if (FileUtils.getFileName(src, true) === simpleBase) {
+      return 0;
+    }
+    let dest = dir + '/' + simpleBase + ext;
+    if (FileUtils.exists(dest)) {
+      // 同名冲突：追加 (2) (3) …
+      let dupIndex = 2;
+      while (FileUtils.exists(dest) && dupIndex <= 999) {
+        dest = dir + '/' + simpleBase + ' (' + dupIndex.toString() + ')' + ext;
+        dupIndex++;
+      }
+    }
+    if (FileUtils.exists(dest) || !FileUtils.renameFile(src, dest)) {
+      return -1;
+    }
+    const schemePath = FileUtils.addFileScheme(dest);
+    localMusicSheet.patchLocalPath(item, schemePath);
+    downloadedSheet.patchLocalPath(item, schemePath);
+    return 1;
   }
 
   /** 记录下载发起时歌曲所在的用户歌单（已下载「来源歌单」分组标签用） */
