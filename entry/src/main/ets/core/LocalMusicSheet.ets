@@ -524,8 +524,9 @@ export class LocalMusicSheet {
       if (existing === undefined) {
         return true;
       }
-      // 本地记录未经修复后的流程验证过：需提取一次以刷新可能串读脏数据
-      if (existing.platform === LOCAL_PLUGIN_PLATFORM && !LocalMusicSheet.metaVerified(existing)) {
+      // 记录未经修复后的提取流程验证过（本地或平台记录均可能被历史串读污染，
+      // 含 file:// 内嵌缓存封面被写成其他文件的封面）：需提取一次以刷新脏数据
+      if (!LocalMusicSheet.metaVerified(existing)) {
         return true;
       }
       // 封面缺失/失效且开启自动匹配：需提取内嵌封面回填
@@ -553,7 +554,9 @@ export class LocalMusicSheet {
       if (!needMeta(index)) {
         return onMeta(new MediaBasicMeta(), false);
       }
-      return MediaMetadata.getBasicMeta(FileUtils.normalizePath(musicList[index]), autoMatchCover)
+      // 导入期提取一律强制刷新内嵌封面缓存：历史串读可能把 B 文件的封面写进
+      // md5(A路径).jpg 且命中缓存即返回，绕过缓存重新提取才能修复污染
+      return MediaMetadata.getBasicMeta(FileUtils.normalizePath(musicList[index]), autoMatchCover, true)
         .then((m: MediaBasicMeta): Promise<void> => onMeta(m, true));
     };
     return collectMetas(0).then((): Promise<void> => {
@@ -609,9 +612,11 @@ export class LocalMusicSheet {
   }
 
   /**
-   * 用重新提取的真实标签刷新本地平台记录（修复历史并发串读持久化的脏数据：
-   * 条目标题/歌手与实际文件不符、列表出现假重复歌名）；返回是否有修改。
-   * 仅刷新本地平台记录（platform@id 记录的标题来自在线元数据，不覆盖）；
+   * 用重新提取的真实标签刷新记录（修复历史并发串读持久化的脏数据：
+   * 条目标题/歌手/封面与实际文件不符、列表出现假重复歌名与重复错封面）；返回是否有修改。
+   * 文字标签仅刷新本地平台记录（platform@id 记录的标题来自在线元数据，不覆盖）；
+   * 封面对所有平台记录生效且仅覆盖内嵌缓存来源（file://）——http 网络封面为
+   * 在线匹配/手动搜索的结果，保留用户可见的选择；
    * 标签为空的字段保持原值，标题为空时回退文件名（与入库规则一致）
    */
   private healLocalRecords(knownByPath: Record<string, MusicItem>, musicList: Array<string>,
@@ -622,33 +627,43 @@ export class LocalMusicSheet {
         continue;
       }
       const existing = knownByPath[FileUtils.normalizePath(musicList[index])];
-      if (existing === undefined || existing.platform !== LOCAL_PLUGIN_PLATFORM) {
+      if (existing === undefined) {
         continue;
       }
       const meta = metas[index];
-      if (meta.title.length > 0) {
-        if (existing.title !== meta.title) {
-          existing.title = meta.title;
+      if (existing.platform === LOCAL_PLUGIN_PLATFORM) {
+        if (meta.title.length > 0) {
+          if (existing.title !== meta.title) {
+            existing.title = meta.title;
+            changed = true;
+          }
+        } else {
+          // 无标签：标题按入库规则回退为文件名（去扩展名）
+          const fallbackTitle = FileUtils.getFileName(musicList[index], true);
+          if (existing.title !== fallbackTitle) {
+            existing.title = fallbackTitle;
+            changed = true;
+          }
+        }
+        if (meta.artist.length > 0 && existing.artist !== meta.artist) {
+          existing.artist = meta.artist;
           changed = true;
         }
-      } else {
-        // 无标签：标题按入库规则回退为文件名（去扩展名）
-        const fallbackTitle = FileUtils.getFileName(musicList[index], true);
-        if (existing.title !== fallbackTitle) {
-          existing.title = fallbackTitle;
+        if (meta.album.length > 0 && existing.album !== meta.album) {
+          existing.album = meta.album;
+          changed = true;
+        }
+        if (meta.durationMs > 0 && Math.abs(existing.duration - meta.durationMs / 1000) > 1) {
+          existing.duration = meta.durationMs / 1000;
           changed = true;
         }
       }
-      if (meta.artist.length > 0 && existing.artist !== meta.artist) {
-        existing.artist = meta.artist;
-        changed = true;
-      }
-      if (meta.album.length > 0 && existing.album !== meta.album) {
-        existing.album = meta.album;
-        changed = true;
-      }
-      if (meta.durationMs > 0 && Math.abs(existing.duration - meta.durationMs / 1000) > 1) {
-        existing.duration = meta.durationMs / 1000;
+      // 封面修复（本地与平台记录均生效）：重新提取的内嵌封面与现值不一致时，
+      // 仅覆盖内嵌缓存来源（file://）的封面；网络封面（http）不覆盖。
+      // 串读污染的封面缓存已被强制刷新流程重写，此处值即真实内嵌封面
+      if (meta.artwork.length > 0 && existing.artwork !== meta.artwork &&
+        (existing.artwork.length === 0 || existing.artwork.startsWith('file://'))) {
+        existing.artwork = meta.artwork;
         changed = true;
       }
       if (!LocalMusicSheet.metaVerified(existing)) {

@@ -25,10 +25,13 @@ export class MediaMetadata {
    * 统一在此排队，保证全应用同一时刻至多一个 extractor 实例在运行 */
   private static queueTail: Promise<void> = Promise.resolve();
 
-  /** 读取本地音频的基础元信息（失败返回空 meta）；withArtwork=false 时跳过内嵌封面提取。
+  /** 读取本地音频的基础元信息（失败返回空 meta）；withArtwork=false 时跳过内嵌封面提取；
+   * forceArtworkRefresh=true 时绕过封面缓存重新提取并覆盖缓存文件（修复历史串读污染）。
    * 内部经全局队列串行执行，调用方可安全并发调用 */
-  static getBasicMeta(path: string, withArtwork: boolean = true): Promise<MediaBasicMeta> {
-    const task = (): Promise<MediaBasicMeta> => MediaMetadata.extractBasicMeta(path, withArtwork);
+  static getBasicMeta(path: string, withArtwork: boolean = true,
+    forceArtworkRefresh: boolean = false): Promise<MediaBasicMeta> {
+    const task = (): Promise<MediaBasicMeta> =>
+      MediaMetadata.extractBasicMeta(path, withArtwork, forceArtworkRefresh);
     const next = MediaMetadata.queueTail.then(task, task);
     // 队列尾巴吞掉结果与异常：不出未处理的 rejection，也不阻塞后续排队提取
     MediaMetadata.queueTail = next.then((_m: MediaBasicMeta): void => {
@@ -37,7 +40,8 @@ export class MediaMetadata {
     return next;
   }
 
-  private static async extractBasicMeta(path: string, withArtwork: boolean): Promise<MediaBasicMeta> {
+  private static async extractBasicMeta(path: string, withArtwork: boolean,
+    forceArtworkRefresh: boolean): Promise<MediaBasicMeta> {
     const meta = new MediaBasicMeta();
     let file: fs.File | null = null;
     let extractor: media.AVMetadataExtractor | null = null;
@@ -71,7 +75,7 @@ export class MediaMetadata {
       // 内嵌专辑封面（失败不影响基础元信息）；自动匹配封面关闭时跳过提取
       if (withArtwork) {
         try {
-          meta.artwork = await MediaMetadata.extractArtwork(path, extractor);
+          meta.artwork = await MediaMetadata.extractArtwork(path, extractor, forceArtworkRefresh);
         } catch (e) {
           // 无封面或提取失败，保持为空
         }
@@ -100,18 +104,24 @@ export class MediaMetadata {
 
   /**
    * 提取内嵌专辑封面并缓存为 JPEG（沙箱 artwork 目录）；
-   * 命中缓存直接返回缓存路径，避免重复解码。返回 file:// URI，无封面返回空串
+   * 命中缓存直接返回缓存路径，避免重复解码。返回 file:// URI，无封面返回空串。
+   * forceRefresh=true 时绕过缓存重新提取并覆盖：历史并发串读可能把其他文件的
+   * 封面写进本路径的缓存且命中即返回，导致封面与歌曲不匹配且永不自愈
    */
   private static async extractArtwork(path: string,
-    extractor: media.AVMetadataExtractor): Promise<string> {
+    extractor: media.AVMetadataExtractor, forceRefresh: boolean): Promise<string> {
     const hash = await CryptoUtil.md5(path);
     const coverPath = PathConst.artworkCachePath + hash + '.jpg';
     const coverUri = FileUtils.addFileScheme(coverPath);
-    if (FileUtils.exists(coverUri)) {
+    if (!forceRefresh && FileUtils.exists(coverUri)) {
       return coverUri;
     }
     const pixelMap = await extractor.fetchAlbumCover();
     if (pixelMap === undefined || pixelMap === null) {
+      if (forceRefresh) {
+        // 本文件确实无内嵌封面：缓存中已存在的封面必为串读污染，清除
+        FileUtils.unlink(coverPath);
+      }
       return '';
     }
     const packer = image.createImagePacker();
