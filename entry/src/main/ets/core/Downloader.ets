@@ -715,8 +715,9 @@ export class Downloader {
         localItem.extras = extras;
         downloadedSheet.addMusic(localItem);
         // 下载完成即加入本地音乐列表（与手动刷新扫描口径一致：跳过被「移出本地音乐」排除的文件）
-        const destFileName = FileUtils.getFileName(FileUtils.normalizePath(targetDownloadPath));
-        if (destFileName.length > 0 && !LocalMusicExclusion.getExcludedFiles().has(destFileName)) {
+        const destPath = FileUtils.normalizePath(targetDownloadPath);
+        if (destPath.length > 0 &&
+          !LocalMusicExclusion.isExcluded(LocalMusicExclusion.getExcludedFiles(), destPath)) {
           localMusicSheet.addMusic(localItem);
         }
 

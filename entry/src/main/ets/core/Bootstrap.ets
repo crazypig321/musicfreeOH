@@ -80,7 +80,8 @@ export class Bootstrap {
         dirs.push(legacyDir);
       }
       const excluded = LocalMusicExclusion.getExcludedFiles();
-      return localMusicSheet.importLocal(dirs, (filename: string): boolean => !excluded.has(filename));
+      return localMusicSheet.importLocal(dirs, (filePath: string, _filename: string): boolean =>
+        !LocalMusicExclusion.isExcluded(excluded, filePath));
     }).catch(() => {
       // 静默失败，不影响启动
     });

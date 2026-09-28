@@ -34,6 +34,8 @@ export class LocalMusicSheet {
   private localSheetItems: Array<MusicItem> = [];
   private ee: EventEmitter = new EventEmitter();
   private importToken: string | null = null;
+  /** 导入互斥队列尾巴（永不出错），保证任意时刻至多一个导入在执行 */
+  private importQueueTail: Promise<void> = Promise.resolve();
   /** 关联的另一域实例（本地音乐 ↔ 已下载）：删除源文件时同步移除两边记录 */
   peer: LocalMusicSheet | null = null;
 
@@ -374,10 +376,10 @@ export class LocalMusicSheet {
   }
 
   /**
-   * 遍历目录收集本地音频（保留 file:// 前缀）；filenameFilter 返回 false 的文件跳过
+   * 遍历目录收集本地音频（保留 file:// 前缀）；fileFilter 返回 false 的文件跳过
    */
   private collectMusicStats(folderPaths: Array<string>, token: string,
-    filenameFilter?: (filename: string) => boolean): Array<string> {
+    fileFilter?: (filePath: string, filename: string) => boolean): Array<string> {
     const musicList: Array<string> = [];
     const queued: Set<string> = new Set();
     for (const p of folderPaths) {
@@ -400,7 +402,7 @@ export class LocalMusicSheet {
             folderPaths.push(child);
           }
         } else if (LocalMusicSheet.localMediaFilter(child) &&
-          (filenameFilter === undefined || filenameFilter(name))) {
+          (fileFilter === undefined || fileFilter(child, name))) {
           musicList.push(child);
         }
       }
@@ -440,9 +442,24 @@ export class LocalMusicSheet {
   }
 
   /**
-   * 导入本地音乐；filenameFilter 返回 false 的文件跳过（用于下载/本地两个域按文件名分流）
+   * 导入本地音乐；fileFilter 返回 false 的文件跳过（用于下载/本地两个域按路径/文件名分流）。
+   * 多入口（启动扫描/外部打开/页面刷新/导入）可能并发触发：串行排队执行，
+   * 等上一次导入完全结束（含 AVMetadataExtractor release）后才开始本次导入；
+   * 若用 token 立即作废旧导入，旧导入的 extractor 仍在飞行中，新旧实例短暂并发
+   * 会产生元数据串读（A 文件读到 B 文件的标题/封面）
    */
-  importLocal(_folderPaths: Array<string>, filenameFilter?: (filename: string) => boolean): Promise<void> {
+  importLocal(_folderPaths: Array<string>,
+    fileFilter?: (filePath: string, filename: string) => boolean): Promise<void> {
+    const task = (): Promise<void> => this.performImport(_folderPaths, fileFilter);
+    const next = this.importQueueTail.then(task, task);
+    // 队列尾巴吞掉异常：既不出未处理的 rejection，也不影响后续排队导入
+    this.importQueueTail = next.catch((_e: Object): void => {
+    });
+    return next;
+  }
+
+  private performImport(_folderPaths: Array<string>,
+    fileFilter?: (filePath: string, filename: string) => boolean): Promise<void> {
     const folderPaths: Array<string> = [];
     for (const it of _folderPaths) {
       folderPaths.push(FileUtils.addFileScheme(it));
@@ -454,7 +471,7 @@ export class LocalMusicSheet {
     // 先清理本地路径已失效的记录（文件被移动/外部删除后，旧记录与新路径记录
     // 会以相同标题并存形成假重复，扫描时即时清理与启动时 setup 同口径）
     this.pruneDeadRecords();
-    const musicList = this.collectMusicStats(folderPaths, token, filenameFilter);
+    const musicList = this.collectMusicStats(folderPaths, token, fileFilter);
     if (this.importToken !== token) {
       return Promise.reject(new Error('Import Broken'));
     }

@@ -61,6 +61,8 @@ export struct DownloadPage {
   @Local batchScope: string = '';
   /** 本地模式：正在导入/扫描 */
   @Local scanning: boolean = false;
+  /** 导入/扫描进行中的加载提示文案（顶部浮动加载条） */
+  @Local scanningText: string = '正在扫描...';
   /** 批量「添加到歌单」歌单选择半模态 */
   @Local showBatchSheetPicker: boolean = false;
   /** 批量换源进行中（下载失败任务） */
@@ -407,6 +409,7 @@ export struct DownloadPage {
   /** 将选中的音频文件复制到下载目录，完成后自动导入（下载目录内已有的文件保留原子目录位置，不移动） */
   private copyUrisToDownloadDir(uris: Array<string>): void {
     this.scanning = true;
+    this.scanningText = '正在导入音频...';
     this.showToast('正在导入 ' + uris.length.toString() + ' 个文件...');
     // downloadPath 可能无结尾斜杠（公共目录），先补齐再拼接，避免目录名黏连
     const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
@@ -427,7 +430,7 @@ export struct DownloadPage {
         }
         // 文件已在下载目录内（含子目录）：保留原位置不复制，仅清除排除并交给扫描入库
         if (normalized.startsWith(base) && normalized.length > base.length) {
-          LocalMusicExclusion.clearExclusion(name);
+          LocalMusicExclusion.clearExclusion(normalized);
           inplace++;
           continue;
         }
@@ -436,7 +439,7 @@ export struct DownloadPage {
         if (FileUtils.exists(dest)) {
           dup++;
           // 已存在的文件也清除排除名单，保证随后的扫描能重新入库
-          LocalMusicExclusion.clearExclusion(destName);
+          LocalMusicExclusion.clearExclusion(dest);
           continue;
         }
         src = fs.openSync(uri, fs.OpenMode.READ_ONLY);
@@ -444,7 +447,7 @@ export struct DownloadPage {
         try {
           fs.copyFileSync(src.fd, destFile.fd);
           ok++;
-          LocalMusicExclusion.clearExclusion(destName);
+          LocalMusicExclusion.clearExclusion(dest);
         } finally {
           fs.closeSync(destFile);
         }
@@ -456,7 +459,6 @@ export struct DownloadPage {
         }
       }
     }
-    this.scanning = false;
     let summary: string;
     if (ok > 0 || inplace > 0) {
       summary = inplace > 0 ? '已导入 ' + inplace.toString() + ' 个' : '已复制 ' + ok.toString() + ' 个文件';
@@ -473,10 +475,39 @@ export struct DownloadPage {
       summary = dup > 0 ? '文件已存在，直接扫描入库' : '导入失败';
     }
     this.showToast(summary);
-    // 复制/已存在/目录内的文件统一重新扫描入库
+    // 复制/已存在/目录内的文件统一重新扫描入库；
+    // scanning 保持 true 直到扫描结束，遮罩连续显示不闪断
     if (ok > 0 || dup > 0 || inplace > 0) {
-      this.rescanDownloadDir();
+      this.runScan(DownloadPage.scanDirList(), '正在扫描下载目录...');
+    } else {
+      this.scanning = false;
     }
+  }
+
+  /** 下载目录 + 沙箱遗留目录 */
+  private static scanDirList(): Array<string> {
+    const dirs: Array<string> = [PathConst.downloadPath];
+    const legacyDir = PathConst.basePath + '/download/';
+    if (dirs.indexOf(legacyDir) === -1) {
+      dirs.push(legacyDir);
+    }
+    return dirs;
+  }
+
+  /** 执行扫描导入（scanning 已为 true；完成/失败后置 false）。排除名单按路径匹配，历史文件名条目兜底 */
+  private runScan(dirs: Array<string>, text: string): void {
+    this.scanningText = text;
+    const before = this.activeSheet.getMusicList().length;
+    const excluded = LocalMusicExclusion.getExcludedFiles();
+    localMusicSheet.importLocal(dirs, (filePath: string, _filename: string): boolean =>
+      !LocalMusicExclusion.isExcluded(excluded, filePath)).then((): void => {
+      this.scanning = false;
+      const added = this.activeSheet.getMusicList().length - before;
+      this.showToast(added > 0 ? '扫描完成，新增 ' + added.toString() + ' 首' : '扫描完成，没有发现新音频');
+    }).catch((_e: Object): void => {
+      this.scanning = false;
+      this.showToast('扫描失败');
+    });
   }
 
   /** 重新扫描下载目录（含沙箱遗留目录），导入漏掉的音频文件；跳过排除名单中的文件 */
@@ -486,21 +517,23 @@ export struct DownloadPage {
       return;
     }
     this.scanning = true;
-    const before = this.activeSheet.getMusicList().length;
-    const dirs: Array<string> = [PathConst.downloadPath];
-    const legacyDir = PathConst.basePath + '/download/';
-    if (dirs.indexOf(legacyDir) === -1) {
-      dirs.push(legacyDir);
+    this.runScan(DownloadPage.scanDirList(), '正在扫描下载目录...');
+  }
+
+  /** 扫描指定子文件夹（标签长按菜单）：导入该文件夹（含嵌套子目录）内的音频到本地音乐列表 */
+  private scanFolder(tag: string): void {
+    if (this.scanning) {
+      this.showToast('正在扫描中，请稍候');
+      return;
     }
-    const excluded = LocalMusicExclusion.getExcludedFiles();
-    localMusicSheet.importLocal(dirs, (filename: string): boolean => !excluded.has(filename)).then((): void => {
-      this.scanning = false;
-      const added = this.activeSheet.getMusicList().length - before;
-      this.showToast(added > 0 ? '扫描完成，新增 ' + added.toString() + ' 首' : '扫描完成，没有发现新音频');
-    }).catch((_e: Object): void => {
-      this.scanning = false;
-      this.showToast('扫描失败');
-    });
+    const base = PathConst.downloadPath.endsWith('/') ? PathConst.downloadPath : PathConst.downloadPath + '/';
+    const dir = base + tag;
+    if (!FileUtils.isDirectory(dir)) {
+      this.showToast('文件夹不存在');
+      return;
+    }
+    this.scanning = true;
+    this.runScan([dir], '正在扫描「' + tag + '」...');
   }
 
   private static taskPercent(task: DownloadTaskInfo): number {
@@ -1082,10 +1115,17 @@ export struct DownloadPage {
     this.refreshDownloaded();
   }
 
-  /** 标签长按/右键菜单：编辑（重命名文件夹）/ 删除（歌曲移回根目录后删空文件夹） */
+  /** 标签长按/右键菜单：扫描文件夹 / 编辑（重命名文件夹）/ 删除（歌曲移回根目录后删空文件夹） */
   @Builder
   TagContextMenuBuilder(tag: string) {
     Menu() {
+      MenuItem({
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.magnifyingglass')),
+        content: '扫描文件夹'
+      })
+        .onClick(() => {
+          this.scanFolder(tag);
+        })
       MenuItem({
         symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.square_and_pencil')),
         content: '编辑'
@@ -1946,6 +1986,28 @@ export struct DownloadPage {
           appState.isForegroundBlur = true
         }
       })
+
+        // 扫描/导入进行中：全屏半透明遮罩覆盖列表并阻断触摸，
+        // 防止扫描期间误操作列表（导入本地音频/刷新/扫描文件夹共用）
+        if (this.isLocalMode && this.scanning) {
+          Column({ space: 12 }) {
+            LoadingProgress()
+              .width(32)
+              .height(32)
+              .color(appState.accentColor)
+            Text(this.scanningText)
+              .fontSize(14)
+              .fontColor(Color.White)
+              .maxLines(1)
+          }
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .backgroundColor('#66000000')
+          .hitTestBehavior(HitTestMode.Block)
+          .transition(TransitionEffect.OPACITY)
+        }
 
         // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
         // 第一行 全选 / 收藏 / 添加到歌单 / 搜索歌词（本地模式追加 搜索封面）；

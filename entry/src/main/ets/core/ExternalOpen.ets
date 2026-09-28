@@ -271,7 +271,7 @@ export class ExternalOpen {
       PathConst.downloadPath.substring(0, PathConst.downloadPath.length - 1) : PathConst.downloadPath;
     // 文件已在下载目录内：原位置直接播放（仅清除排除名单）
     if (normalized.startsWith(base + '/') && normalized.length > base.length + 1) {
-      LocalMusicExclusion.clearExclusion(name);
+      LocalMusicExclusion.clearExclusion(normalized);
       await ExternalOpen.playLocalFile(normalized);
       return;
     }
@@ -292,11 +292,12 @@ export class ExternalOpen {
         return;
       }
     }
-    LocalMusicExclusion.clearExclusion(destName);
+    LocalMusicExclusion.clearExclusion(dest);
     await ExternalOpen.playLocalFile(dest);
     // 后台重新扫描下载目录补全元数据/封面并入库（与正在播放条目按 platform@id 去重合并）
-    localMusicSheet.importLocal([PathConst.downloadPath], (filename: string): boolean => {
-      return !LocalMusicExclusion.getExcludedFiles().has(filename);
+    const excluded = LocalMusicExclusion.getExcludedFiles();
+    localMusicSheet.importLocal([PathConst.downloadPath], (filePath: string, _filename: string): boolean => {
+      return !LocalMusicExclusion.isExcluded(excluded, filePath);
     }).catch((_e: Object): void => {
     });
   }
