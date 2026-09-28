@@ -359,7 +359,7 @@ export struct AboutPage {
           {
             icon: $r('sys.symbol.list_bullet'),
             title: '更新日志',
-            trailing: 'v' + AppMeta.appVersion,
+            trailing: undefined,
             showChevron: true,
             action: (): void => {
               this.showChangelog = true;
@@ -575,8 +575,12 @@ export struct AboutPage {
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
           backgroundColor: $r('sys.color.background_secondary'),
+          onWillAppear: () => {
+           appState.isForegroundBlur = true
+          },
           onWillDisappear: () => {
             this.showChangelog = false;
+            appState.isForegroundBlur = false
           }
         })
       }

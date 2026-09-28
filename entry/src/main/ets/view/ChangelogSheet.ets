@@ -78,7 +78,7 @@ export struct ChangelogSheet {
                 MarkdownView({ markdown: entry.markdown })
               }.padding({ left: 16, right: 16, top: 4, bottom: 12 })
               .geometryTransition('update', { follow: true })
-              .transition(TransitionEffect.scale({ y: 0 }))
+              .transition(TransitionEffect.OPACITY.animation({duration: 200}))
             }
           }
           .backgroundColor($r('sys.color.comp_background_list_card'))

@@ -200,8 +200,12 @@ struct Index {
       dragBar: true,
       backgroundColor: $r('sys.color.background_secondary'),
       onWillDisappear: () => {
+        appState.isForegroundBlur = false
         this.showChangelogSheet = false;
-      }
+      },
+      onWillAppear: () => {
+        appState.isForegroundBlur = true
+      },
     })
   }
 

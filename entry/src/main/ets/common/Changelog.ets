@@ -12,6 +12,17 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v240: ChangelogEntry = new ChangelogEntry();
+  v240.version = '2.4.0';
+  v240.date = '2026-09-29';
+  v240.markdown = '- 本地音乐扫描改为「先预检、确认后导入」：扫描 / 刷新文件夹先统计新增与已移出的文件，确认后一次性导入，启动时不再自动扫描\n' +
+    '- 扫描确认弹窗支持一并恢复此前「移出本地音乐」的文件\n' +
+    '- 扫描 / 导入全程显示全屏加载遮罩；导入与元数据提取全程串行化，修复多文件同时导入导致的标题 / 歌手 / 封面串读\n' +
+    '- 修复封面缓存污染：导入时强制刷新内嵌封面，本地记录的异常封面自动修复\n' +
+    '- 「搜索歌词」新增歌词音源选择弹窗（首位为「自动」，按原逻辑跨插件匹配）；插件不支持歌词类型搜索时自动回退音乐搜索，解决部分带歌词的插件搜不到的问题\n' +
+    '- 歌词「更多」面板新增「下载歌词」：歌词保存为音频同目录同名 .lrc 文件并立即生效，本地音乐下次扫描导入时自动匹配';
+  list.push(v240);
+
   const v230: ChangelogEntry = new ChangelogEntry();
   v230.version = '2.3.0';
   v230.date = '2026-09-28';
