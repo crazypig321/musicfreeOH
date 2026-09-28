@@ -16,7 +16,7 @@ import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAni
 import { PcMainLayout } from './pcUI/PcMainLayout';
 import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';
-  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent } from '../utils/DialogUtils';
+  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent, LyricSourceDialogContent } from '../utils/DialogUtils';
 import { ContextHolder } from '../common/ContextHolder';
 import { AppMeta } from '../core/AppMeta';
 import { appConfig } from '../core/AppConfig';
@@ -339,6 +339,8 @@ struct Index {
       ChangeSourceDialogContent()
     } else if (key === '选择封面') {
       CoverPickDialogContent()
+    } else if (key === '选择歌词音源') {
+      LyricSourceDialogContent()
     } else if (key === '免责声明') {
       DisclaimerDialogContent()
     } else if (key === '设置缓存') {

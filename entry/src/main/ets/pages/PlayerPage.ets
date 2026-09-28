@@ -17,7 +17,8 @@ import { lyricManager, LyricState } from '../core/LyricManager';
 import { floatLyricManager } from '../core/FloatLyricManager';
 import { mediaSession } from '../core/MediaSession';
 import { ParsedLrcItem, LyricWord } from '../utils/LyricParser';
-import { MediaUtils } from '../utils/MediaUtils';
+  import { MediaUtils } from '../utils/MediaUtils';
+  import { FileUtils } from '../utils/FileUtils';
 import { CoverSearch } from '../utils/CoverSearch';
 import { MediaExtra } from '../core/MediaExtra';
 import { appState } from '../entryability/AppState';
@@ -28,7 +29,8 @@ import { pluginManager } from '../plugin/PluginManager';
 import { downloader } from '../core/Downloader';
 import { appConfig, ConfigKeys } from '../core/AppConfig';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
-import { DialogManager } from '../utils/DialogUtils';
+  import { DialogManager } from '../utils/DialogUtils';
+  import { LyricSearch } from '../utils/LyricSearch';
 import { LyricView } from '../view/LyricView';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 
@@ -278,6 +280,9 @@ export struct PlayerPage {
   /** 歌词「更多」面板行列表 */
   private lyricMoreItems(): Array<LyricAction> {
     const items: Array<LyricAction> = [];
+    items.push(new LyricAction($r('sys.symbol.square_and_arrow_down'), '下载歌词', (): void => {
+      this.downloadLyric();
+    }));
     items.push(new LyricAction($r('sys.symbol.doc_filled_on_doc'), '复制歌词', (): void => {
       this.copyLyric();
     }));
@@ -338,27 +343,33 @@ export struct PlayerPage {
     this.showToast(this.showTranslation ? '已显示翻译' : '已隐藏翻译');
   }
 
-  /** 搜索歌词：重新拉取当前歌曲歌词并刷新展示 */
+  /** 搜索歌词：弹窗选择歌词音源插件，从该插件匹配歌词并刷新展示 */
   private searchLyricForCurrent(): void {
     const current = this.currentMusic;
     if (current === null) {
       return;
     }
-    const plugin = pluginManager.getByMedia(current);
-    if (plugin === null) {
+    const plugins = LyricSearch.lyricSourcePlugins();
+    if (plugins.length === 0) {
       this.showToast('无可用插件');
       return;
     }
-    this.showToast('正在搜索歌词…');
-    plugin.methods.getLyric(current).then((lyric: LyricSource | null): void => {
-      if (lyric !== null && !lyric.isEmpty()) {
-        lyricManager.reloadLyric();
-        this.showToast('歌词已更新');
-      } else {
-        this.showToast('未找到歌词');
-      }
-    }).catch((_e: Object): void => {
-      this.showToast('歌词获取失败');
+    const names: Array<string> = [LyricSearch.AUTO_SOURCE];
+    for (const p of plugins) {
+      names.push(p.name);
+    }
+    DialogManager.SelectLyricSource(current, names, (pluginName: string): void => {
+      this.showToast('正在搜索歌词…');
+      LyricSearch.searchLyric(current, pluginName).then((lyric: LyricSource | null): void => {
+        if (lyric !== null && !lyric.isEmpty()) {
+          lyricManager.reloadLyric();
+          this.showToast('歌词已更新');
+        } else {
+          this.showToast('未找到歌词');
+        }
+      }).catch((_e: Object): void => {
+        this.showToast('歌词获取失败');
+      });
     });
   }
 
@@ -375,6 +386,35 @@ export struct PlayerPage {
     }).catch((_e: Object): void => {
       this.showToast('复制失败');
     });
+  }
+
+  /** 下载歌词：把当前歌词保存为音频同目录同名 .lrc 文件（sidecar），并清除关联歌词使其立即生效；
+   *  本地音乐下次扫描导入同一音频文件时会自动匹配该歌词文件 */
+  private downloadLyric(): void {
+    const current = this.currentMusic;
+    if (current === null) {
+      return;
+    }
+    const localPath = MediaUtils.getLocalPath(current);
+    if (localPath === null || localPath.length === 0 || localPath.startsWith('content://')) {
+      this.showToast('仅支持本地/已下载歌曲');
+      return;
+    }
+    const raw = this.lyricRawLrc;
+    if (raw.length === 0) {
+      this.showToast('暂无歌词');
+      return;
+    }
+    const lastDot = localPath.lastIndexOf('.');
+    const lrcPath = lastDot === -1 ? localPath + '.lrc' : localPath.substring(0, lastDot) + '.lrc';
+    if (!FileUtils.writeFileText(lrcPath, raw)) {
+      this.showToast('歌词下载失败');
+      return;
+    }
+    // 清除跨插件关联歌词，让本地歌词文件优先生效
+    MediaExtra.removeMediaExtraProperty(current, 'associatedLrc');
+    lyricManager.reloadLyric();
+    this.showToast('歌词已下载');
   }
 
   /** 打开编辑歌词面板（预填当前歌词原文） */

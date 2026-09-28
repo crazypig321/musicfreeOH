@@ -440,6 +440,48 @@ export struct TextPickerDialogContent {
 }
 
 
+/** 「选择歌词音源」弹窗内容：Select 下拉选择音源插件 */
+@ComponentV2
+export struct LyricSourceDialogContent {
+  @Local options: Array<SelectOption> = [];
+  @Local selectedIndex: number = 0;
+  @Local selectedName: string = '';
+
+  aboutToAppear(): void {
+    const opts: Array<SelectOption> = [];
+    for (const name of DialogManager.lyricSourceOptions) {
+      opts.push({ value: name });
+    }
+    this.options = opts;
+    this.selectedIndex = DialogManager.lyricSourceIndex;
+    this.selectedName = DialogManager.lyricSourceOptions[DialogManager.lyricSourceIndex] ?? '';
+  }
+
+  build() {
+    Column({ space: 12 }) {
+      Text('选择用于搜索歌词的音源插件')
+        .fontSize(13)
+        .fontColor($r('sys.color.font_secondary'))
+      Select(this.options)
+        .selected(this.selectedIndex)
+        .value(this.selectedName)
+        .font({ size: 15 })
+        .fontColor($r('sys.color.font_primary'))
+        .selectedOptionFont({ size: 16, weight: FontWeight.Medium })
+        .optionFont({ size: 15 })
+        .onSelect((index: number, _text?: string) => {
+          this.selectedIndex = index;
+          this.selectedName = DialogManager.lyricSourceOptions[index] ?? '';
+          DialogManager.lyricSourceIndex = index;
+        })
+        .width('100%')
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+}
+
+
 /** 「更换音源」弹窗内容：打开即并发搜索可用音源（加载动画），完成后显示插件选择列表 */
 @ComponentV2
 export struct ChangeSourceDialogContent {
@@ -719,6 +761,14 @@ export class DialogManager {
   public static simpleRenameMessage: string = '';
   /** 「转换简洁命名」确认回调（执行重命名耗时操作，完成后由回调自行关闭弹窗并提示） */
   public static simpleRenameConfirm: (() => void) | null = null;
+  /** 「选择歌词音源」目标歌曲（打开前赋值） */
+  public static lyricSourceItem: MusicItem | null = null;
+  /** 「选择歌词音源」候选插件名（打开前赋值） */
+  public static lyricSourceOptions: Array<string> = [];
+  /** 「选择歌词音源」选中下标（打开前赋初值，弹窗内 Select 更新） */
+  public static lyricSourceIndex: number = 0;
+  /** 「选择歌词音源」确认回调（pluginName 为选中的插件名，弹窗关闭后自动清空） */
+  public static lyricSourceConfirm: ((pluginName: string) => void) | null = null;
 
   /** 弹窗关闭回调（一次性，关闭后自动清空） */
   public static onDialogClosed: (() => void) | null = null;
@@ -793,6 +843,17 @@ export class DialogManager {
     DialogManager.OpenDialog('选择封面');
   }
 
+  /** 选择歌词音源弹窗：item 目标歌曲，pluginNames 候选插件名（首项通常为「自动」，默认选中），
+   *  onConfirm(pluginName) 点击「搜索」后才执行（取消/关闭不触发） */
+  public static SelectLyricSource(item: MusicItem, pluginNames: Array<string>,
+    onConfirm: (pluginName: string) => void): void {
+    DialogManager.lyricSourceItem = item;
+    DialogManager.lyricSourceOptions = pluginNames;
+    DialogManager.lyricSourceIndex = 0;
+    DialogManager.lyricSourceConfirm = onConfirm;
+    DialogManager.OpenDialog('选择歌词音源');
+  }
+
   /** 弹窗内轻提示 */
   public static Toast(message: string): void {
     if (DialogManager.toaster !== null) {
@@ -827,6 +888,8 @@ export class DialogManager {
         return '更换音源';
       case '选择封面':
         return '选择封面';
+      case '选择歌词音源':
+        return '选择歌词音源';
       case '设置缓存':
         return '设置缓存';
       case '清除缓存':
@@ -1078,6 +1141,27 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '选择歌词音源': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          fontColor: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '搜索',
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
       case '设置缓存': {
         const cancel: ButtonOptions = {
           value: '取消',
@@ -1246,6 +1330,13 @@ export class DialogManager {
           DialogManager.coverPickConfirm(DialogManager.coverPickIndex);
         }
         break;
+      case '选择歌词音源':
+        if (DialogManager.lyricSourceOptions.length > 0 && DialogManager.lyricSourceConfirm !== null) {
+          const idx = DialogManager.lyricSourceIndex;
+          DialogManager.lyricSourceConfirm(
+            idx >= 0 && idx < DialogManager.lyricSourceOptions.length ? DialogManager.lyricSourceOptions[idx] : '');
+        }
+        break;
       case '设置缓存':
         if (DialogManager.cacheInputConfirm !== null) {
           DialogManager.cacheInputConfirm(DialogManager.cacheInputValue);
@@ -1346,6 +1437,13 @@ export class DialogManager {
       DialogManager.coverPickCandidates = [];
       DialogManager.coverPickIndex = 0;
       DialogManager.coverPickConfirm = null;
+    }
+    // 选择歌词音源同理（取消或关闭弹窗不触发确认回调）
+    if (key === '选择歌词音源') {
+      DialogManager.lyricSourceItem = null;
+      DialogManager.lyricSourceOptions = [];
+      DialogManager.lyricSourceIndex = 0;
+      DialogManager.lyricSourceConfirm = null;
     }
     // 设置缓存同理
     if (key === '设置缓存') {

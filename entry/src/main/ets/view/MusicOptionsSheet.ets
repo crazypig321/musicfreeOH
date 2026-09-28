@@ -16,7 +16,9 @@ import { FileUtils } from '../utils/FileUtils';
 import { CoverSearch } from '../utils/CoverSearch';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
-import { DialogManager } from '../utils/DialogUtils';
+  import { DialogManager } from '../utils/DialogUtils';
+  import { LyricSearch } from '../utils/LyricSearch';
+  import { lyricManager } from '../core/LyricManager';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 
 /** 快捷操作按钮（横向） */
@@ -424,21 +426,32 @@ export struct MusicOptionsSheet {
     return '';
   }
 
+  /** 搜索歌词：弹窗选择歌词音源插件，从该插件匹配歌词；若目标正在播放则同步刷新歌词 */
   private searchLyric(): void {
     const target = this.optionsItem;
-    const plugin = pluginManager.getByMedia(target);
-    if (plugin === null) {
+    const plugins = LyricSearch.lyricSourcePlugins();
+    if (plugins.length === 0) {
       this.showToast('无可用插件');
       return;
     }
-    plugin.methods.getLyric(target).then((lyric: LyricSource | null): void => {
-      if (lyric !== null && !lyric.isEmpty()) {
-        this.showToast('歌词已缓存');
-      } else {
-        this.showToast('未找到歌词');
-      }
-    }).catch((_e: Object): void => {
-      this.showToast('歌词获取失败');
+    const names: Array<string> = [LyricSearch.AUTO_SOURCE];
+    for (const p of plugins) {
+      names.push(p.name);
+    }
+    DialogManager.SelectLyricSource(target, names, (pluginName: string): void => {
+      this.showToast('正在搜索歌词...');
+      LyricSearch.searchLyric(target, pluginName).then((lyric: LyricSource | null): void => {
+        if (lyric !== null && !lyric.isEmpty()) {
+          if (trackPlayer.isCurrentMusic(target)) {
+            lyricManager.reloadLyric();
+          }
+          this.showToast('歌词已缓存');
+        } else {
+          this.showToast('未找到歌词');
+        }
+      }).catch((_e: Object): void => {
+        this.showToast('歌词获取失败');
+      });
     });
   }
 
