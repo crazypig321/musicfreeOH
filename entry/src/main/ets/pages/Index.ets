@@ -18,6 +18,9 @@ import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';
   import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent } from '../utils/DialogUtils';
 import { ContextHolder } from '../common/ContextHolder';
+import { AppMeta } from '../core/AppMeta';
+import { appConfig } from '../core/AppConfig';
+import { ChangelogSheet } from '../view/ChangelogSheet';
 
 @Entry
 @ComponentV2
@@ -26,6 +29,8 @@ struct Index {
   private tabsController: HdsTabsController = new HdsTabsController();
   /** PC 侧边栏布局下的主页面容器（barHeight 0 仅保活页面） */
   private sideTabsController: TabsController = new TabsController();
+  /** 升级后首次冷启动自动弹出的更新日志半模态 */
+  @Local showChangelogSheet: boolean = false;
 
   aboutToAppear(): void {
     // 播放页覆盖层初始平移到屏幕外（此时 UIContext 尚未初始化，用 densityPixels 换算 vp）
@@ -58,6 +63,7 @@ struct Index {
     try {
       await Bootstrap.setup();
       appState.bootReady = true;
+      this.checkChangelogOnLaunch();
     } catch (e) {
       const message = e instanceof Error ? e.message : '未知错误';
       try {
@@ -66,6 +72,22 @@ struct Index {
         console.error('showToast failed: ' + (err instanceof Error ? err.message : String(err)));
       }
     }
+  }
+
+  /** 版本升级后首次冷启动弹出更新日志（首次安装仅记录版本不弹出；非升级冷启动不弹出） */
+  private checkChangelogOnLaunch(): void {
+    const lastShown = appConfig.getUpdateLastChangelogVersion();
+    if (lastShown === AppMeta.appVersion) {
+      return;
+    }
+    appConfig.setUpdateLastChangelogVersion(AppMeta.appVersion);
+    if (lastShown.length === 0) {
+      return;
+    }
+    // 延迟弹出，等待主页渲染完成
+    setTimeout(() => {
+      this.showChangelogSheet = true;
+    }, 600);
   }
 
   build() {
@@ -173,6 +195,19 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    .bindSheet(!!this.showChangelogSheet, this.ChangelogSheetBuilder(), {
+      detents: [SheetSize.LARGE],
+      dragBar: true,
+      backgroundColor: $r('sys.color.background_secondary'),
+      onWillDisappear: () => {
+        this.showChangelogSheet = false;
+      }
+    })
+  }
+
+  @Builder
+  ChangelogSheetBuilder() {
+    ChangelogSheet({ focusVersion: AppMeta.appVersion })
   }
 
   /** 返回键：展开态先收起播放页；批量操作先退出；tab 搜索框先收起；非主页 tab 回主页；主页弹退出确认 */

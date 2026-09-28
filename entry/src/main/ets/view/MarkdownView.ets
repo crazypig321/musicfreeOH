@@ -71,7 +71,11 @@ export struct MarkdownView {
               .width(3)
               .height('100%')
               .backgroundColor($r('sys.color.comp_divider'))
-            this.SpanText(b)
+            Column() {
+              this.SpanText(b)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
           }
           .width('100%')
           .alignItems(VerticalAlign.Top)
@@ -81,7 +85,11 @@ export struct MarkdownView {
             Text(b.type === 'li' ? '•' : b.prefix)
               .fontSize(14)
               .fontColor($r('sys.color.font_secondary'))
-            this.SpanText(b)
+            Column() {
+              this.SpanText(b)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
           }
           .width('100%')
           .alignItems(VerticalAlign.Top)

@@ -13,6 +13,7 @@ import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import { ContextHolder } from '../../common/ContextHolder';
 import { PathConst } from '../../common/PathConst';
 import { FileUtils } from '../../utils/FileUtils';
+import { ChangelogSheet } from '../../view/ChangelogSheet';
 
 /** 仓库地址常量 */
 const REPO_OH: string = 'https://github.com/crazypig321/musicfreeOH.git';
@@ -130,6 +131,8 @@ export struct AboutPage {
   @Local latestVersion: string = '';
   /** 下载新版本时优先走国内代理加速（关闭时直连优先，代理仅作失败回退） */
   @Local proxyDownload: boolean = appConfig.getUpdateProxyDownload();
+  /** 更新日志半模态 */
+  @Local showChangelog: boolean = false;
 
   aboutToAppear(): void {
     this.checkUpdate();
@@ -354,6 +357,15 @@ export struct AboutPage {
         title: '软件版本',
         rows: [
           {
+            icon: $r('sys.symbol.list_bullet'),
+            title: '更新日志',
+            trailing: 'v' + AppMeta.appVersion,
+            showChevron: true,
+            action: (): void => {
+              this.showChangelog = true;
+            }
+          },
+          {
             icon: $r('sys.symbol.download'),
             title: '检查更新',
             trailing: '当前 ' + AppMeta.appVersion,
@@ -559,8 +571,21 @@ export struct AboutPage {
           BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
           return { offsetRemain: offset }
         })
+        .bindSheet(!!this.showChangelog, this.ChangelogSheetBuilder(), {
+          detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+          dragBar: true,
+          backgroundColor: $r('sys.color.background_secondary'),
+          onWillDisappear: () => {
+            this.showChangelog = false;
+          }
+        })
       }
     }
+  }
+
+  @Builder
+  private ChangelogSheetBuilder() {
+    ChangelogSheet({ focusVersion: '' })
   }
 }
 

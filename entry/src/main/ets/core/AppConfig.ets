@@ -56,6 +56,7 @@ export class ConfigKeys {
   static readonly APPEARANCE_ORIENTATION = 'appearance.orientation';
   static readonly PLUGIN_SUBSCRIBE_URL = 'plugin.subscribeUrl';
   static readonly UPDATE_PROXY_DOWNLOAD = 'update.proxyDownload';
+  static readonly UPDATE_LAST_CHANGELOG_VERSION = 'update.lastChangelogVersion';
   static readonly WEBDAV_URL = 'webdav.url';
   static readonly WEBDAV_PATH = 'webdav.path';
   static readonly WEBDAV_USERNAME = 'webdav.username';
@@ -334,6 +335,15 @@ export class AppConfig {
 
   setUpdateProxyDownload(enabled: boolean): void {
     this.setConfig(ConfigKeys.UPDATE_PROXY_DOWNLOAD, enabled);
+  }
+
+  /** 更新日志已展示到的版本号（空 = 尚未记录，首次安装） */
+  getUpdateLastChangelogVersion(): string {
+    return this.getString(ConfigKeys.UPDATE_LAST_CHANGELOG_VERSION, '');
+  }
+
+  setUpdateLastChangelogVersion(version: string): void {
+    this.setConfig(ConfigKeys.UPDATE_LAST_CHANGELOG_VERSION, version);
   }
 
   /** 主题色（空串 = 跟随系统） */
