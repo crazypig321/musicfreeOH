@@ -1,5 +1,6 @@
 import fs from '@ohos.file.fs';
 import util from '@ohos.util';
+import { fileUri } from '@kit.CoreFileKit';
 import { Log } from './Log';
 
 /**
@@ -14,6 +15,26 @@ export class FileUtils {
       return path.substring('file://'.length);
     }
     return path;
+  }
+
+  /**
+   * 解析为真实文件系统路径：file://docs/... 等应用可见 URI（文件选择器/外部打开返回）
+   * 经 fileUri 转换；非 URI 或转换失败时回落 normalizePath。
+   * 仅剥 file:// 前缀会把 file://docs/storage/... 变成相对路径，
+   * 导致「文件已在下载目录内」的判断失效，产生重复复制
+   */
+  static resolveRealPath(pathOrUri: string): string {
+    if (pathOrUri.startsWith('file://')) {
+      try {
+        const p = new fileUri.FileUri(pathOrUri).path;
+        if (p.length > 0) {
+          return p;
+        }
+      } catch (e) {
+        // 转换失败回落 normalizePath
+      }
+    }
+    return FileUtils.normalizePath(pathOrUri);
   }
 
   /** 检查并创建目录（递归） */

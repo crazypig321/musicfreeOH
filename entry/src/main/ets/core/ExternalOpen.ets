@@ -259,7 +259,9 @@ export class ExternalOpen {
 
   /** 音频文件 → 复制到下载目录并立即播放（后台重新扫描补全元信息/封面） */
   private static async handleAudio(uri: string): Promise<void> {
-    const normalized = FileUtils.normalizePath(uri);
+    // 外部打开的 URI 为 file://docs/... 形式，须经 fileUri 解析为真实路径，
+    // 否则「已在下载目录内」判断失效，目录内（含子目录）文件被重复复制到根目录
+    const normalized = FileUtils.resolveRealPath(uri);
     const name = FileUtils.getFileName(normalized);
     if (name.length === 0) {
       ExternalOpen.toast('无法读取文件名');

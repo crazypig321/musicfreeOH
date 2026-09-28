@@ -451,48 +451,181 @@ export class LocalMusicSheet {
     this.importToken = token;
     // 自动匹配封面开关：关闭时跳过内嵌封面提取与网络封面回填（导入更快）
     const autoMatchCover = appConfig.getLocalMusicAutoMatchCover();
+    // 先清理本地路径已失效的记录（文件被移动/外部删除后，旧记录与新路径记录
+    // 会以相同标题并存形成假重复，扫描时即时清理与启动时 setup 同口径）
+    this.pruneDeadRecords();
     const musicList = this.collectMusicStats(folderPaths, token, filenameFilter);
     if (this.importToken !== token) {
       return Promise.reject(new Error('Import Broken'));
     }
-    // 分组读取元信息（每组 25 个，避免并发 fd 过多）
-    const groupNum = 25;
+    // 已入库且元信息已验证的文件跳过重新提取，重复扫描只遍历目录，速度接近瞬时；
+    // 新文件与未验证的本地记录（历史并发串读产生的脏数据）仍需逐个串行提取：
+    // AVMetadataExtractor 共享原生解析服务，并发多实例存在元数据串读
+    // （A 文件读到 B 文件的标题/封面），必须串行提取保证条目与实际文件对应
+    const knownByPath: Record<string, MusicItem> = {};
+    for (const it of this.localSheetItems) {
+      const lp = MediaUtils.getLocalPath(it);
+      if (lp !== null && lp.length > 0) {
+        knownByPath[FileUtils.normalizePath(lp)] = it;
+      }
+    }
     const metas: Array<MediaBasicMeta> = [];
-    const groups = Math.ceil(musicList.length / groupNum);
-    const collectMetas = (groupIndex: number): Promise<void> => {
-      if (groupIndex >= groups) {
+    /** 该文件是否真实执行了元信息提取（false = 已入库跳过，meta 为空占位） */
+    const extractedFlags: Array<boolean> = [];
+    const needMeta = (index: number): boolean => {
+      const existing = knownByPath[FileUtils.normalizePath(musicList[index])];
+      if (existing === undefined) {
+        return true;
+      }
+      // 本地记录未经修复后的流程验证过：需提取一次以刷新可能串读脏数据
+      if (existing.platform === LOCAL_PLUGIN_PLATFORM && !LocalMusicSheet.metaVerified(existing)) {
+        return true;
+      }
+      // 封面缺失/失效且开启自动匹配：需提取内嵌封面回填
+      if (autoMatchCover &&
+        (existing.artwork.length === 0 || LocalMusicSheet.isDeadFileArtwork(existing.artwork))) {
+        return true;
+      }
+      return false;
+    };
+    const collectMetas = (index: number): Promise<void> => {
+      if (index >= musicList.length) {
         if (this.importToken !== token) {
           return Promise.reject(new Error('Import Broken'));
         }
         return Promise.resolve();
       }
-      const chunk: Array<string> = musicList.slice(groupIndex * groupNum, (groupIndex + 1) * groupNum);
-      const tasks: Array<Promise<MediaBasicMeta>> = [];
-      for (const p of chunk) {
-        tasks.push(MediaMetadata.getBasicMeta(FileUtils.normalizePath(p), autoMatchCover));
+      if (this.importToken !== token) {
+        return Promise.reject(new Error('Import Broken'));
       }
-      return Promise.all(tasks).then((chunkMetas: Array<MediaBasicMeta>) => {
-        for (const m of chunkMetas) {
-          metas.push(m);
-        }
-        return collectMetas(groupIndex + 1);
-      });
+      const onMeta = (m: MediaBasicMeta, extracted: boolean): Promise<void> => {
+        metas.push(m);
+        extractedFlags.push(extracted);
+        return collectMetas(index + 1);
+      };
+      if (!needMeta(index)) {
+        return onMeta(new MediaBasicMeta(), false);
+      }
+      return MediaMetadata.getBasicMeta(FileUtils.normalizePath(musicList[index]), autoMatchCover)
+        .then((m: MediaBasicMeta): Promise<void> => onMeta(m, true));
     };
-    return collectMetas(0).then((): Promise<Array<MusicItem>> => {
+    return collectMetas(0).then((): Promise<void> => {
       if (this.importToken !== token) {
         throw new Error('Import Broken');
       }
+      // 修复历史脏数据：本地记录用重新提取的真实标签刷新标题/歌手/专辑/时长
+      const healed = this.healLocalRecords(knownByPath, musicList, metas, extractedFlags);
+      // 仅新文件与重新提取过元信息的文件需要构建条目入库；
+      // 已入库且无需提取的文件直接跳过，避免无谓的 md5/封面回查
       const buildTasks: Array<Promise<MusicItem>> = [];
       for (let index = 0; index < musicList.length; ++index) {
-        buildTasks.push(LocalMusicSheet.buildMusicItem(musicList[index], metas[index], autoMatchCover));
+        if (extractedFlags[index] ||
+          knownByPath[FileUtils.normalizePath(musicList[index])] === undefined) {
+          buildTasks.push(LocalMusicSheet.buildMusicItem(musicList[index], metas[index], autoMatchCover));
+        }
       }
-      return Promise.all(buildTasks);
-    }).then((musicItems: Array<MusicItem>) => {
-      if (this.importToken !== token) {
-        throw new Error('Import Broken');
-      }
-      this.addMusic(musicItems);
+      return Promise.all(buildTasks).then((musicItems: Array<MusicItem>): Promise<void> => {
+        if (this.importToken !== token) {
+          throw new Error('Import Broken');
+        }
+        return this.addMusic(musicItems).then((): void => {
+          // addMusic 未变更时，修复的历史记录需单独落盘并通知刷新
+          if (healed) {
+            this.saveLocalSheet();
+            this.notify();
+          }
+        });
+      });
     });
+  }
+
+  /** 清理本地路径已失效的记录（content:// 等外部 URI 不清理） */
+  private pruneDeadRecords(): void {
+    if (this.localSheetItems.length === 0) {
+      return;
+    }
+    const kept: Array<MusicItem> = [];
+    let changed = false;
+    for (const it of this.localSheetItems) {
+      const lp = MediaUtils.getLocalPath(it);
+      if (lp !== null && lp.length > 0 && !lp.startsWith('content://') && !FileUtils.exists(lp)) {
+        changed = true;
+        continue;
+      }
+      kept.push(it);
+    }
+    if (changed) {
+      this.saveItems(kept);
+      this.localSheetItems = kept;
+      this.notify();
+    }
+  }
+
+  /**
+   * 用重新提取的真实标签刷新本地平台记录（修复历史并发串读持久化的脏数据：
+   * 条目标题/歌手与实际文件不符、列表出现假重复歌名）；返回是否有修改。
+   * 仅刷新本地平台记录（platform@id 记录的标题来自在线元数据，不覆盖）；
+   * 标签为空的字段保持原值，标题为空时回退文件名（与入库规则一致）
+   */
+  private healLocalRecords(knownByPath: Record<string, MusicItem>, musicList: Array<string>,
+    metas: Array<MediaBasicMeta>, extractedFlags: Array<boolean>): boolean {
+    let changed = false;
+    for (let index = 0; index < musicList.length; ++index) {
+      if (!extractedFlags[index]) {
+        continue;
+      }
+      const existing = knownByPath[FileUtils.normalizePath(musicList[index])];
+      if (existing === undefined || existing.platform !== LOCAL_PLUGIN_PLATFORM) {
+        continue;
+      }
+      const meta = metas[index];
+      if (meta.title.length > 0) {
+        if (existing.title !== meta.title) {
+          existing.title = meta.title;
+          changed = true;
+        }
+      } else {
+        // 无标签：标题按入库规则回退为文件名（去扩展名）
+        const fallbackTitle = FileUtils.getFileName(musicList[index], true);
+        if (existing.title !== fallbackTitle) {
+          existing.title = fallbackTitle;
+          changed = true;
+        }
+      }
+      if (meta.artist.length > 0 && existing.artist !== meta.artist) {
+        existing.artist = meta.artist;
+        changed = true;
+      }
+      if (meta.album.length > 0 && existing.album !== meta.album) {
+        existing.album = meta.album;
+        changed = true;
+      }
+      if (meta.durationMs > 0 && Math.abs(existing.duration - meta.durationMs / 1000) > 1) {
+        existing.duration = meta.durationMs / 1000;
+        changed = true;
+      }
+      if (!LocalMusicSheet.metaVerified(existing)) {
+        LocalMusicSheet.markMetaVerified(existing);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /** 记录是否已经过修复后提取流程的元信息验证 */
+  private static metaVerified(item: MusicItem): boolean {
+    const rec = JsonUtil.objToRecord(item.extras[INTERNAL_SERIALIZE_KEY]);
+    return rec !== null && JsonUtil.recNum(rec, 'metaVerified') === 1;
+  }
+
+  /** 标记记录元信息已验证（后续扫描跳过重新提取） */
+  private static markMetaVerified(item: MusicItem): void {
+    const extras = JsonUtil.cloneRecord(item.extras);
+    const rec = JsonUtil.objToRecord(extras[INTERNAL_SERIALIZE_KEY]);
+    const target: JsonRecord = rec === null ? {} : rec;
+    target['metaVerified'] = 1;
+    extras[INTERNAL_SERIALIZE_KEY] = target;
+    item.extras = extras;
   }
 
   private static buildMusicItem(musicPath: string, meta: MediaBasicMeta,
@@ -524,7 +657,7 @@ export class LocalMusicSheet {
     const item = new MusicItem();
     item.id = id;
     item.platform = platform;
-    item.title = parsedTitle.length > 0 ? parsedTitle : (meta.title.length > 0 ? meta.title : FileUtils.getFileName(musicPath));
+    item.title = parsedTitle.length > 0 ? parsedTitle : (meta.title.length > 0 ? meta.title : FileUtils.getFileName(musicPath, true));
     item.artist = parsedArtist.length > 0 ? parsedArtist : (meta.artist.length > 0 ? meta.artist : '未知歌手');
     item.album = meta.album.length > 0 ? meta.album : '未知专辑';
     item.duration = meta.durationMs / 1000;
@@ -544,6 +677,8 @@ export class LocalMusicSheet {
     item.artwork = artwork;
     const extraRec: JsonRecord = {
       'localPath': musicPath,
+      // 元信息已经过串行提取流程验证（历史并发串读脏数据修复标记）
+      'metaVerified': 1,
     };
     item.extras[INTERNAL_SERIALIZE_KEY] = extraRec;
     return item;

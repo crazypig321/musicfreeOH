@@ -417,7 +417,9 @@ export struct DownloadPage {
     for (const uri of uris) {
       let src: fs.File | null = null;
       try {
-        const normalized = FileUtils.normalizePath(uri);
+        // 选择器返回 file://docs/... URI，须经 fileUri 解析为真实路径，
+        // 否则「已在下载目录内（含子目录）」判断失效，子目录文件被重复复制到根目录
+        const normalized = FileUtils.resolveRealPath(uri);
         const name = FileUtils.getFileName(normalized);
         if (name.length === 0) {
           fail++;

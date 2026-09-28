@@ -64,8 +64,12 @@ export class MediaMetadata {
       Log.warn('读取媒体元信息失败: ' + path);
     } finally {
       if (extractor !== null) {
-        extractor.release().catch(() => {
-        });
+        // 等待原生解析器完全释放后再关闭 fd，避免释放中的实例继续读已关闭的 fd
+        try {
+          await extractor.release();
+        } catch (e) {
+          // 释放失败不影响结果返回
+        }
       }
       if (file !== null) {
         try {
