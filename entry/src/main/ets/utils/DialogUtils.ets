@@ -337,6 +337,18 @@ export struct ConfirmDeleteDialogContent {
 }
 
 
+/** 「确认导入」弹窗内容：确认文案 */
+@ComponentV2
+export struct ConfirmImportDialogContent {
+  build() {
+    Text(DialogManager.confirmImportMessage)
+      .fontSize(14)
+      .fontColor($r('sys.color.font_primary'))
+      .width('100%')
+  }
+}
+
+
 /** 「发现新版本」弹窗内容：确认文案 */
 @ComponentV2
 export struct UpdateAvailableDialogContent {
@@ -695,6 +707,10 @@ export class DialogManager {
   public static confirmDeleteMessage: string = '';
   /** 「确认删除」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
   public static confirmDeleteConfirm: (() => void) | null = null;
+  /** 「确认导入」正文（打开前由调用方赋值） */
+  public static confirmImportMessage: string = '';
+  /** 「确认导入」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
+  public static confirmImportConfirm: (() => void) | null = null;
   /** 「发现新版本」正文（打开前由调用方赋值） */
   public static updateAvailableMessage: string = '';
   /** 「发现新版本」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
@@ -741,6 +757,13 @@ export class DialogManager {
     DialogManager.confirmDeleteMessage = message;
     DialogManager.confirmDeleteConfirm = onConfirm;
     DialogManager.OpenDialog('确认删除');
+  }
+
+  /** 通用导入确认弹窗：message 提示文案，onConfirm 点击「导入」后才执行（取消不执行） */
+  public static ConfirmImport(message: string, onConfirm: () => void): void {
+    DialogManager.confirmImportMessage = message;
+    DialogManager.confirmImportConfirm = onConfirm;
+    DialogManager.OpenDialog('确认导入');
   }
 
   /** 版本更新确认弹窗：message 提示文案，onConfirm 点击「下载」后才执行（取消不执行） */
@@ -808,6 +831,8 @@ export class DialogManager {
         return '设置缓存';
       case '清除缓存':
         return '清除缓存';
+      case '确认导入':
+        return '导入歌单';
       case '确认删除':
         return '删除';
       case '发现新版本':
@@ -1116,6 +1141,27 @@ export class DialogManager {
         buttons.push(cancel, confirm);
         break;
       }
+      case '确认导入': {
+        const cancel: ButtonOptions = {
+          value: '取消',
+          fontColor: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.CancelButtonDialog(key);
+          }
+        };
+        const confirm: ButtonOptions = {
+          value: '导入',
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            DialogManager.ConfirmButtonDialog(key);
+          }
+        };
+        buttons.push(cancel, confirm);
+        break;
+      }
       case '发现新版本': {
         const cancel: ButtonOptions = {
           value: '取消',
@@ -1208,6 +1254,11 @@ export class DialogManager {
       case '清除缓存':
         if (DialogManager.clearCacheConfirm !== null) {
           DialogManager.clearCacheConfirm();
+        }
+        break;
+      case '确认导入':
+        if (DialogManager.confirmImportConfirm !== null) {
+          DialogManager.confirmImportConfirm();
         }
         break;
       case '确认删除':
@@ -1306,6 +1357,11 @@ export class DialogManager {
     if (key === '清除缓存') {
       DialogManager.clearCacheMessage = '';
       DialogManager.clearCacheConfirm = null;
+    }
+    // 确认导入同理（取消或关闭弹窗不触发导入）
+    if (key === '确认导入') {
+      DialogManager.confirmImportMessage = '';
+      DialogManager.confirmImportConfirm = null;
     }
     // 确认删除同理（取消或关闭弹窗不触发删除）
     if (key === '确认删除') {

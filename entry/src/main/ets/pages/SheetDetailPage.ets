@@ -19,7 +19,6 @@ import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
 import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortUtil } from '../view/MusicSortMenu';
@@ -429,26 +428,44 @@ export struct SheetDetailPage {
 
   // ---------- 导入我的歌单 ----------
 
-  /** 导入我的歌单：已加载歌曲立即入册，未加载完时逐页补齐后整体导入（保留原名称与简介） */
-  private importToMySheets(): void {
+  /** 导入前校验：不满足条件时轻提示并返回 false */
+  private checkImportReady(): boolean {
     if (this.importing) {
       this.showToast('正在导入，请稍候');
-      return;
+      return false;
     }
     if (this.bgLoadingAll || this.loading || this.loadingMore) {
       this.showToast('正在加载，请稍候');
-      return;
+      return false;
     }
     if (this.isLocalSheet) {
       this.showToast('本地歌单无需导入');
-      return;
+      return false;
     }
     if (this.plugin === null || this.sheet === null) {
       this.showToast('导入失败');
-      return;
+      return false;
     }
     if (this.musicCount === 0) {
       this.showToast(this.loading ? '加载中，请稍候' : '暂无歌曲');
+      return false;
+    }
+    return true;
+  }
+
+  /** 一键导入：先弹窗确认，点「导入」后才执行 */
+  private confirmImportToMySheets(): void {
+    if (!this.checkImportReady()) {
+      return;
+    }
+    DialogManager.ConfirmImport('确定将「' + this.sheetTitle + '」的全部歌曲导入我的歌单吗？', (): void => {
+      this.importToMySheets();
+    });
+  }
+
+  /** 导入我的歌单：已加载歌曲立即入册，未加载完时逐页补齐后整体导入（保留原名称与简介） */
+  private importToMySheets(): void {
+    if (!this.checkImportReady()) {
       return;
     }
     this.importing = true;
@@ -1140,7 +1157,7 @@ export struct SheetDetailPage {
         this.playAll();
       },
       onImport: (): void => {
-        this.importToMySheets();
+        this.confirmImportToMySheets();
       },
       onBatchMode: (): void => {
         this.enterBatchMode();
