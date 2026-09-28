@@ -20,8 +20,24 @@ export class MediaBasicMeta {
 }
 
 export class MediaMetadata {
-  /** 读取本地音频的基础元信息（失败返回空 meta）；withArtwork=false 时跳过内嵌封面提取 */
-  static async getBasicMeta(path: string, withArtwork: boolean = true): Promise<MediaBasicMeta> {
+  /** 全局串行队列尾巴：AVMetadataExtractor 共享原生解析服务，并发多实例会元数据串读
+   * （A 文件读到 B 文件的标题/封面）。所有调用方（扫描导入/本地插件导入等）
+   * 统一在此排队，保证全应用同一时刻至多一个 extractor 实例在运行 */
+  private static queueTail: Promise<void> = Promise.resolve();
+
+  /** 读取本地音频的基础元信息（失败返回空 meta）；withArtwork=false 时跳过内嵌封面提取。
+   * 内部经全局队列串行执行，调用方可安全并发调用 */
+  static getBasicMeta(path: string, withArtwork: boolean = true): Promise<MediaBasicMeta> {
+    const task = (): Promise<MediaBasicMeta> => MediaMetadata.extractBasicMeta(path, withArtwork);
+    const next = MediaMetadata.queueTail.then(task, task);
+    // 队列尾巴吞掉结果与异常：不出未处理的 rejection，也不阻塞后续排队提取
+    MediaMetadata.queueTail = next.then((_m: MediaBasicMeta): void => {
+    }, (_e: Object): void => {
+    });
+    return next;
+  }
+
+  private static async extractBasicMeta(path: string, withArtwork: boolean): Promise<MediaBasicMeta> {
     const meta = new MediaBasicMeta();
     let file: fs.File | null = null;
     let extractor: media.AVMetadataExtractor | null = null;

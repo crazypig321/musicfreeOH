@@ -376,9 +376,10 @@ export class LocalMusicSheet {
   }
 
   /**
-   * 遍历目录收集本地音频（保留 file:// 前缀）；fileFilter 返回 false 的文件跳过
+   * 遍历目录收集本地音频（保留 file:// 前缀）；fileFilter 返回 false 的文件跳过。
+   * token 为 null 时不做取消检查（用于预检，避免误作废正在执行的导入）
    */
-  private collectMusicStats(folderPaths: Array<string>, token: string,
+  private collectMusicStats(folderPaths: Array<string>, token: string | null,
     fileFilter?: (filePath: string, filename: string) => boolean): Array<string> {
     const musicList: Array<string> = [];
     const queued: Set<string> = new Set();
@@ -386,7 +387,7 @@ export class LocalMusicSheet {
       queued.add(p);
     }
     while (folderPaths.length !== 0) {
-      if (this.importToken !== token) {
+      if (token !== null && this.importToken !== token) {
         throw new Error('Import Broken');
       }
       const peek = folderPaths.shift();
@@ -456,6 +457,35 @@ export class LocalMusicSheet {
     this.importQueueTail = next.catch((_e: Object): void => {
     });
     return next;
+  }
+
+  /**
+   * 扫描预检：仅遍历目录统计将被导入的新文件（file:// 前缀保留），
+   * 已入库的文件跳过；不提取元数据、不写入，供调用方先弹窗确认再导入
+   */
+  collectPendingImports(folderPaths: Array<string>,
+    fileFilter?: (filePath: string, filename: string) => boolean): Array<string> {
+    const schemePaths: Array<string> = [];
+    for (const it of folderPaths) {
+      schemePaths.push(FileUtils.addFileScheme(it));
+    }
+    const found = this.collectMusicStats(schemePaths, null, fileFilter);
+    const pending: Array<string> = [];
+    for (const p of found) {
+      const key = FileUtils.normalizePath(p);
+      let known = false;
+      for (const it of this.localSheetItems) {
+        const lp = MediaUtils.getLocalPath(it);
+        if (lp !== null && lp.length > 0 && FileUtils.normalizePath(lp) === key) {
+          known = true;
+          break;
+        }
+      }
+      if (!known) {
+        pending.push(p);
+      }
+    }
+    return pending;
   }
 
   private performImport(_folderPaths: Array<string>,

@@ -6,7 +6,6 @@ import { appConfig } from './AppConfig';
 import { musicSheet } from './MusicSheet';
 import { musicHistory } from './MusicHistory';
 import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
-import { LocalMusicExclusion } from './LocalMusicExclusion';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { trackPlayer } from './TrackPlayer';
 import { mediaSession } from './MediaSession';
@@ -70,21 +69,8 @@ export class Bootstrap {
     // 历史数据拆分：旧版共享歌单中插件平台的条目属于已下载域
     Bootstrap.splitLegacyLocalSheet();
 
-    // 5.1 下载目录自动扫描（非阻塞）：导入本地音乐（含下载产生的文件）；
-    // 已下载列表不扫描目录，仅在下载完成时写入；
-    // 被「移出本地音乐」的文件在排除名单中，跳过不导入
-    PathConst.bootstrapPublicDownloadDir().then(() => {
-      const dirs: Array<string> = [PathConst.downloadPath];
-      const legacyDir = PathConst.basePath + '/download/';
-      if (dirs.indexOf(legacyDir) === -1) {
-        dirs.push(legacyDir);
-      }
-      const excluded = LocalMusicExclusion.getExcludedFiles();
-      return localMusicSheet.importLocal(dirs, (filePath: string, _filename: string): boolean =>
-        !LocalMusicExclusion.isExcluded(excluded, filePath));
-    }).catch(() => {
-      // 静默失败，不影响启动
-    });
+    // 5.1 下载目录不再启动时自动扫描导入：下载完成的文件由下载器直接入库，
+    // 其余新文件（外部复制等）统一走本地音乐页手动扫描，预检后弹窗确认才导入
 
     // 6. 非阻塞收尾
     Bootstrap.extraMakeup().catch(() => {

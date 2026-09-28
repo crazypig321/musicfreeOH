@@ -476,9 +476,10 @@ export struct DownloadPage {
     }
     this.showToast(summary);
     // 复制/已存在/目录内的文件统一重新扫描入库；
-    // scanning 保持 true 直到扫描结束，遮罩连续显示不闪断
+    // 选择文件本身即导入意图，直接执行不额外弹窗确认；
+    // scanning 保持 true 直到导入结束，遮罩连续显示不闪断
     if (ok > 0 || dup > 0 || inplace > 0) {
-      this.runScan(DownloadPage.scanDirList(), '正在扫描下载目录...');
+      this.performScanImport(DownloadPage.scanDirList(), '正在扫描下载目录...');
     } else {
       this.scanning = false;
     }
@@ -494,33 +495,71 @@ export struct DownloadPage {
     return dirs;
   }
 
-  /** 执行扫描导入（scanning 已为 true；完成/失败后置 false）。排除名单按路径匹配，历史文件名条目兜底 */
+  /** 扫描入口（刷新/扫描文件夹）：单次预检统计「新文件」与「被移出跳过的文件」，
+   * 弹一个确认窗后一次性导入，避免连续弹窗与多次导入 */
   private runScan(dirs: Array<string>, text: string): void {
-    this.scanningText = text;
-    const before = this.activeSheet.getMusicList().length;
     const excluded = LocalMusicExclusion.getExcludedFiles();
-    localMusicSheet.importLocal(dirs, (filePath: string, _filename: string): boolean =>
-      !LocalMusicExclusion.isExcluded(excluded, filePath)).then((): void => {
-      this.scanning = false;
-      const added = this.activeSheet.getMusicList().length - before;
-      this.showToast(added > 0 ? '扫描完成，新增 ' + added.toString() + ' 首' : '扫描完成，没有发现新音频');
-    }).catch((_e: Object): void => {
-      this.scanning = false;
-      this.showToast('扫描失败');
+    const skippedExcluded: Array<string> = [];
+    const filter = (filePath: string, _filename: string): boolean => {
+      if (LocalMusicExclusion.isExcluded(excluded, filePath)) {
+        skippedExcluded.push(FileUtils.normalizePath(filePath));
+        return false;
+      }
+      return true;
+    };
+    // 预检：只遍历目录统计数量，不提取元数据不导入（同步瞬时完成）
+    const pending = localMusicSheet.collectPendingImports(dirs, filter);
+    if (pending.length === 0 && skippedExcluded.length === 0) {
+      this.showToast('扫描完成，没有发现新音频');
+      return;
+    }
+    let message: string;
+    if (pending.length > 0 && skippedExcluded.length > 0) {
+      message = '扫描发现 ' + pending.length.toString() + ' 个新音频文件和 ' +
+        skippedExcluded.length.toString() + ' 个已移出的音频文件，是否全部导入本地音乐？';
+    } else if (pending.length > 0) {
+      message = '扫描发现 ' + pending.length.toString() + ' 个新音频文件，是否导入本地音乐？';
+    } else {
+      message = '扫描发现 ' + skippedExcluded.length.toString() + ' 个已移出的音频文件，是否恢复导入本地音乐？';
+    }
+    DialogManager.ConfirmImport(message, (): void => {
+      // 被移出的文件先清除排除，与新文件在同一次导入中一并入库
+      for (const p of skippedExcluded) {
+        LocalMusicExclusion.clearExclusion(p);
+      }
+      this.scanning = true;
+      this.performScanImport(dirs, text);
     });
   }
 
-  /** 重新扫描下载目录（含沙箱遗留目录），导入漏掉的音频文件；跳过排除名单中的文件 */
+  /** 执行扫描导入（用户已确认，或「导入本地音频」等显式导入流程直接调用）；
+   * 排除名单中的文件仍跳过（runScan 确认恢复的文件已在调用前清除排除） */
+  private performScanImport(dirs: Array<string>, text: string): void {
+    this.scanningText = text;
+    const before = this.activeSheet.getMusicList().length;
+    const excluded = LocalMusicExclusion.getExcludedFiles();
+    const filter = (filePath: string, _filename: string): boolean =>
+      !LocalMusicExclusion.isExcluded(excluded, filePath);
+    localMusicSheet.importLocal(dirs, filter).then((): void => {
+      this.scanning = false;
+      const added = this.activeSheet.getMusicList().length - before;
+      this.showToast(added > 0 ? '导入完成，新增 ' + added.toString() + ' 首' : '导入完成');
+    }).catch((_e: Object): void => {
+      this.scanning = false;
+      this.showToast('导入失败');
+    });
+  }
+
+  /** 重新扫描下载目录（含沙箱遗留目录）：预检后弹窗确认再导入 */
   private rescanDownloadDir(): void {
     if (this.scanning) {
       this.showToast('正在扫描中，请稍候');
       return;
     }
-    this.scanning = true;
     this.runScan(DownloadPage.scanDirList(), '正在扫描下载目录...');
   }
 
-  /** 扫描指定子文件夹（标签长按菜单）：导入该文件夹（含嵌套子目录）内的音频到本地音乐列表 */
+  /** 扫描指定子文件夹（标签长按菜单）：预检后弹窗确认再导入该文件夹（含嵌套子目录）内的音频 */
   private scanFolder(tag: string): void {
     if (this.scanning) {
       this.showToast('正在扫描中，请稍候');
@@ -532,7 +571,6 @@ export struct DownloadPage {
       this.showToast('文件夹不存在');
       return;
     }
-    this.scanning = true;
     this.runScan([dir], '正在扫描「' + tag + '」...');
   }
 
