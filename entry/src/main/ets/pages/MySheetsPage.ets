@@ -1,7 +1,7 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { ShareUtils } from '../utils/ShareUtils';
-import { CommonBlur, CommonSearch, MenuItemParams } from '../view/CommonCom';
+import { CommonBlur, CommonLoading, CommonSearch, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
 import { pluginManager } from '../plugin/PluginManager';
@@ -18,6 +18,7 @@ import { NavPathUtils } from '../utils/NavPathUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { JsonUtil } from '../common/JsonUtil';
 import { DialogManager } from '../utils/DialogUtils';
+import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
 
 /** 添加菜单锚点 id（openMenu 在锚点处弹出） */
 const ADD_ANCHOR_ID = 'mysheets_add_anchor';
@@ -67,6 +68,8 @@ export struct MySheetsPage {
   @Local importTargetSheetTitles: Array<string> = [];
   @Local importTargetIndex: number = 0;
   @Local importing: boolean = false;
+  /** 导入歌单：超时时长选项序号（默认 5 分钟，大歌单导入耗时较长） */
+  @Local importTimeoutIndex: number = 0;
   /** 说明文本刷新标记：懒加载插件挂载完成后 +1 触发重绘 */
   @Local importHintRev: number = 0;
   /** 标题栏搜索框：开启后按关键词过滤歌单条目（点搜索/回车才应用关键词） */
@@ -156,7 +159,7 @@ export struct MySheetsPage {
     if (this.searchKeyword.trim().length > 0) {
       return '找到 ' + this.displayRows().length.toString() + ' 歌单';
     }
-    return '共 ' + this.sheetRows.length.toString() + ' 歌单';
+    return '共 ' + this.sheetRows.length.toString() + ' 个歌单';
   }
 
   /** 展开/收起标题栏搜索框（展开时列表回顶；收起时清空关键词恢复全部） */
@@ -410,6 +413,31 @@ export struct MySheetsPage {
     return '暂无可加入的歌单';
   }
 
+  /** 超时时长 Select 选项 */
+  private importTimeoutOptions(): Array<SelectOption> {
+    const opts: Array<SelectOption> = [];
+    for (const label of IMPORT_TIMEOUT_LABELS) {
+      opts.push({ value: label });
+    }
+    return opts;
+  }
+
+  /** 超时时长 Select 当前展示值 */
+  private selectedImportTimeoutLabel(): string {
+    if (this.importTimeoutIndex >= 0 && this.importTimeoutIndex < IMPORT_TIMEOUT_LABELS.length) {
+      return IMPORT_TIMEOUT_LABELS[this.importTimeoutIndex];
+    }
+    return IMPORT_TIMEOUT_LABELS[0];
+  }
+
+  /** 当前选中的超时时长（毫秒） */
+  private importTimeoutMs(): number {
+    if (this.importTimeoutIndex >= 0 && this.importTimeoutIndex < IMPORT_TIMEOUT_MS_OPTIONS.length) {
+      return IMPORT_TIMEOUT_MS_OPTIONS[this.importTimeoutIndex];
+    }
+    return IMPORT_TIMEOUT_MS_OPTIONS[0];
+  }
+
   /** 底部说明文字：与 RN 原版一致，取插件 hints（string[]），逐条 ￮ 前缀显示；未提供则不显示 */
   private importHintText(): string {
     const pluginName = this.selectedImportPluginName();
@@ -476,7 +504,7 @@ export struct MySheetsPage {
         this.showToast('导入歌曲失败');
       });
     } else {
-      plugin.methods.importMusicSheet(url).then((items: Array<MusicItem>): void => {
+      plugin.methods.importMusicSheet(url, this.importTimeoutMs()).then((items: Array<MusicItem>): void => {
         if (items.length === 0) {
           this.importing = false;
           this.showToast('链接有误或目标歌单为空');
@@ -1330,6 +1358,27 @@ export struct MySheetsPage {
             this.refreshImportHintFor(this.selectedImportPluginName());
           }
         })
+      if (!this.importSingleMode) {
+        Text('超时时长'+'(歌单较大时，可适当选择时间较长选项)')
+          .fontSize(13)
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+          .margin({ top: 12, bottom: 8 })
+        Select(this.importTimeoutOptions())
+          .selected(this.importTimeoutIndex)
+          .value(this.selectedImportTimeoutLabel())
+          .font({ size: 14 })
+          .fontColor($r('sys.color.font_primary'))
+          .selectedOptionFont({ size: 14 })
+          .optionFont({ size: 14 })
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .borderRadius(12)
+          .height(44)
+          .width('100%')
+          .onSelect((index: number, _text: string) => {
+            this.importTimeoutIndex = index;
+          })
+      }
       if (this.importSingleMode) {
         Text('加入歌单')
           .fontSize(13)
@@ -1371,10 +1420,22 @@ export struct MySheetsPage {
         .onSubmit((_enterKey: EnterKeyType) => {
           this.confirmImport();
         })
-      Button(this.importing ? '导入中...' : '导入')
+      Button()
+        {
+          if (this.importing){
+            Row({ space: 5 }){
+              CommonLoading({loadColor: Color.White})
+              Text('导入中...')
+                .fontSize(15)
+                .fontColor(Color.White)
+            }
+          }else{
+            Text('导入')
+              .fontSize(15) .fontColor(Color.White)
+          }
+        }
         .width('100%')
         .height(42)
-        .fontSize(15)
         .margin({ top: 20 })
         .backgroundColor(appState.accentColor)
         .enabled(this.importPluginNames.length > 0)

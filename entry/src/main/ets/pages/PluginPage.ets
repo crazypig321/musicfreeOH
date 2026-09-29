@@ -24,6 +24,7 @@ import { JsonUtil } from '../common/JsonUtil';
 import { DialogManager, PluginVarField } from '../utils/DialogUtils';
 import { PluginImport } from '../plugin/PluginImport';
 import { Subscriptions } from '../plugin/Subscriptions';
+import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
 
 interface PluginRow {
   name: string;
@@ -76,6 +77,8 @@ export struct PluginPage {
   @Local pluginImportTargetSheetIds: Array<string> = [];
   @Local pluginImportTargetSheetTitles: Array<string> = [];
   @Local pluginImportTargetIndex: number = 0;
+  /** 导入歌单：超时时长选项序号（默认 5 分钟，大歌单导入耗时较长） */
+  @Local pluginImportTimeoutIndex: number = 2;
   /** 说明文本刷新标记：懒加载插件挂载完成后 +1 触发重绘 */
   @Local pluginImportHintRev: number = 0;
   @Local batchSelected: Array<string> = [];
@@ -386,6 +389,31 @@ export struct PluginPage {
     return '暂无可加入的歌单';
   }
 
+  /** 超时时长 Select 选项 */
+  private pluginImportTimeoutOptions(): Array<SelectOption> {
+    const opts: Array<SelectOption> = [];
+    for (const label of IMPORT_TIMEOUT_LABELS) {
+      opts.push({ value: label });
+    }
+    return opts;
+  }
+
+  /** 超时时长 Select 当前展示值 */
+  private selectedPluginImportTimeoutLabel(): string {
+    if (this.pluginImportTimeoutIndex >= 0 && this.pluginImportTimeoutIndex < IMPORT_TIMEOUT_LABELS.length) {
+      return IMPORT_TIMEOUT_LABELS[this.pluginImportTimeoutIndex];
+    }
+    return IMPORT_TIMEOUT_LABELS[0];
+  }
+
+  /** 当前选中的超时时长（毫秒） */
+  private pluginImportTimeoutMs(): number {
+    if (this.pluginImportTimeoutIndex >= 0 && this.pluginImportTimeoutIndex < IMPORT_TIMEOUT_MS_OPTIONS.length) {
+      return IMPORT_TIMEOUT_MS_OPTIONS[this.pluginImportTimeoutIndex];
+    }
+    return IMPORT_TIMEOUT_MS_OPTIONS[0];
+  }
+
   /** 导入说明：与 RN 原版一致，取插件 hints（string[]），逐条 ￮ 前缀显示；未提供则不显示 */
   private pluginImportHint(): string {
     const plugin = pluginManager.getByName(this.detailName);
@@ -447,7 +475,7 @@ export struct PluginPage {
         this.showToast('导入歌曲失败');
       });
     } else {
-      plugin.methods.importMusicSheet(url).then((items: Array<MusicItem>): void => {
+      plugin.methods.importMusicSheet(url, this.pluginImportTimeoutMs()).then((items: Array<MusicItem>): void => {
         if (items.length === 0) {
           this.pluginImporting = false;
           this.showToast('链接有误或目标歌单为空');
@@ -1646,6 +1674,27 @@ export struct PluginPage {
         .fontColor($r('sys.color.font_tertiary'))
         .width('100%')
         .margin({ bottom: 12 })
+      if (!this.pluginImportSingleMode) {
+        Text('超时时长')
+          .fontSize(13)
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+          .margin({ bottom: 8 })
+        Select(this.pluginImportTimeoutOptions())
+          .selected(this.pluginImportTimeoutIndex)
+          .value(this.selectedPluginImportTimeoutLabel())
+          .font({ size: 14 })
+          .fontColor($r('sys.color.font_primary'))
+          .selectedOptionFont({ size: 14 })
+          .optionFont({ size: 14 })
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .borderRadius(12)
+          .height(44)
+          .width('100%')
+          .onSelect((index: number, _text: string) => {
+            this.pluginImportTimeoutIndex = index;
+          })
+      }
       if (this.pluginImportSingleMode) {
         Text('加入歌单')
           .fontSize(13)

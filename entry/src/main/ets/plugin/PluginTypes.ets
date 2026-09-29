@@ -155,8 +155,8 @@ export class LazyProps {
 export interface IPluginExecutor {
   /** 挂载插件源码，返回实例信息；失败抛错 */
   mount(pluginKey: string, funcCode: string, appVersion: string): Promise<PluginInstanceInfo>;
-  /** 调用插件方法，返回结果 JSON 字符串；失败抛错 */
-  callMethod(pluginKey: string, method: string, argsJson: string): Promise<string>;
+  /** 调用插件方法，返回结果 JSON 字符串；失败抛错；timeoutMs 可选，缺省用执行器默认超时 */
+  callMethod(pluginKey: string, method: string, argsJson: string, timeoutMs?: number): Promise<string>;
 }
 
 /** 插件安装结果（对应 IInstallPluginResult） */

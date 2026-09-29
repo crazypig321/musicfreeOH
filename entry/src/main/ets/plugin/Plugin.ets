@@ -600,13 +600,13 @@ class PluginMethods {
     }
   }
 
-  /** 导入歌单 */
-  async importMusicSheet(urlLike: string): Promise<Array<MusicItem>> {
+  /** 导入歌单；timeoutMs 可选，大歌单导入耗时较长可放宽超时 */
+  async importMusicSheet(urlLike: string, timeoutMs?: number): Promise<Array<MusicItem>> {
     await this.ensurePluginIsMounted();
     try {
       const result: Array<MusicItem> = [];
       if (this.plugin.hasMethod('importMusicSheet')) {
-        const raw = await this.plugin.callMethod('importMusicSheet', [urlLike]);
+        const raw = await this.plugin.callMethod('importMusicSheet', [urlLike], timeoutMs);
         const arr = JsonUtil.objToRecordArray(raw);
         if (arr !== null) {
           for (const rec of arr) {
@@ -896,9 +896,9 @@ export class Plugin {
     return CacheControl.NoCache;
   }
 
-  /** 调用插件方法 */
-  async callMethod(method: string, args: Array<Object | null>): Promise<Object | null> {
-    const json = await this.executor.callMethod(this.hash, method, JSON.stringify(args));
+  /** 调用插件方法；timeoutMs 可选，长耗时方法（如导入歌单）可覆盖默认超时 */
+  async callMethod(method: string, args: Array<Object | null>, timeoutMs?: number): Promise<Object | null> {
+    const json = await this.executor.callMethod(this.hash, method, JSON.stringify(args), timeoutMs);
     return JsonUtil.parseAny(json);
   }
 

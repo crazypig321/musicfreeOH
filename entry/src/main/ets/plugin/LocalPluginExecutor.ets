@@ -30,7 +30,8 @@ export class LocalPluginExecutor implements IPluginExecutor {
     return Promise.resolve(info);
   }
 
-  async callMethod(pluginKey: string, method: string, argsJson: string): Promise<string> {
+  async callMethod(pluginKey: string, method: string, argsJson: string,
+    _timeoutMs?: number): Promise<string> {
     const args = LocalPluginExecutor.parseArgs(argsJson);
     if (method === 'getMediaSource') {
       const item = LocalPluginExecutor.argMusicItem(args, 0);

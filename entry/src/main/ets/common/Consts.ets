@@ -58,6 +58,10 @@ export const SUPPORT_LOCAL_MEDIA_TYPE: Array<string> = [
 export const MEDIA_CACHE_MAX = 800;
 export const MEDIA_CACHE_EVICT = 400;
 
+/** 导入歌单可选超时时长（毫秒），与标签一一对应 */
+export const IMPORT_TIMEOUT_MS_OPTIONS: Array<number> = [60000, 180000, 300000, 600000];
+export const IMPORT_TIMEOUT_LABELS: Array<string> = ['1 分钟', '3 分钟', '5 分钟', '10 分钟'];
+
 /** 插件能力（用于 getPluginsWithAbility） */
 export enum PluginAbility {
   Search = 'search',

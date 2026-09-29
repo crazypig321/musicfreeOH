@@ -156,12 +156,13 @@ export struct CommonNull{
 @ComponentV2
 export struct CommonLoading{
   @Param sizeValue: Length = 28
+  @Param loadColor: ResourceColor = $r('sys.color.icon')
 
   build() {
     LoadingProgress()
       .width(this.sizeValue)
       .height(this.sizeValue)
-      .color($r('sys.color.icon'))
+      .color(this.loadColor)
   }
 }
 

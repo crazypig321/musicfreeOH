@@ -60,6 +60,9 @@ class PendingCall {
 export class WebPluginExecutor implements IPluginExecutor {
   private static inst: WebPluginExecutor | null = null;
 
+  /** 插件方法调用默认超时（毫秒）；长耗时方法（如导入歌单）可按需覆盖 */
+  static readonly DEFAULT_CALL_TIMEOUT_MS: number = 60000;
+
   static getInstance(): WebPluginExecutor {
     if (WebPluginExecutor.inst === null) {
       WebPluginExecutor.inst = new WebPluginExecutor();
@@ -141,14 +144,17 @@ export class WebPluginExecutor implements IPluginExecutor {
     return info;
   }
 
-  async callMethod(pluginKey: string, method: string, argsJson: string): Promise<string> {
+  async callMethod(pluginKey: string, method: string, argsJson: string,
+    timeoutMs?: number): Promise<string> {
     if (!this.mounted.has(pluginKey)) {
       throw new Error('插件未挂载: ' + pluginKey);
     }
+    const timeout = timeoutMs !== undefined && timeoutMs > 0
+      ? timeoutMs : WebPluginExecutor.DEFAULT_CALL_TIMEOUT_MS;
     return this.runCall((callId: string): string => {
       return 'window.__mf.call(' + JSON.stringify(pluginKey) + ', ' + JSON.stringify(method) + ', ' +
         argsJson + ', ' + JSON.stringify(callId) + ')';
-    }, 60000);
+    }, timeout);
   }
 
   getUserVariablesJson(pluginName: string): string {
