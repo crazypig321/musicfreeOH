@@ -5,12 +5,14 @@ import fs from '@ohos.file.fs';
 import { JsonUtil } from '../common/JsonUtil';
 import { FileUtils } from '../utils/FileUtils';
 import { CoverColorUtils } from '../utils/CoverColorUtils';
-import { CARD_BG_ALPHA_HEX, MusicCardData } from '../widget/MusicCardData';
+import { CARD_BG_ALPHA_HEX, CARD_MAX_QUEUE_ITEMS, MusicCardData } from '../widget/MusicCardData';
 import { Log } from '../utils/Log';
 
 /** 持久化播放状态存储名 / 键（与主进程 KVStore PersistStatus 一致，跨进程只读） */
 const PERSIST_STORE_NAME = 'App.PersistStatus';
 const PERSIST_KEY_MUSIC_ITEM = 'music.musicItem';
+const PERSIST_KEY_REPEAT_MODE = 'music.repeatMode';
+const PERSIST_KEY_PLAY_LIST = 'music.playList';
 /** 封面缓存索引文件（与主进程 ArtworkCache 落盘位置一致） */
 const ARTWORK_DIR = '/artwork/';
 const ARTWORK_INDEX_FILE = 'index.json';
@@ -118,6 +120,8 @@ export default class EntryFormAbility extends FormExtensionAbility {
     let title = '';
     let artist = '';
     let artwork = '';
+    let platform = '';
+    let id = '';
     try {
       const pref = preferences.getPreferencesSync(this.context, { name: PERSIST_STORE_NAME });
       const v: preferences.ValueType = pref.getSync(PERSIST_KEY_MUSIC_ITEM, '');
@@ -127,6 +131,44 @@ export default class EntryFormAbility extends FormExtensionAbility {
           title = JsonUtil.recStr(rec, 'title');
           artist = JsonUtil.recStr(rec, 'artist');
           artwork = JsonUtil.recStr(rec, 'artwork');
+          platform = JsonUtil.recStr(rec, 'platform');
+          id = JsonUtil.recStr(rec, 'id');
+        }
+      }
+      // 循环模式（持久化为 JSON 字符串 '"QUEUE"'）
+      const modeRaw: preferences.ValueType = pref.getSync(PERSIST_KEY_REPEAT_MODE, '');
+      const modeStr = typeof modeRaw === 'string' ? JsonUtil.parseString(modeRaw) : null;
+      if (modeStr === 'SHUFFLE' || modeStr === 'SINGLE') {
+        state.data.repeatMode = modeStr;
+      }
+      // 播放队列（与主进程 fillQueue 相同的窗口截取规则）
+      const listRaw: preferences.ValueType = pref.getSync(PERSIST_KEY_PLAY_LIST, '');
+      if (typeof listRaw === 'string' && listRaw.length > 0) {
+        const listArr = JsonUtil.parseRecordArray(listRaw);
+        if (listArr !== null && listArr.length > 0) {
+          let currentIdx = -1;
+          for (let i = 0; i < listArr.length; i++) {
+            if (JsonUtil.recStr(listArr[i], 'platform') === platform && JsonUtil.recStr(listArr[i], 'id') === id) {
+              currentIdx = i;
+              break;
+            }
+          }
+          const half = Math.floor(CARD_MAX_QUEUE_ITEMS / 2);
+          let start = 0;
+          if (currentIdx > half) {
+            start = Math.min(currentIdx - half, Math.max(0, listArr.length - CARD_MAX_QUEUE_ITEMS));
+          }
+          const end = Math.min(listArr.length, start + CARD_MAX_QUEUE_ITEMS);
+          const titles: Array<string> = [];
+          const artists: Array<string> = [];
+          for (let i = start; i < end; i++) {
+            titles.push(JsonUtil.recStr(listArr[i], 'title'));
+            artists.push(JsonUtil.recStr(listArr[i], 'artist'));
+          }
+          state.data.queueTitles = titles;
+          state.data.queueArtists = artists;
+          state.data.queueStart = start;
+          state.data.queueIndex = currentIdx >= start && currentIdx < end ? currentIdx - start : -1;
         }
       }
     } catch (e) {

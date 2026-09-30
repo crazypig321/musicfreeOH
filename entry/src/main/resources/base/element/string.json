@@ -99,6 +99,14 @@
     {
       "name": "music_card_description",
       "value": "显示当前歌曲并提供播放控制"
+    },
+    {
+      "name": "music_card_large_display_name",
+      "value": "音乐卡片（4*4）"
+    },
+    {
+      "name": "music_card_large_description",
+      "value": "显示歌曲信息、歌词与播放队列"
     }
   ]
 }

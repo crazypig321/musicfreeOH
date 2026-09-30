@@ -69,8 +69,9 @@ export default class EntryAbility extends UIAbility {
         // call 事件参数以 JSON 字符串送达（卡片 postCardAction params）
         const rec = JsonUtil.parseRecord(data.readString());
         const command = rec !== null ? JsonUtil.recStr(rec, 'command') : '';
+        const index = rec !== null ? JsonUtil.recNum(rec, 'index', -1) : -1;
         if (command.length > 0) {
-          MusicWidgetManager.handleCommand(command).catch((_e: Object): void => {
+          MusicWidgetManager.handleCommand(command, index).catch((_e: Object): void => {
           });
         }
         return new WidgetCallResult();

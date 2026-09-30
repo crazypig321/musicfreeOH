@@ -97,7 +97,7 @@ struct MusicCard {
 function ImageStyle(){
   .width(56)
   .aspectRatio(1)
-  .borderRadius(16)
+  .borderRadius(14)
   .objectFit(ImageFit.Cover)
 }
 
