@@ -34,6 +34,12 @@ export class ContinuationData {
 
 export class Continuation {
   /**
+   * 进程级接续数据暂存：接续拉起存活进程中被销毁的 Ability 时，系统可能不创建
+   * WindowStage（卡启动页），EntryAbility 修复窗口/重新拉起后由此热应用播放现场
+   */
+  static pendingRepair: ContinuationData | null = null;
+
+  /**
    * 源端打包播放现场（同步纯读，不发起网络请求，不中断当前播放）
    * 返回 null 表示当前无可接续内容
    */
