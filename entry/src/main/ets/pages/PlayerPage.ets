@@ -1478,7 +1478,7 @@ export struct PlayerPage {
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .margin({ top: 12, bottom: 4 })
+        .margin({ bottom: 20 })
       List({ space: 12 }) {
         ForEach(this.lyricMoreItems(), (item: LyricAction) => {
           ListItem() {
@@ -1566,7 +1566,8 @@ export struct PlayerPage {
           }.ListItemStyle()
       }
       .width('100%')
-      .margin({ top: 16 })
+      .scrollBar(BarState.Off)
+     // .margin({ top: 16 })
     }
     .width('100%')
     .height('100%')
@@ -1583,7 +1584,7 @@ export struct PlayerPage {
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .margin({ top: 4, bottom: 12 })
+        .margin({ bottom: 20 })
       TextArea({ text: this.lyricEditText, placeholder: '输入 LRC 歌词文本' })
         .width('100%')
         .constraintSize({ minHeight: 200, maxHeight: 320 })
