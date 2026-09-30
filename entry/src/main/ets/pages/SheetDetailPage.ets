@@ -941,7 +941,7 @@ export struct SheetDetailPage {
               LazyForEach(this.searchSource, (item: MusicItem, index: number) => {
                 ListItem() {
                   this.MusicRowBuilder(item, index)
-                }
+                }.transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.EaseOut }))
               }, (item: MusicItem, _index: number) => item.platform + '_' + item.id +
                 (appState.isBatchMode && this.isSelected(item) ? '_sel' : ''))
             }
@@ -950,7 +950,7 @@ export struct SheetDetailPage {
             LazyForEach(this.dataSource, (item: MusicItem, index: number) => {
               ListItem() {
                 this.MusicRowBuilder(item, index)
-              }
+              }.transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.EaseOut }))
             }, (item: MusicItem, _index: number) => item.platform + '_' + item.id +
               (appState.isBatchMode && this.isSelected(item) ? '_sel' : ''))
             // 底部加载状态

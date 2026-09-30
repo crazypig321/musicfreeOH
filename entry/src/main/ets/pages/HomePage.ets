@@ -120,8 +120,8 @@ export struct HomePage{
           if (!this.bootReady) {
             // 插件尚未加载完成
             ListItem() {
-              CommonLoading()
-            }
+              CommonLoading({ sizeValue: 48, loadColor: appState.accentColor })
+            }.alignSelf(ItemAlign.Center).width('100%').height('50%')
           } else {
             // 三个板块：榜单 / 推荐歌单 / 本地音乐
             ForEach(HomeList, (g: IconTextItem, gi: number)=>{
@@ -133,7 +133,7 @@ export struct HomePage{
                 } else {
                   this.LocalMusicBuilder()
                 }
-              }
+              }.transition(TransitionEffect.scale({ x: 0, y: 0 }).animation({ duration: 300, curve: Curve.EaseOut, delay: gi * 50 + 20 }))
             }, (g: IconTextItem, gi: number) => 'home_section_' + gi.toString())
           }
         }.ListStyle()
