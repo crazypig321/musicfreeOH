@@ -287,6 +287,8 @@ export default class EntryAbility extends UIAbility {
     if (!this.windowStageReady) {
       this.repairMissingWindowStage();
     }
+    // 超级桌面/HiCar 投流可能在后台期间建立会话，回前台时重判是否在车机屏上
+    SmartMobilityManager.getInstance().refreshOnCarScreen();
   }
 
   onBackground(): void {

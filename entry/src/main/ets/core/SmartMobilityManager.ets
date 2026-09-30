@@ -36,11 +36,16 @@ export class SmartMobilityManager {
     ];
   }
 
-  /** 注册监听（EntryAbility.onCreate 调用；重复调用幂等） */
+  /** 注册监听（EntryAbility.onCreate 调用；重复调用幂等；失败时 refreshOnCarScreen 会重试） */
   setup(context: common.UIAbilityContext): void {
     this.context = context;
+    this.registerAwareness();
+    this.refreshOnCarScreen();
+  }
+
+  /** 注册 awareness 监听（幂等；Car Kit 服务就绪晚于应用启动等场景由 refresh 时重试） */
+  private registerAwareness(): void {
     if (this.listening) {
-      this.refreshOnCarScreen();
       return;
     }
     try {
@@ -55,11 +60,11 @@ export class SmartMobilityManager {
       this.awareness.on('smartMobilityStatus', SmartMobilityManager.types(), callBack);
       this.listening = true;
     } catch (e) {
-      // 801 设备不支持（PC/2in1 等）/ 201 无权限：静默降级，驾驶模式仅剩手动开关
+      // 801 设备不支持（PC/2in1 等）/ 201 无权限 / 服务未就绪：静默降级，下次 refresh 重试
+      this.awareness = null;
       hilog.warn(DOMAIN, TAG, 'register smart mobility listener failed: %{public}s',
         JSON.stringify(e));
     }
-    this.refreshOnCarScreen();
   }
   /**
    * 重新判定应用是否显示在车机屏上：
@@ -71,7 +76,13 @@ export class SmartMobilityManager {
     if (this.context === null) {
       return;
     }
+    // 注册失败（服务未就绪等）时重试，保证投流会话建立后仍能感知
+    this.registerAwareness();
     const onCar = SmartMobilityManager.isCarDevice() || this.matchCarDisplay();
+    hilog.info(DOMAIN, TAG,
+      'refresh: deviceType=%{public}s, displayId=%{public}d, awareness=%{public}s, onCar=%{public}d',
+      deviceInfo.deviceType, this.context.config.displayId ?? -1,
+      this.awareness === null ? 'null' : 'ok', onCar ? 1 : 0);
     if (appState.onCarScreen !== onCar) {
       hilog.info(DOMAIN, TAG, 'onCarScreen -> %{public}d', onCar ? 1 : 0);
       appState.onCarScreen = onCar;
@@ -94,15 +105,17 @@ export class SmartMobilityManager {
       const currentDisplayId = this.context?.config.displayId;
       if (currentDisplayId !== undefined) {
         const types = SmartMobilityManager.types();
-        for (const t of types) {
-          const info = this.awareness.getSmartMobilityStatus(t);
-          if (info.status !== smartMobilityCommon.SmartMobilityStatus.RUNNING) {
-            continue;
-          }
-          const rawDisplay = info.data['DISPLAY_ID'];
-          if (rawDisplay === undefined || rawDisplay === null) {
-            continue;
-          }
+      for (const t of types) {
+        const info = this.awareness.getSmartMobilityStatus(t);
+        const rawDisplay = info.data['DISPLAY_ID'];
+        hilog.info(DOMAIN, TAG, 'type=%{public}d status=%{public}d displayId=%{public}s',
+          t, info.status, rawDisplay === undefined ? 'none' : JSON.stringify(rawDisplay));
+        if (info.status !== smartMobilityCommon.SmartMobilityStatus.RUNNING) {
+          continue;
+        }
+        if (rawDisplay === undefined || rawDisplay === null) {
+          continue;
+        }
           const deviceDisplayId = Number(rawDisplay);
           if (currentDisplayId === deviceDisplayId) {
             onCar = true;
