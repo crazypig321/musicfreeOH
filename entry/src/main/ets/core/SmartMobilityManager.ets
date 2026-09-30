@@ -1,0 +1,119 @@
+import { smartMobilityCommon } from '@kit.CarKit';
+import { common } from '@kit.AbilityKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { appState } from '../entryability/AppState';
+
+const DOMAIN = 0x0000;
+const TAG = 'SmartMobility';
+
+/**
+ * 智慧出行感知（HiCar / 超级桌面 / 流转）
+ * - 监听 Car Kit smartMobilityStatus 连接状态变化
+ * - 通过 displayId 比对判断应用是否显示在车机屏（虚拟屏）上，
+ *   命中时驱动 appState.onCarScreen → 驾驶模式 UI
+ * - 设备不支持（返回 801）/无权限（201）时全部静默降级，功能优雅退化
+ */
+export class SmartMobilityManager {
+  private static instance: SmartMobilityManager | null = null;
+  private awareness: smartMobilityCommon.SmartMobilityAwareness | null = null;
+  private context: common.UIAbilityContext | null = null;
+  private listening: boolean = false;
+
+  static getInstance(): SmartMobilityManager {
+    if (SmartMobilityManager.instance === null) {
+      SmartMobilityManager.instance = new SmartMobilityManager();
+    }
+    return SmartMobilityManager.instance;
+  }
+
+  /** 订阅类型：HiCar、超级桌面、流转 */
+  private static types(): Array<smartMobilityCommon.SmartMobilityType> {
+    return [
+      smartMobilityCommon.SmartMobilityType.HICAR,
+      smartMobilityCommon.SmartMobilityType.SUPER_LAUNCHER,
+      smartMobilityCommon.SmartMobilityType.CAR_HOP
+    ];
+  }
+
+  /** 注册监听（EntryAbility.onCreate 调用；重复调用幂等） */
+  setup(context: common.UIAbilityContext): void {
+    this.context = context;
+    if (this.listening) {
+      this.refreshOnCarScreen();
+      return;
+    }
+    try {
+      this.awareness = smartMobilityCommon.getSmartMobilityAwareness();
+      const callBack = (info: smartMobilityCommon.SmartMobilityInfo): void => {
+        hilog.info(DOMAIN, TAG, 'smart mobility status: type=%{public}d, status=%{public}d',
+          info.type, info.status);
+        appState.smartMobilityConnected =
+          info.status === smartMobilityCommon.SmartMobilityStatus.RUNNING;
+        this.refreshOnCarScreen();
+      };
+      this.awareness.on('smartMobilityStatus', SmartMobilityManager.types(), callBack);
+      this.listening = true;
+    } catch (e) {
+      // 801 设备不支持（PC/2in1 等）/ 201 无权限：静默降级，驾驶模式仅剩手动开关
+      hilog.warn(DOMAIN, TAG, 'register smart mobility listener failed: %{public}s',
+        JSON.stringify(e));
+    }
+    this.refreshOnCarScreen();
+  }
+
+  /**
+   * 重新判定应用是否显示在车机屏上：
+   * 对各业务类型查询连接状态，业务所在虚拟屏 DISPLAY_ID 与当前窗口 displayId 一致即命中。
+   * onConfigurationUpdate（HiCar 投射引起 config 变化）与状态回调时调用。
+   */
+  refreshOnCarScreen(): void {
+    const ctx = this.context;
+    if (this.awareness === null || ctx === null) {
+      return;
+    }
+    let onCar = false;
+    try {
+      const currentDisplayId = ctx.config.displayId;
+      if (currentDisplayId !== undefined) {
+        const types = SmartMobilityManager.types();
+        for (const t of types) {
+          const info = this.awareness.getSmartMobilityStatus(t);
+          if (info.status !== smartMobilityCommon.SmartMobilityStatus.RUNNING) {
+            continue;
+          }
+          const rawDisplay = info.data['DISPLAY_ID'];
+          if (rawDisplay === undefined || rawDisplay === null) {
+            continue;
+          }
+          const deviceDisplayId = Number(rawDisplay);
+          if (currentDisplayId === deviceDisplayId) {
+            onCar = true;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'get smart mobility status failed: %{public}s', JSON.stringify(e));
+      return;
+    }
+    if (appState.onCarScreen !== onCar) {
+      hilog.info(DOMAIN, TAG, 'onCarScreen -> %{public}d', onCar ? 1 : 0);
+      appState.onCarScreen = onCar;
+      appState.refreshCarMode();
+    }
+  }
+
+  /** 取消监听（EntryAbility.onDestroy 调用） */
+  teardown(): void {
+    if (this.awareness === null || !this.listening) {
+      return;
+    }
+    try {
+      this.awareness.off('smartMobilityStatus', SmartMobilityManager.types());
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'unregister smart mobility listener failed: %{public}s',
+        JSON.stringify(e));
+    }
+    this.listening = false;
+  }
+}

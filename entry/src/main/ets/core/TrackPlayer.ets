@@ -91,6 +91,8 @@ export class TrackPlayer {
   private progressTimer: number = -1;
   /** 上次进度落盘时间（节流用） */
   private lastProgressPersistAt: number = 0;
+  /** 接续（车机流转）目标端冷启动标记：恢复完成后无视「启动自动续播」设置直接续播 */
+  private continuationPlaying: boolean = false;
 
   constructor() {
   }
@@ -154,7 +156,8 @@ export class TrackPlayer {
     const track = PersistStatus.getMusicItem();
     if (track !== null && this.isInPlayList(track)) {
       const progress = PersistStatus.getProgress();
-      if (!appConfig.getAutoPlayWhenAppStart()) {
+      // 接续冷启动：源端在播时恢复期不应触发跳曲（同启动自动续播语义）
+      if (!appConfig.getAutoPlayWhenAppStart() && !this.continuationPlaying) {
         this.initRestoring = true;
       }
       const plugin = pluginManager.getByMedia(track);
@@ -173,7 +176,10 @@ export class TrackPlayer {
                   this.seekTo(progress);
                 }
                 // 启动自动续播：进度恢复完成后再播放（提前 play 会重新拉源并重置进度）
-                if (appConfig.getAutoPlayWhenAppStart() && this.isCurrentMusic(track)) {
+                // 接续冷启动：源端在播时强制续播，不受「启动自动续播」设置限制
+                const shouldAutoPlay = appConfig.getAutoPlayWhenAppStart() || this.continuationPlaying;
+                this.continuationPlaying = false;
+                if (shouldAutoPlay && this.isCurrentMusic(track)) {
                   Log.debug('启动自动续播');
                   this.play().catch(() => {
                   });
@@ -651,6 +657,56 @@ export class TrackPlayer {
       this.getPlayListMusicAt(this.currentIndex === -1 ? 0 : this.currentIndex - 1),
       true,
     );
+  }
+
+  /** 接续（车机流转）目标端冷启动标记：须在 setupTrackPlayer 之前调用 */
+  markContinuationResume(playing: boolean): void {
+    this.continuationPlaying = playing;
+  }
+
+  /**
+   * 接续（车机流转）目标端热启动：直接以接续数据重建播放现场并续播
+   * 失败静默（保持当前播放不中断）
+   */
+  async applyContinuation(queue: Array<MusicItem>, current: MusicItem | null,
+    progress: number, playing: boolean, repeatMode: MusicRepeatMode): Promise<void> {
+    if (current === null) {
+      return;
+    }
+    try {
+      // 1. 重建队列与循环模式
+      const newQueue = queue.length > 0 ? queue : [current];
+      this.setPlayList(newQueue);
+      this.setRepeatMode(repeatMode);
+      // 2. 切换当前曲目（不清队列）
+      this.setCurrentMusic(current);
+      // 3. 拉源（复用启动恢复链逻辑：不自动播，先 seek 再播）
+      this.initRestoring = true;
+      const plugin = pluginManager.getByMedia(current);
+      let newSource: MediaSource | null = null;
+      if (plugin !== null) {
+        newSource = await plugin.methods.getMediaSource(current, PersistStatus.getQuality());
+      }
+      if (!this.isCurrentMusic(current)) {
+        this.initRestoring = false;
+        return;
+      }
+      if (newSource !== null && newSource.url.length > 0) {
+        current.url = newSource.url;
+      }
+      const merged = newSource !== null ? this.mergeTrackSource(current, newSource) : current;
+      await this.setTrackSource(merged, false);
+      this.initRestoring = false;
+      if (progress > 0) {
+        this.seekTo(progress);
+      }
+      if (playing) {
+        await playerEngine.play();
+      }
+    } catch (e) {
+      this.initRestoring = false;
+      Log.error('接续恢复播放现场失败');
+    }
   }
 
   async changeQuality(newQuality: QualityKey): Promise<boolean> {

@@ -26,6 +26,7 @@ export struct AppearanceSettingPage {
   /** 主题色取色器当前色 */
   @Local pickerColor: string = '';
   @Local smartReachEnabled: boolean = false;
+  @Local carModeEnabled: boolean = false;
   @Local colorModeText: string = '';
   @Local materialText: string = '';
   @Local orientationText: string = '';
@@ -42,6 +43,7 @@ export struct AppearanceSettingPage {
     const stored = appConfig.getAppearanceThemeColor();
     this.pickerColor = stored.length > 0 ? stored : '#007DFF';
     this.smartReachEnabled = appConfig.getSmartReachEnabled();
+    this.carModeEnabled = appConfig.getCarModeEnabled();
     this.refreshColorModeText();
     this.refreshMaterialText();
     this.refreshOrientationText();
@@ -52,6 +54,20 @@ export struct AppearanceSettingPage {
   private menuPlacement(): Placement {
     return this.smartReachEnabled && appState.holdingHand === 'left'
       ? Placement.BottomLeft : Placement.BottomRight;
+  }
+
+  /** 车载模式开关：持久化 + 驱动全局驾驶模式状态 */
+  private setCarMode(isOn: boolean): void {
+    this.carModeEnabled = isOn;
+    appConfig.setCarModeEnabled(isOn);
+    appState.carModeManual = isOn;
+    appState.refreshCarMode();
+  }
+
+  /** HDS 取色器仅手机/平板提供（车机等设备的 HMS 模块缺该导出，运行时会崩溃），其余走兜底取色器 */
+  private static hdsColorPickerSupported(): boolean {
+    const t = deviceInfo.deviceType;
+    return t === 'phone' || t === 'tablet';
   }
 
   private static colorModeLabel(mode: string): string {
@@ -350,7 +366,7 @@ export struct AppearanceSettingPage {
                 if (appState.holdingHand === 'left') {
                   // 取色器（仅网格取色，紧凑内嵌；左手时镜像到行首）
                   Row() {
-                    if (deviceInfo.apiAvailable('26.0.0')) {
+                    if (deviceInfo.apiAvailable('26.0.0') && AppearanceSettingPage.hdsColorPickerSupported()) {
                       HdsColorPicker({
                         initialColor: this.pickerColor,
                         onColorSelected: (selectedColor: string): void => {
@@ -388,7 +404,7 @@ export struct AppearanceSettingPage {
                 if (appState.holdingHand !== 'left') {
                   // 取色器（仅网格取色，紧凑内嵌，靠行尾右对齐；低 API 兜底色块半模态）
                   Row() {
-                    if (deviceInfo.apiAvailable('26.0.0')) {
+                    if (deviceInfo.apiAvailable('26.0.0') && AppearanceSettingPage.hdsColorPickerSupported()) {
                       HdsColorPicker({
                         initialColor: this.pickerColor,
                         onColorSelected: (selectedColor: string): void => {
@@ -620,7 +636,7 @@ export struct AppearanceSettingPage {
                 }
               }
               .width('100%')
-              .height(60)
+              .padding({ top: 16, bottom: 16 })
 
               Divider()
                 .DividerStyle()
@@ -670,6 +686,53 @@ export struct AppearanceSettingPage {
                   this.showOrientationMenu = false;
                 }
               })
+
+              Divider()
+                .DividerStyle()
+
+              // 车载模式（驾驶界面）
+              Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.carModeEnabled })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.setCarMode(isOn);
+                    })
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.car'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                Column({ space: 2 }) {
+                  Text('车载模式')
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                    .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                    .width('100%')
+                  Text('连接车机自动进入大按钮驾驶界面，也可手动开启')
+                    .fontSize(12)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                    .width('100%')
+                }
+                .layoutWeight(1)
+                .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.carModeEnabled })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.setCarMode(isOn);
+                    })
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.car'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+              }
+              .width('100%')
+              .padding({ top: 16, bottom: 16 })
             }
             .width('100%')
           }.ListItemStyle()

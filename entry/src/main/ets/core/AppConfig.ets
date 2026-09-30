@@ -54,6 +54,7 @@ export class ConfigKeys {
   static readonly APPEARANCE_TAB_SWITCH_ANIM = 'appearance.tabSwitchAnim';
   static readonly APPEARANCE_SMART_REACH = 'appearance.smartReach';
   static readonly APPEARANCE_ORIENTATION = 'appearance.orientation';
+  static readonly APPEARANCE_CAR_MODE = 'appearance.carMode';
   static readonly PLUGIN_SUBSCRIBE_URL = 'plugin.subscribeUrl';
   static readonly UPDATE_PROXY_DOWNLOAD = 'update.proxyDownload';
   static readonly UPDATE_LAST_CHANGELOG_VERSION = 'update.lastChangelogVersion';
@@ -381,6 +382,15 @@ export class AppConfig {
   /** 智感握姿（适人握持） */
   getSmartReachEnabled(): boolean {
     return this.getBoolean(ConfigKeys.APPEARANCE_SMART_REACH, false);
+  }
+
+  /** 车载模式（手动开启驾驶界面；连接车机时无论开关与否均自动进入） */
+  getCarModeEnabled(): boolean {
+    return this.getBoolean(ConfigKeys.APPEARANCE_CAR_MODE, false);
+  }
+
+  setCarModeEnabled(enabled: boolean): void {
+    this.setConfig(ConfigKeys.APPEARANCE_CAR_MODE, enabled);
   }
 
   /** 屏幕方向：portrait / landscape / system */

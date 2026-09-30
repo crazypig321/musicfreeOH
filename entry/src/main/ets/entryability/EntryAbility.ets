@@ -17,6 +17,8 @@ import { downloader } from '../core/Downloader';
 import { ExternalOpen } from '../core/ExternalOpen';
 import { HarmonyShareRecv } from '../sharereceive/HarmonyShareRecv';
 import { JsonUtil } from '../common/JsonUtil';
+import { Continuation, ContinuationData } from '../core/Continuation';
+import { SmartMobilityManager } from '../core/SmartMobilityManager';
 
 const DOMAIN = 0x0000;
 /** 桌面音乐卡片 call 事件方法名（与卡片页 MusicCard.ets postCardAction method 一致） */
@@ -57,9 +59,49 @@ export default class EntryAbility extends UIAbility {
     downloader.restorePersistedTasks();
     // 外部文件关联打开（文件管理器/QQ/微信 → .js 插件 / .json 备份或订阅源 / 音频播放）
     ExternalOpen.offer(want);
+    // 应用接续（车机流转）目标端冷启动：接续数据覆写本地持久化，
+    // 后续 Bootstrap.setup 的既有恢复链即可按源端播放现场恢复
+    if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
+      this.handleContinuationColdStart(want);
+    }
+    // 智慧出行（HiCar/超级桌面/流转）状态感知：车机屏检测与驾驶模式切换
+    SmartMobilityManager.getInstance().setup(this.context);
     // 桌面音乐卡片：监听播放状态用于推送卡片 + 注册 call 事件命令处理
     MusicWidgetManager.setup();
     this.registerMusicWidgetCaller();
+  }
+
+  /** 应用接续目标端冷启动：解析 want 数据并覆写本地持久化（须早于 Bootstrap.setup） */
+  private handleContinuationColdStart(want: Want): void {
+    const data = Continuation.parseFromWant(want);
+    if (data === null || data.current === null) {
+      hilog.warn(DOMAIN, 'testTag', 'continuation data invalid, fallback to local restore');
+      return;
+    }
+    hilog.info(DOMAIN, 'testTag', 'continuation cold start: %{public}s', Continuation.describe(data));
+    Continuation.writeToPersistStatus(data);
+    // 源端在播时恢复后强制续播（不受「启动自动续播」设置限制）
+    trackPlayer.markContinuationResume(data.playing);
+  }
+
+  /** 应用接续源端：打包播放现场写入 wantParam，同意迁移 */
+  onContinue(wantParam: Record<string, Object>): AbilityConstant.OnContinueResult {
+    const payload = Continuation.buildPayload();
+    if (payload === null) {
+      hilog.info(DOMAIN, 'testTag', 'onContinue: nothing to continue, reject');
+      return AbilityConstant.OnContinueResult.REJECT;
+    }
+    try {
+      const keys = Object.keys(payload);
+      for (const key of keys) {
+        wantParam[key] = payload[key];
+      }
+      hilog.info(DOMAIN, 'testTag', 'onContinue: agree with %{public}d keys', keys.length);
+      return AbilityConstant.OnContinueResult.AGREE;
+    } catch (err) {
+      hilog.error(DOMAIN, 'testTag', 'onContinue failed. Cause: %{public}s', JSON.stringify(err));
+      return AbilityConstant.OnContinueResult.REJECT;
+    }
   }
 
   /** 注册桌面音乐卡片 call 事件（卡片控制按钮 → 后台执行播放命令） */
@@ -81,9 +123,24 @@ export default class EntryAbility extends UIAbility {
     }
   }
 
-  /** 应用已启动时再次被外部文件打开拉起（冷启动走 onCreate 的 want） */
-  onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+  /** 应用已启动时再次被外部文件打开拉起（冷启动走 onCreate 的 want）；
+   *  应用接续（车机流转）目标端热启动也走此回调：直接重建播放现场 */
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     ExternalOpen.offer(want);
+    if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
+      const data = Continuation.parseFromWant(want);
+      if (data !== null && data.current !== null) {
+        hilog.info(DOMAIN, 'testTag', 'continuation hot start: %{public}s', Continuation.describe(data));
+        trackPlayer.applyContinuation(
+          data.queue,
+          data.current,
+          data.progress,
+          data.playing,
+          data.repeatMode
+        ).catch((_e: Object): void => {
+        });
+      }
+    }
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
@@ -91,6 +148,8 @@ export default class EntryAbility extends UIAbility {
     if (newConfig.colorMode !== undefined) {
       themeUtils.colorModeChange(newConfig.colorMode);
     }
+    // HiCar 投射等场景 displayId 随 config 变化：重新判定是否在车机屏上
+    SmartMobilityManager.getInstance().refreshOnCarScreen();
     hilog.info(DOMAIN, 'testTag', 'onConfigurationUpdate colorMode: %{public}s', JSON.stringify(newConfig.colorMode));
   }
 
@@ -108,6 +167,8 @@ export default class EntryAbility extends UIAbility {
       mediaSession.destroy().catch(() => {
       });
     }
+    // 注销智慧出行状态监听
+    SmartMobilityManager.getInstance().teardown();
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

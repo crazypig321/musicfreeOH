@@ -7,7 +7,8 @@
     "deviceTypes": [
       "phone",
       "tablet",
-      "2in1"
+      "2in1",
+      "car"
     ],
     "deliveryWithInstall": true,
     "installationFree": false,
@@ -24,6 +25,9 @@
       },
       {
         "name": "ohos.permission.DETECT_GESTURE"
+      },
+      {
+        "name": "ohos.permission.ACCESS_CAR_DISTRIBUTED_ENGINE"
       }
     ],
     "abilities": [
@@ -36,6 +40,7 @@
         "startWindowIcon": "$media:startIcon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
+        "continuable": true,
         "backgroundModes": [
           "audioPlayback",
           "dataTransfer"

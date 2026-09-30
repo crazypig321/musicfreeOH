@@ -96,6 +96,21 @@ class AppState{
 
   // PC 风格侧边栏展开/收起（窗口/PC 布局生效）
   @Trace sidebarExpanded: boolean = true;
+
+  // ---------------- 车载/驾驶模式 ----------------
+  // 智慧出行（HiCar/超级桌面/流转）已连接
+  @Trace smartMobilityConnected: boolean = false;
+  // 应用当前显示在车机屏（虚拟屏）上
+  @Trace onCarScreen: boolean = false;
+  // 手动开启的车载模式（设置页开关，持久化；未连车机也可手动开启驾驶界面）
+  @Trace carModeManual: boolean = false;
+  // 驾驶模式 UI 生效中 = carModeManual || onCarScreen（统一经 refreshCarMode 维护）
+  @Trace carModeActive: boolean = false;
+
+  /** 重算驾驶模式是否生效（状态唯一入口，避免多处直写导致漂移） */
+  refreshCarMode(): void {
+    this.carModeActive = this.carModeManual || this.onCarScreen;
+  }
 }
 
 export const appState: AppState = new AppState()

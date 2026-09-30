@@ -15,6 +15,7 @@ import { PlayBar } from '../view/PlayBar';
 import { useSidebarLayout } from '../utils/BreakpointUtils';
 import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAnim';
 import { PcMainLayout } from './pcUI/PcMainLayout';
+import { CarModeView } from '../view/CarModeView';
 import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';
   import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent, LyricSourceDialogContent } from '../utils/DialogUtils';
@@ -79,6 +80,11 @@ struct Index {
 
   /** 版本升级后首次冷启动弹出更新日志（首次安装仅记录版本不弹出；非升级冷启动不弹出） */
   private checkChangelogOnLaunch(): void {
+    // 驾驶模式期间不弹打扰性弹窗
+    if (appState.carModeActive) {
+      appConfig.setUpdateLastChangelogVersion(AppMeta.appVersion);
+      return;
+    }
     const lastShown = appConfig.getUpdateLastChangelogVersion();
     if (lastShown === AppMeta.appVersion) {
       return;
@@ -95,7 +101,10 @@ struct Index {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      if (useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth)) {
+      if (appState.carModeActive) {
+        // 驾驶模式（HiCar 车机屏自动进入 / 设置页手动开启）：大按钮简布局
+        CarModeView()
+      } else if (useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth)) {
         // PC 风格布局（参考 BiliMusic MainLayout）：标题栏 + (侧边栏 + 内容区) + 底部播放栏；
         // 二级页面仅覆盖内容区，标题栏/侧边栏/播放栏跨页面常驻
         PcMainLayout({ tabsController: this.sideTabsController })

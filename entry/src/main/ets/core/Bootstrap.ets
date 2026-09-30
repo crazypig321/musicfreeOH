@@ -139,6 +139,9 @@ export class Bootstrap {
     // 智感握姿订阅（先恢复开关状态，底部栏 handedness 适配据此渲染）
     appState.smartReachEnabled = appConfig.getSmartReachEnabled();
     SmartReach.setup();
+    // 车载模式手动开关（驾驶界面 = 手动开关 || 车机屏检测）
+    appState.carModeManual = appConfig.getCarModeEnabled();
+    appState.refreshCarMode();
     // 屏幕方向
     Bootstrap.applyOrientation();
   }
