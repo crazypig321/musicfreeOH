@@ -77,20 +77,21 @@ export class Bootstrap {
     // 3. 插件
     await pluginManager.setup();
 
-    // 4. 播放器 + 媒体会话 + 歌词 + 定时关闭
-    await trackPlayer.setupTrackPlayer();
-    await mediaSession.setup();
-    lyricManager.setup();
-    ScheduleClose.setup();
-
-    // 5. 本地音乐 + 已下载（两份独立数据，互不关联）
+    // 4. 本地音乐 + 已下载（两份独立数据，互不关联）
+    //    须先于播放器恢复：接续跨设备重定向依赖本机本地曲库就绪
     await localMusicSheet.setup();
     await downloadedSheet.setup();
     // 历史数据拆分：旧版共享歌单中插件平台的条目属于已下载域
     Bootstrap.splitLegacyLocalSheet();
 
-    // 5.1 下载目录不再启动时自动扫描导入：下载完成的文件由下载器直接入库，
+    // 4.1 下载目录不再启动时自动扫描导入：下载完成的文件由下载器直接入库，
     // 其余新文件（外部复制等）统一走本地音乐页手动扫描，预检后弹窗确认才导入
+
+    // 5. 播放器 + 媒体会话 + 歌词 + 定时关闭
+    await trackPlayer.setupTrackPlayer();
+    await mediaSession.setup();
+    lyricManager.setup();
+    ScheduleClose.setup();
 
     // 6. 非阻塞收尾
     Bootstrap.extraMakeup().catch(() => {

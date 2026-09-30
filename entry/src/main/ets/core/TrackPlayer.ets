@@ -1,6 +1,6 @@
 import { EventEmitter, EventListenerFn } from '../common/EventBus';
 import { JsonUtil, JsonRecord } from '../common/JsonUtil';
-import { MusicRepeatMode, MAX_PLAYLIST_SIZE } from '../common/Consts';
+import { MusicRepeatMode, MAX_PLAYLIST_SIZE, LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { MusicItem, MediaSource, QualityKey } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { MediaIndexMap } from '../utils/MediaIndexMap';
@@ -9,10 +9,12 @@ import { MinDistance } from '../utils/MinDistance';
 import { Delay } from '../utils/Delay';
 import { Log } from '../utils/Log';
 import { BackgroundTask } from '../utils/BackgroundTask';
+import { FileUtils } from '../utils/FileUtils';
 import { PersistStatus } from './PersistStatus';
 import { appConfig } from './AppConfig';
 import { musicHistory } from './MusicHistory';
 import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
+import { MediaExtra, MediaExtraProperties } from './MediaExtra';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { SupportMediaType, SearchResult } from '../common/model/SheetTypes';
@@ -150,11 +152,16 @@ export class TrackPlayer {
 
     const musicQueue = PersistStatus.getPlayList();
     if (musicQueue.length > 0) {
+      // 跨设备接续冷启动：源设备路径本机无效时重定向到本机文件
+      musicQueue.forEach((it: MusicItem): void => {
+        TrackPlayer.remapToLocalLibrary(it);
+      });
       this.addAll(musicQueue, undefined, this.repeatModeValue === MusicRepeatMode.SHUFFLE);
     }
 
     const track = PersistStatus.getMusicItem();
     if (track !== null && this.isInPlayList(track)) {
+      TrackPlayer.remapToLocalLibrary(track);
       const progress = PersistStatus.getProgress();
       // 接续冷启动：源端在播时恢复期不应触发跳曲（同启动自动续播语义）
       if (!appConfig.getAutoPlayWhenAppStart() && !this.continuationPlaying) {
@@ -665,6 +672,38 @@ export class TrackPlayer {
   }
 
   /**
+   * 跨设备接续重定向（就地修补条目）：接续条目携带的是源设备的本地路径，
+   * 本机不存在时尝试改用本机文件——
+   * 1. 精确匹配（platform@id）：已下载 / 本地音乐中的同曲记录；
+   * 2. 本地平台条目 id 为 md5(源设备路径) 跨设备必失配，按 标题+歌手+时长 模糊匹配本地音乐。
+   * 均未命中则保持原样（走原拉源逻辑）。恢复链拉源前调用。
+   */
+  private static remapToLocalLibrary(item: MusicItem): void {
+    const currentPath = MediaUtils.getLocalPath(item);
+    if (currentPath !== null && FileUtils.exists(currentPath)) {
+      return;
+    }
+    let matched = downloadedSheet.isLocalMusicExisting(item);
+    if (matched === null) {
+      matched = localMusicSheet.isLocalMusicExisting(item);
+    }
+    if (matched === null && item.platform === LOCAL_PLUGIN_PLATFORM) {
+      matched = localMusicSheet.findExistingByTitleArtist(item.title, item.artist, item.duration);
+    }
+    if (matched === null) {
+      return;
+    }
+    const matchedPath = MediaUtils.getLocalPath(matched);
+    if (matchedPath === null || matchedPath.length === 0) {
+      return;
+    }
+    Log.debug('接续条目重定向到本机文件');
+    const patch = new MediaExtraProperties();
+    patch.localPath = matchedPath;
+    MediaExtra.patchMediaExtra(item, patch);
+  }
+
+  /**
    * 接续（车机流转）目标端热启动：直接以接续数据重建播放现场并续播
    * 失败静默（保持当前播放不中断）
    */
@@ -674,8 +713,12 @@ export class TrackPlayer {
       return;
     }
     try {
-      // 1. 重建队列与循环模式
+      // 1. 重建队列与循环模式（源设备本地路径先重定向到本机文件）
       const newQueue = queue.length > 0 ? queue : [current];
+      newQueue.forEach((it: MusicItem): void => {
+        TrackPlayer.remapToLocalLibrary(it);
+      });
+      TrackPlayer.remapToLocalLibrary(current);
       this.setPlayList(newQueue);
       this.setRepeatMode(repeatMode);
       // 2. 切换当前曲目（不清队列）

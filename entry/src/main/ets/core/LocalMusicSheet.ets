@@ -342,6 +342,32 @@ export class LocalMusicSheet {
     return localPath !== null && FileUtils.exists(localPath) ? matched : null;
   }
 
+  /**
+   * 按标题+歌手+时长模糊查找本机可播放的本地记录（跨设备接续重定向用）：
+   * 本地平台条目的 id 为 md5(源设备路径)，跨设备必然失配，需按元信息匹配。
+   * 标题歌手完全一致（trim 后），双方时长均有效时允差 3 秒。
+   */
+  findExistingByTitleArtist(title: string, artist: string, duration: number): MusicItem | null {
+    const wantTitle = title.trim();
+    const wantArtist = artist.trim();
+    if (wantTitle.length === 0) {
+      return null;
+    }
+    for (const it of this.localSheetItems) {
+      if (it.title.trim() !== wantTitle || it.artist.trim() !== wantArtist) {
+        continue;
+      }
+      if (it.duration > 0 && duration > 0 && Math.abs(it.duration - duration) > 3) {
+        continue;
+      }
+      const localPath = MediaUtils.getLocalPath(it);
+      if (localPath !== null && FileUtils.exists(localPath)) {
+        return it;
+      }
+    }
+    return null;
+  }
+
   /** 更新匹配条目的封面（搜索封面命中后写回；无匹配或封面为空不处理） */
   setArtwork(musicItem: MusicItem, artwork: string): void {
     if (artwork.length === 0) {

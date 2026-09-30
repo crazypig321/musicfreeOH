@@ -1,5 +1,6 @@
 import { smartMobilityCommon } from '@kit.CarKit';
 import { common } from '@kit.AbilityKit';
+import { deviceInfo } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { appState } from '../entryability/AppState';
 
@@ -60,20 +61,37 @@ export class SmartMobilityManager {
     }
     this.refreshOnCarScreen();
   }
-
   /**
    * 重新判定应用是否显示在车机屏上：
-   * 对各业务类型查询连接状态，业务所在虚拟屏 DISPLAY_ID 与当前窗口 displayId 一致即命中。
+   * 车机设备本体（deviceType 为 car，含接续/通知等任意启动方式）直接命中；
+   * 否则对各业务类型查询连接状态，业务所在虚拟屏 DISPLAY_ID 与当前窗口 displayId 一致即命中。
    * onConfigurationUpdate（HiCar 投射引起 config 变化）与状态回调时调用。
    */
   refreshOnCarScreen(): void {
-    const ctx = this.context;
-    if (this.awareness === null || ctx === null) {
+    if (this.context === null) {
       return;
+    }
+    const onCar = SmartMobilityManager.isCarDevice() || this.matchCarDisplay();
+    if (appState.onCarScreen !== onCar) {
+      hilog.info(DOMAIN, TAG, 'onCarScreen -> %{public}d', onCar ? 1 : 0);
+      appState.onCarScreen = onCar;
+      appState.refreshCarMode();
+    }
+  }
+
+  /** 是否运行在车机设备本体上（车机上任意方式启动均自动进入驾驶模式） */
+  private static isCarDevice(): boolean {
+    return deviceInfo.deviceType === 'car';
+  }
+
+  /** HiCar / 超级桌面 / 流转虚拟屏命中判定（能力不可用时返回 false） */
+  private matchCarDisplay(): boolean {
+    if (this.awareness === null) {
+      return false;
     }
     let onCar = false;
     try {
-      const currentDisplayId = ctx.config.displayId;
+      const currentDisplayId = this.context?.config.displayId;
       if (currentDisplayId !== undefined) {
         const types = SmartMobilityManager.types();
         for (const t of types) {
@@ -93,14 +111,11 @@ export class SmartMobilityManager {
         }
       }
     } catch (e) {
-      hilog.warn(DOMAIN, TAG, 'get smart mobility status failed: %{public}s', JSON.stringify(e));
-      return;
+      hilog.warn(DOMAIN, TAG, 'get smart mobility status failed: %{public}s',
+        JSON.stringify(e));
+      return false;
     }
-    if (appState.onCarScreen !== onCar) {
-      hilog.info(DOMAIN, TAG, 'onCarScreen -> %{public}d', onCar ? 1 : 0);
-      appState.onCarScreen = onCar;
-      appState.refreshCarMode();
-    }
+    return onCar;
   }
 
   /** 取消监听（EntryAbility.onDestroy 调用） */
