@@ -1,4 +1,5 @@
 import { HdsBarStyle, hdsMaterial } from "@kit.UIDesignKit";
+import { OrientationUtils } from "../utils/OrientationUtils";
 
 /** 主题色预设（value 为空串表示跟随系统强调色） */
 export class ThemeColorOption {
@@ -109,7 +110,13 @@ class AppState{
 
   /** 重算驾驶模式是否生效（状态唯一入口，避免多处直写导致漂移） */
   refreshCarMode(): void {
-    this.carModeActive = this.carModeManual || this.onCarScreen;
+    const active = this.carModeManual || this.onCarScreen;
+    if (active === this.carModeActive) {
+      return;
+    }
+    this.carModeActive = active;
+    // 进入驾驶界面强制横屏；退出时恢复外观设置的屏幕方向
+    OrientationUtils.apply(active);
   }
 }
 

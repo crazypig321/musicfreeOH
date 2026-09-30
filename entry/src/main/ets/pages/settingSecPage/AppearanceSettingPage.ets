@@ -3,10 +3,10 @@ import { appState, themeColorOf } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { SmartReach } from '../../utils/SmartReach';
+import { OrientationUtils } from '../../utils/OrientationUtils';
 import { ContextHolder } from '../../common/ContextHolder';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import { hdsMaterial, HdsColorPicker, HdsColorPickerTabType } from '@kit.UIDesignKit';
-import { window } from '@kit.ArkUI';
 import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { HSBColorPicker } from '@keke/color-picker';
@@ -254,18 +254,8 @@ export struct AppearanceSettingPage {
 
   private applyOrientation(value: string): void {
     appConfig.setConfig(ConfigKeys.APPEARANCE_ORIENTATION, value);
-    window.getLastWindow(ContextHolder.get()).then((win: window.Window): Promise<void> => {
-      // AUTO_ROTATION_RESTRICTED：跟随传感器旋转，且受系统控制中心「自动旋转」开关控制
-      let orientation = window.Orientation.AUTO_ROTATION_RESTRICTED;
-      if (value === 'portrait') {
-        orientation = window.Orientation.PORTRAIT;
-      } else if (value === 'landscape') {
-        orientation = window.Orientation.LANDSCAPE;
-      }
-      return win.setPreferredOrientation(orientation);
-    }).catch((): void => {
-      // 静默失败
-    });
+    // 车载模式生效中保持强制横屏，新设置在退出驾驶界面后生效
+    OrientationUtils.apply(appState.carModeActive);
     this.refreshOrientationText();
   }
 
