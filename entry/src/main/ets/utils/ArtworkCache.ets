@@ -60,6 +60,24 @@ export class ArtworkCache {
     return ArtworkCache.fetchAndStore(url);
   }
 
+  /** 下载/取缓存封面并返回本地文件路径（不含 file:// 前缀，供桌面卡片 fd 传图等文件消费方使用） */
+  static async downloadToFile(url: string): Promise<string | null> {
+    if (!ArtworkCache.isHttpUrl(url)) {
+      return null;
+    }
+    ArtworkCache.ensureIndexLoaded();
+    const cachedName = ArtworkCache.lookupName(url);
+    if (cachedName !== null && FileUtils.exists(PathConst.artworkCachePath + cachedName)) {
+      return PathConst.artworkCachePath + cachedName;
+    }
+    const buf = await ArtworkCache.fetchAndStore(url);
+    if (buf === null) {
+      return null;
+    }
+    const fileName = ArtworkCache.lookupName(url);
+    return fileName !== null ? PathConst.artworkCachePath + fileName : null;
+  }
+
   /** 缓存目录被清空后调用：重置内存索引 */
   static reset(): void {
     ArtworkCache.urlIndex.clear();

@@ -91,6 +91,14 @@
     {
       "name": "cancel",
       "value": "取消"
+    },
+    {
+      "name": "music_card_display_name",
+      "value": "音乐卡片"
+    },
+    {
+      "name": "music_card_description",
+      "value": "显示当前歌曲并提供播放控制"
     }
   ]
 }

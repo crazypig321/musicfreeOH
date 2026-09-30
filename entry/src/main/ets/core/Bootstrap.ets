@@ -27,20 +27,40 @@ export class Bootstrap {
   private static readonly PLUGIN_UPDATE_INTERVAL_MS = 86400000;
 
   private static inited: boolean = false;
+  /** 首次完整初始化的 Promise（并发调用复用，避免重复初始化） */
+  private static setupPromise: Promise<void> | null = null;
 
   static isInited(): boolean {
     return Bootstrap.inited;
   }
 
-  /** 执行完整初始化（幂等；失败时 Promise 拒绝，与 RN Fatal 态一致不自动重试） */
-  static async setup(): Promise<void> {
+  /**
+   * 执行完整初始化（幂等；失败时 Promise 拒绝，与 RN Fatal 态一致不自动重试）
+   * 桌面卡片冷启动控制与应用页启动可能并发触发首次初始化，进行中的调用复用同一 Promise
+   */
+  static setup(): Promise<void> {
+    if (Bootstrap.setupPromise !== null) {
+      return Bootstrap.setupPromise;
+    }
     if (Bootstrap.inited) {
       // 进程未死、Ability 重建：媒体会话可能已随旧 Ability 销毁被释放，需补建
-      await mediaSession.setup();
-      return;
+      return mediaSession.setup();
     }
-    Bootstrap.inited = true;
+    Bootstrap.setupPromise = Bootstrap.doSetup();
+    return Bootstrap.setupPromise;
+  }
 
+  private static async doSetup(): Promise<void> {
+    Bootstrap.inited = true;
+    try {
+      await Bootstrap.runSetup();
+    } finally {
+      // 结束后清空：后续调用走 inited 分支（补建媒体会话），与原重复调用语义一致
+      Bootstrap.setupPromise = null;
+    }
+  }
+
+  private static async runSetup(): Promise<void> {
     // 1. 数据目录（EntryAbility 已建，此处幂等兜底）
     Bootstrap.setupFolder();
 

@@ -2,6 +2,7 @@ import web_webview from '@ohos.web.webview';
 import { display } from '@kit.ArkUI';
 import { WebPluginExecutor } from '../plugin/WebPluginExecutor';
 import { Bootstrap } from '../core/Bootstrap';
+import { MusicWidgetManager } from '../core/MusicWidgetManager';
 import { trackPlayer } from '../core/TrackPlayer';
 import {
   HdsBarStyle,
@@ -63,6 +64,8 @@ struct Index {
     try {
       await Bootstrap.setup();
       appState.bootReady = true;
+      // 启动恢复的当前歌曲不触发事件，主动推送一次桌面卡片状态
+      MusicWidgetManager.refresh();
       this.checkChangelogOnLaunch();
     } catch (e) {
       const message = e instanceof Error ? e.message : '未知错误';

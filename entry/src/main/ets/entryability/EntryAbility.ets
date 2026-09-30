@@ -1,6 +1,7 @@
 import { AbilityConstant, application, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { rpc } from '@kit.IPCKit';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
 import { Network } from '../infra/Network';
@@ -8,14 +9,29 @@ import { FileUtils } from '../utils/FileUtils';
 import { mediaSession } from '../core/MediaSession';
 import { trackPlayer } from '../core/TrackPlayer';
 import { PlayState } from '../core/PlayerEngine';
+import { MusicWidgetManager, MusicWidgetCommand } from '../core/MusicWidgetManager';
 import { screenInfo } from '../utils/ScreenInfo';
 import { themeUtils } from '../utils/ThemeUtils';
 import { WebDav } from '../core/WebDav';
 import { downloader } from '../core/Downloader';
 import { ExternalOpen } from '../core/ExternalOpen';
 import { HarmonyShareRecv } from '../sharereceive/HarmonyShareRecv';
+import { JsonUtil } from '../common/JsonUtil';
 
 const DOMAIN = 0x0000;
+/** 桌面音乐卡片 call 事件方法名（与卡片页 MusicCard.ets postCardAction method 一致） */
+const MUSIC_WIDGET_CALL_METHOD = 'mediaControl';
+
+/** call 事件回调返回值（CalleeCallback 要求返回 Parcelable，本场景无回传数据） */
+class WidgetCallResult implements rpc.Parcelable {
+  marshalling(_sequence: rpc.MessageSequence): boolean {
+    return true;
+  }
+
+  unmarshalling(_sequence: rpc.MessageSequence): boolean {
+    return true;
+  }
+}
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
@@ -41,6 +57,27 @@ export default class EntryAbility extends UIAbility {
     downloader.restorePersistedTasks();
     // 外部文件关联打开（文件管理器/QQ/微信 → .js 插件 / .json 备份或订阅源 / 音频播放）
     ExternalOpen.offer(want);
+    // 桌面音乐卡片：监听播放状态用于推送卡片 + 注册 call 事件命令处理
+    MusicWidgetManager.setup();
+    this.registerMusicWidgetCaller();
+  }
+
+  /** 注册桌面音乐卡片 call 事件（卡片控制按钮 → 后台执行播放命令） */
+  private registerMusicWidgetCaller(): void {
+    try {
+      this.callee.on(MUSIC_WIDGET_CALL_METHOD, (data: rpc.MessageSequence): rpc.Parcelable => {
+        // call 事件参数以 JSON 字符串送达（卡片 postCardAction params）
+        const rec = JsonUtil.parseRecord(data.readString());
+        const command = rec !== null ? JsonUtil.recStr(rec, 'command') : '';
+        if (command.length > 0) {
+          MusicWidgetManager.handleCommand(command).catch((_e: Object): void => {
+          });
+        }
+        return new WidgetCallResult();
+      });
+    } catch (err) {
+      hilog.error(DOMAIN, 'testTag', 'Failed to register widget callee. Cause: %{public}s', JSON.stringify(err));
+    }
   }
 
   /** 应用已启动时再次被外部文件打开拉起（冷启动走 onCreate 的 want） */

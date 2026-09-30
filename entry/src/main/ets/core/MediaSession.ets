@@ -421,6 +421,16 @@ export class MediaSession {
     }
   }
 
+  /** 当前歌曲收藏状态（供桌面卡片等外部消费方读取） */
+  get currentFavorite(): boolean {
+    return this.isFavorite;
+  }
+
+  /** 切换当前歌曲收藏状态（供桌面卡片等外部入口调用） */
+  toggleFavorite(): void {
+    this.toggleFavoriteStatus();
+  }
+
   /** 注册收藏状态变化回调；返回取消注册函数 */
   onFavoriteChanged(callback: () => void): () => void {
     this.favoriteChangedCallbacks.push(callback);
