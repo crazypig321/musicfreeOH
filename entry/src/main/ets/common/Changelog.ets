@@ -12,6 +12,17 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v250: ChangelogEntry = new ChangelogEntry();
+  v250.version = '2.5.0';
+  v250.date = '2026-09-30';
+  v250.markdown = '- 新增 2*2 桌面音乐卡片：封面 / 收藏 / 歌名 / 歌手与上一曲 / 播放暂停 / 下一曲控制，卡片背景自动提取封面主色\n' +
+    '- 新增 4*4 桌面音乐卡片：第一排封面 + 歌名 + 两行歌词（当前句与下一句），第二排循环模式 / 上一曲 / 播放暂停 / 下一曲 / 收藏，下方播放队列当前曲高亮、点击直接切歌、超高可滚动；点击封面与文本区域打开应用\n' +
+    '- 桌面卡片在应用未运行时同样可控（自动后台拉起执行，不打开界面）；卡片初始状态从上次播放记录回填\n' +
+    '- 修复桌面卡片切歌后封面不刷新的问题\n' +
+    '- 导入歌单支持选择超时时长（1/3/5/10 分钟），避免大歌单因超时导入失败\n' +
+    '- 首页与歌单详情页增加转场动画，首页加载样式优化';
+  list.push(v250);
+
   const v240: ChangelogEntry = new ChangelogEntry();
   v240.version = '2.4.0';
   v240.date = '2026-09-29';

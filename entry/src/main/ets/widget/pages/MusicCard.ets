@@ -37,6 +37,14 @@ struct MusicCard {
     return this.isFavorite ? '#E84057' : $r('sys.color.font_tertiary');
   }
 
+  /** 点击封面/文本区域打开应用 */
+  private openApp(): void {
+    postCardAction(this, {
+      'action': 'router',
+      'abilityName': 'EntryAbility'
+    });
+  }
+
   build() {
     Column() {
       Row() {
@@ -56,6 +64,9 @@ struct MusicCard {
       }
       .width('100%')
       .alignItems(VerticalAlign.Top)
+      .onClick(()=>{
+        this.openApp()
+      })
 
       Column({ space: 2 }){
         Text(this.title.length > 0 ? this.title : $r('app.string.playbar_no_music'))
@@ -64,6 +75,9 @@ struct MusicCard {
         Text(this.artist.length > 0 ? this.artist : ' ')
           .TextUI(11, FontWeight.Normal, $r('sys.color.font_tertiary'))
       }.width('100%').alignItems(HorizontalAlign.Start).margin({ top: 5, bottom: 5})
+      .onClick(()=>{
+        this.openApp()
+      })
 
       Row({space: 16}) {
         ForEach([$r('sys.symbol.backward_end_fill'), $r('sys.symbol.play_circle_fill'), $r('sys.symbol.forward_end_fill')],
