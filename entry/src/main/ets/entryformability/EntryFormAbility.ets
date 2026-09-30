@@ -4,7 +4,8 @@ import preferences from '@ohos.data.preferences';
 import fs from '@ohos.file.fs';
 import { JsonUtil } from '../common/JsonUtil';
 import { FileUtils } from '../utils/FileUtils';
-import { MusicCardData } from '../widget/MusicCardData';
+import { CoverColorUtils } from '../utils/CoverColorUtils';
+import { CARD_BG_ALPHA_HEX, MusicCardData } from '../widget/MusicCardData';
 import { Log } from '../utils/Log';
 
 /** 持久化播放状态存储名 / 键（与主进程 KVStore PersistStatus 一致，跨进程只读） */
@@ -13,6 +14,15 @@ const PERSIST_KEY_MUSIC_ITEM = 'music.musicItem';
 /** 封面缓存索引文件（与主进程 ArtworkCache 落盘位置一致） */
 const ARTWORK_DIR = '/artwork/';
 const ARTWORK_INDEX_FILE = 'index.json';
+/** 主色异步补推延迟（onAddForm 需同步返回，主色提取为异步操作） */
+const COLOR_PUSH_DELAY_MS = 300;
+
+/** 持久化状态解析结果：卡片数据 + 封面路径/fd（供主色提取与 fd 关闭） */
+class PersistedCardState {
+  data: MusicCardData = new MusicCardData();
+  coverPath: string = '';
+  coverFd: number = -1;
+}
 
 /**
  * 桌面音乐卡片生命周期
@@ -21,31 +31,89 @@ const ARTWORK_INDEX_FILE = 'index.json';
  */
 export default class EntryFormAbility extends FormExtensionAbility {
   onAddForm(want: Want): formBindingData.FormBindingData {
-    const data = this.readPersistedCardData(want);
-    return formBindingData.createFormBindingData(data);
+    const formId = this.resolveFormId(want);
+    const state = this.readPersistedCardData(formId);
+    if (state.data.hasCover) {
+      this.scheduleColorPush(formId);
+    }
+    return formBindingData.createFormBindingData(state.data);
   }
 
   onUpdateForm(formId: string): void {
     // 定时/定点刷新未启用，仅系统主动请求（如恢复可见）时回填持久化状态
-    const data = this.readPersistedCardData(undefined);
-    formProvider.updateForm(formId, formBindingData.createFormBindingData(data)).catch((_e: Object): void => {
+    const state = this.readPersistedCardData(formId);
+    formProvider.updateForm(formId, formBindingData.createFormBindingData(state.data)).then((): void => {
+      this.closeCoverFd(state);
+    }).catch((_e: Object): void => {
+      this.closeCoverFd(state);
       Log.warn('桌面卡片 onUpdateForm 刷新失败: ' + formId);
     });
+    if (state.data.hasCover) {
+      this.scheduleColorPush(formId);
+    }
   }
 
   onRemoveForm(_formId: string): void {
     // 卡片被删除：无需处理（应用侧通过 getPublishedRunningFormInfos 枚举现存卡片）
   }
 
-  /** 读取持久化的最近歌曲 + 封面缓存，构造卡片初始数据 */
-  private readPersistedCardData(want: Want | undefined): MusicCardData {
-    const data = new MusicCardData();
-    if (want !== undefined && want.parameters !== undefined) {
+  /** 从 want 中解析卡片 id */
+  private resolveFormId(want: Want): string {
+    if (want.parameters !== undefined) {
       const idVal: Object | undefined = want.parameters[formInfo.FormParam.IDENTITY_KEY];
       if (typeof idVal === 'string') {
-        data.formId = idVal;
+        return idVal;
       }
     }
+    return '';
+  }
+
+  /** 主色提取为异步，onAddForm/onUpdateForm 需尽快返回：延迟后补推带背景色的完整数据 */
+  private scheduleColorPush(formId: string): void {
+    setTimeout((): void => {
+      this.pushWithDominantColor(formId).catch((_e: Object): void => {
+        Log.warn('桌面卡片主色补推异常: ' + formId);
+      });
+    }, COLOR_PUSH_DELAY_MS);
+  }
+
+  /**
+   * 提取封面主色后全量补推（必须携带完整数据含 formImages fd，否则 hasCover=false 会回退兜底图）。
+   * 补推完成后不再重新调度，无循环。
+   */
+  private async pushWithDominantColor(formId: string): Promise<void> {
+    const state = this.readPersistedCardData(formId);
+    if (!state.data.hasCover || state.coverPath.length === 0) {
+      this.closeCoverFd(state);
+      return;
+    }
+    try {
+      const color = await CoverColorUtils.extract(state.coverPath);
+      if (color !== null) {
+        state.data.bgColor = CoverColorUtils.toHexWithAlpha(color, CARD_BG_ALPHA_HEX);
+        await formProvider.updateForm(formId, formBindingData.createFormBindingData(state.data));
+      }
+    } catch (e) {
+      Log.warn('桌面卡片主色补推失败: ' + formId);
+    } finally {
+      this.closeCoverFd(state);
+    }
+  }
+
+  private closeCoverFd(state: PersistedCardState): void {
+    if (state.coverFd >= 0) {
+      try {
+        fs.closeSync(state.coverFd);
+      } catch (e) {
+        // 关闭失败忽略
+      }
+    }
+  }
+
+  /** 读取持久化的最近歌曲 + 封面缓存，构造卡片初始数据 */
+  private readPersistedCardData(formId: string): PersistedCardState {
+    const state = new PersistedCardState();
+    state.data.formId = formId;
 
     let title = '';
     let artist = '';
@@ -64,20 +132,22 @@ export default class EntryFormAbility extends FormExtensionAbility {
     } catch (e) {
       // 持久化数据不可读时保持空白初始状态
     }
-    data.title = title;
-    data.artist = artist;
+    state.data.title = title;
+    state.data.artist = artist;
 
     const coverPath = this.resolveCachedCover(artwork);
     if (coverPath !== null) {
       try {
         const file = fs.openSync(coverPath, fs.OpenMode.READ_ONLY);
-        data.formImages['cover'] = file.fd;
-        data.hasCover = true;
+        state.coverFd = file.fd;
+        state.coverPath = coverPath;
+        state.data.formImages['cover'] = file.fd;
+        state.data.hasCover = true;
       } catch (e) {
-        data.hasCover = false;
+        state.data.hasCover = false;
       }
     }
-    return data;
+    return state;
   }
 
   /** 仅读取主进程封面磁盘缓存（URL → 文件名索引），不做网络下载 */

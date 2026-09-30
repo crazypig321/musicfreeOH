@@ -6,9 +6,10 @@ import { Bootstrap } from './Bootstrap';
 import { PlayState } from './PlayerEngine';
 import { MusicItem } from '../common/model/MediaTypes';
 import { ArtworkCache } from '../utils/ArtworkCache';
+import { CoverColorUtils } from '../utils/CoverColorUtils';
 import { FileUtils } from '../utils/FileUtils';
 import { Log } from '../utils/Log';
-import { MusicCardData } from '../widget/MusicCardData';
+import { CARD_BG_ALPHA_HEX, MusicCardData } from '../widget/MusicCardData';
 
 /** 桌面音乐卡片控制命令（与卡片页 MusicCard.ets postCommand 参数一致） */
 export class MusicWidgetCommand {
@@ -36,6 +37,9 @@ export class MusicWidgetManager {
   /** 封面缓存（同一歌曲重复刷新播放态时免重复解析/下载） */
   private static coverArtworkUrl: string = '';
   private static coverFilePath: string = '';
+  /** 当前封面的 memory key（封面变化时递增换 key，同名 key 图片更新不触发卡片重载） */
+  private static coverKeySeq: number = 0;
+  private static coverKey: string = 'cover';
 
   /** 注册播放状态监听（幂等；EntryAbility onCreate 时调用） */
   static setup(): void {
@@ -162,9 +166,14 @@ export class MusicWidgetManager {
         fd = -1;
       }
     }
-    if (fd >= 0) {
+    if (fd >= 0 && coverPath !== null) {
       data.hasCover = true;
-      data.formImages['cover'] = fd;
+      data.coverKey = MusicWidgetManager.coverKey;
+      data.formImages[MusicWidgetManager.coverKey] = fd;
+      const color = await CoverColorUtils.extract(coverPath);
+      if (color !== null) {
+        data.bgColor = CoverColorUtils.toHexWithAlpha(color, CARD_BG_ALPHA_HEX);
+      }
     }
     try {
       await formProvider.updateForm(formId, formBindingData.createFormBindingData(data));
@@ -196,16 +205,14 @@ export class MusicWidgetManager {
     MusicWidgetManager.coverFilePath = '';
     if (artwork.startsWith('file://')) {
       const path = artwork.substring('file://'.length);
-      MusicWidgetManager.coverArtworkUrl = artwork;
-      MusicWidgetManager.coverFilePath = path;
+      MusicWidgetManager.commitCover(artwork, path);
       return path;
     }
     if (artwork.startsWith('http://') || artwork.startsWith('https://')) {
       try {
         const path = await ArtworkCache.downloadToFile(artwork);
         if (path !== null) {
-          MusicWidgetManager.coverArtworkUrl = artwork;
-          MusicWidgetManager.coverFilePath = path;
+          MusicWidgetManager.commitCover(artwork, path);
         }
         return path;
       } catch (e) {
@@ -213,5 +220,13 @@ export class MusicWidgetManager {
       }
     }
     return null;
+  }
+
+  /** 封面解析成功：记录缓存并换新 memory key（强制卡片 Image 重载新封面） */
+  private static commitCover(artwork: string, path: string): void {
+    MusicWidgetManager.coverArtworkUrl = artwork;
+    MusicWidgetManager.coverFilePath = path;
+    MusicWidgetManager.coverKeySeq += 1;
+    MusicWidgetManager.coverKey = 'cover_' + MusicWidgetManager.coverKeySeq.toString();
   }
 }

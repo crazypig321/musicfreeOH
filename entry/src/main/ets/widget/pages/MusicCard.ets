@@ -15,6 +15,10 @@ struct MusicCard {
   @LocalStorageProp('isPlaying') isPlaying: boolean = false;
   @LocalStorageProp('isFavorite') isFavorite: boolean = false;
   @LocalStorageProp('hasCover') hasCover: boolean = false;
+  /** 当前封面的 memory key（封面变化时由应用侧更换，强制 Image 重载） */
+  @LocalStorageProp('coverKey') coverKey: string = 'cover';
+  /** 封面主色背景 '#AARRGGBB'（应用侧提取，空串表示透明） */
+  @LocalStorageProp('bgColor') bgColor: string = '';
 
   private postCommand(command: string): void {
     postCardAction(this, {
@@ -34,10 +38,10 @@ struct MusicCard {
   }
 
   build() {
-    Column({space: 10}) {
+    Column() {
       Row() {
         if (this.hasCover) {
-          Image('memory://cover').ImageStyle()
+          Image('memory://' + this.coverKey).ImageStyle()
         } else {
           Image($r('app.media.altImage')).ImageStyle()
         }
@@ -51,7 +55,6 @@ struct MusicCard {
           })
       }
       .width('100%')
-      .height(48)
       .alignItems(VerticalAlign.Top)
 
       Column({ space: 2 }){
@@ -60,9 +63,9 @@ struct MusicCard {
 
         Text(this.artist.length > 0 ? this.artist : ' ')
           .TextUI(11, FontWeight.Normal, $r('sys.color.font_tertiary'))
-      }.width('100%').alignItems(HorizontalAlign.Start)
+      }.width('100%').alignItems(HorizontalAlign.Start).margin({ top: 5, bottom: 5})
 
-      Row({space: 10}) {
+      Row({space: 16}) {
         ForEach([$r('sys.symbol.backward_end_fill'), $r('sys.symbol.play_circle_fill'), $r('sys.symbol.forward_end_fill')],
           (v: Resource, i: number)=>{
             SymbolGlyph(i === 1 ? (this.isPlaying ? $r('sys.symbol.pause_circle_fill') : $r('sys.symbol.play_circle_fill')) : v)
@@ -79,13 +82,14 @@ struct MusicCard {
               })
           })
       }
+      .padding({ right: 10, left: 10 })
       .width('100%')
       .justifyContent(FlexAlign.SpaceBetween)
-      .padding({ left: 14, right: 14 })
     }
     .width('100%')
     .height('100%')
     .padding(12)
+    .backgroundColor(this.bgColor.length > 0 ? this.bgColor : Color.Transparent)
   }
 }
 
