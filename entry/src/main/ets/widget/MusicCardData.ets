@@ -22,6 +22,8 @@ export class MusicCardData {
   formImages: Record<string, number> = {};
   /** 当前歌词行（无歌词/未播放为空串） */
   lyric: string = '';
+  /** 下一句歌词（无歌词/已到末句为空串） */
+  lyricNext: string = '';
   /** 循环模式：'QUEUE' | 'SHUFFLE' | 'SINGLE' */
   repeatMode: string = 'QUEUE';
   /** 播放队列标题/歌手（并行数组，最多 CARD_MAX_QUEUE_ITEMS 条） */

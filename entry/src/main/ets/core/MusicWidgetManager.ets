@@ -181,6 +181,11 @@ export class MusicWidgetManager {
     data.repeatMode = MusicWidgetManager.repeatModeName(trackPlayer.repeatMode);
     const lyricItem = lyricManager.currentLyricItem;
     data.lyric = lyricItem !== null ? lyricItem.lrc : '';
+    if (lyricItem !== null && lyricItem.index >= 0) {
+      const lyrics = lyricManager.lyricState.lyrics;
+      const nextIdx = lyricItem.index + 1;
+      data.lyricNext = nextIdx < lyrics.length ? lyrics[nextIdx].lrc : '';
+    }
     MusicWidgetManager.fillQueue(data);
 
     const coverPath = await MusicWidgetManager.resolveCoverPath(music);

@@ -22,6 +22,8 @@ struct MusicCardLarge {
   @LocalStorageProp('bgColor') bgColor: string = '';
   /** 当前歌词行 */
   @LocalStorageProp('lyric') lyric: string = '';
+  /** 下一句歌词 */
+  @LocalStorageProp('lyricNext') lyricNext: string = '';
   /** 循环模式：'QUEUE' | 'SHUFFLE' | 'SINGLE' */
   @LocalStorageProp('repeatMode') repeatMode: string = 'QUEUE';
   /** 播放队列（窗口）标题/歌手 */
@@ -42,6 +44,14 @@ struct MusicCardLarge {
         'command': command,
         'index': index
       }
+    });
+  }
+
+  /** 点击封面/文本区域打开应用 */
+  private openApp(): void {
+    postCardAction(this, {
+      'action': 'router',
+      'abilityName': 'EntryAbility'
     });
   }
 
@@ -69,6 +79,14 @@ struct MusicCardLarge {
     return this.lyric.length > 0 ? this.lyric : '暂无歌词';
   }
 
+  /** 下一句歌词文案（无歌曲/无歌词时空白占位，保持两行高度稳定） */
+  private nextLyricText(): string {
+    if (this.title.length === 0 || this.lyric.length === 0) {
+      return ' ';
+    }
+    return this.lyricNext.length > 0 ? this.lyricNext : ' ';
+  }
+
   /** 队列条目文字颜色（当前曲高亮） */
   private queueRowColor(index: number): ResourceColor {
     return index === this.queueIndex ? $r('sys.color.icon_emphasize') : $r('sys.color.font');
@@ -90,10 +108,17 @@ struct MusicCardLarge {
             .fontColor($r('sys.color.font'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
+          // 两行歌词：当前句 + 下一句
           Text(this.lyricText())
             .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .animation({ duration: 200, curve: Curve.EaseInOut })
+          Text(this.nextLyricText())
+            .fontSize(12)
             .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(2)
+            .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .layoutWeight(1)
@@ -101,6 +126,9 @@ struct MusicCardLarge {
       }
       .width('100%')
       .alignItems(VerticalAlign.Top)
+      .onClick(() => {
+        this.openApp();
+      })
 
       // 第二排：循环模式 + 上一曲 + 播放/暂停 + 下一曲 + 收藏
       Row() {
