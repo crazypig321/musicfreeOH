@@ -54,6 +54,9 @@ export class PluginManager {
       const names = FileUtils.listDir(PathConst.pluginPath);
       const allPlugins: Array<Plugin> = [];
       const cacheStore = PluginManager.pluginCacheStore();
+      // 无窗口后台模式（桌面卡片冷启动）：沙箱不可用，全部按懒加载注册
+      // （挂载会立即失败），保留插件记录待用户打开应用后补挂载
+      const headless = WebPluginExecutor.getInstance().isHeadless();
       for (let i = 0; i < names.length; ++i) {
         const name = names[i];
         if (!name.endsWith('.js')) {
@@ -63,7 +66,7 @@ export class PluginManager {
         Log.info('初始化插件 ' + pluginFilePath);
         let plugin: Plugin;
         let isLazyLoad = false;
-        if (appConfig.getLazyLoadPlugin() && cacheStore.contains(pluginFilePath)) {
+        if (headless || (appConfig.getLazyLoadPlugin() && cacheStore.contains(pluginFilePath))) {
           isLazyLoad = true;
           const lazyProps = LazyProps.fromRecord(JsonUtil.parseRecord(cacheStore.get(pluginFilePath)) ?? {});
           lazyProps.path = pluginFilePath;
@@ -97,17 +100,20 @@ export class PluginManager {
       }
 
       this.setPlugins(allPlugins);
-      // 延迟初始化懒加载插件（必须 catch，否则未处理拒绝会导致 jscrash）
-      Delay.wait(10000).then(async (): Promise<void> => {
-        for (const plugin of allPlugins) {
-          if (plugin.state === PluginState.Initializing) {
-            await plugin.ensureMounted();
-            this.updatePluginCache(plugin);
+      // 延迟初始化懒加载插件（必须 catch，否则未处理拒绝会导致 jscrash）；
+      // 无窗口后台模式下跳过：挂载必失败，等沙箱就绪后由 onSandboxReady 补挂载
+      if (!headless) {
+        Delay.wait(10000).then(async (): Promise<void> => {
+          for (const plugin of allPlugins) {
+            if (plugin.state === PluginState.Initializing) {
+              await plugin.ensureMounted();
+              this.updatePluginCache(plugin);
+            }
           }
-        }
-      }).catch((e: Object): void => {
-        Log.error('懒加载插件延迟初始化失败: ' + (e instanceof Error ? e.message : ''));
-      });
+        }).catch((e: Object): void => {
+          Log.error('懒加载插件延迟初始化失败: ' + (e instanceof Error ? e.message : ''));
+        });
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : '';
       Log.error('插件初始化失败: ' + message);
@@ -115,6 +121,27 @@ export class PluginManager {
     }
 
     Plugin.injectDependencies(this);
+  }
+
+  /**
+   * 插件沙箱就绪（WebPluginExecutor.markReady 回调）：
+   * 补挂载未挂载/挂载失败的插件——覆盖无窗口后台冷启动（桌面卡片控制）
+   * 后用户首次打开应用的场景；正常运行时幂等无害
+   */
+  onSandboxReady(): void {
+    for (const plugin of this.plugins) {
+      if (plugin.state === PluginState.Mounted) {
+        continue;
+      }
+      plugin.retryMount().then((): void => {
+        if (plugin.state === PluginState.Mounted) {
+          this.updatePluginCache(plugin);
+          this.ee.emit('order-updated', new PluginOrderUpdatedEvent());
+        }
+      }).catch((_e: Object): void => {
+        // 单个插件补挂载失败忽略
+      });
+    }
   }
 
   private setPlugins(plugins: Array<Plugin>): void {

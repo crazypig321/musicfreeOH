@@ -83,6 +83,8 @@ export class MusicWidgetManager {
       Log.error('桌面卡片控制：应用初始化失败');
       return;
     }
+    // 等待启动恢复链落定（拉源/seek 完成），避免命令与恢复逻辑竞态互相覆盖
+    await trackPlayer.awaitRestore();
     try {
       if (command === MusicWidgetCommand.PLAY_PAUSE) {
         if (trackPlayer.playState === PlayState.Playing) {

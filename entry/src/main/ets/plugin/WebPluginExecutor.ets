@@ -5,6 +5,7 @@ import { JsonUtil, JsonRecord } from '../common/JsonUtil';
 import { HttpClient } from '../infra/HttpClient';
 import { IPluginExecutor, PluginInstanceInfo } from './PluginTypes';
 import { PluginMeta } from './PluginMeta';
+import { pluginManager } from './PluginManager';
 import { Log } from '../utils/Log';
 
 /**
@@ -79,13 +80,29 @@ export class WebPluginExecutor implements IPluginExecutor {
   private mounted: Set<string> = new Set<string>();
   private pending: Map<string, PendingCall> = new Map();
   private callSeq: number = 0;
+  /**
+   * 无窗口后台模式（桌面卡片 call 事件冷启动）：进程没有 UI 页面，
+   * 沙箱永远不会就绪；插件挂载须立即失败而非等待 30 秒超时，
+   * 待用户打开应用（attachController）后再补挂载
+   */
+  private headless: boolean = false;
 
   private constructor() {
+  }
+
+  /** 标记无窗口后台模式（EntryAbility 在无 WindowStage 时收到卡片 call 事件调用） */
+  markHeadless(): void {
+    this.headless = true;
+  }
+
+  isHeadless(): boolean {
+    return this.headless;
   }
 
   /** Index 页面在 Web 组件创建后绑定 controller */
   attachController(controller: web_webview.WebviewController): void {
     this.controller = controller;
+    this.headless = false;
   }
 
   markReady(): void {
@@ -98,11 +115,21 @@ export class WebPluginExecutor implements IPluginExecutor {
     for (const r of resolvers) {
       r();
     }
+    // 沙箱就绪：补挂载后台期间未挂载/挂载失败的插件（幂等，异常静默）
+    try {
+      pluginManager.onSandboxReady();
+    } catch (e) {
+      // 插件管理器尚未初始化等场景忽略
+    }
   }
 
   private async waitReady(timeoutMs: number): Promise<void> {
     if (this.ready) {
       return;
+    }
+    if (this.controller === null && this.headless) {
+      // 无窗口后台模式：沙箱不可能就绪，立即失败避免阻塞卡片控制链路
+      throw new Error('后台无窗口，插件沙箱不可用');
     }
     return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {

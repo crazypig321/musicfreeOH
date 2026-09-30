@@ -95,6 +95,8 @@ export class TrackPlayer {
   private lastProgressPersistAt: number = 0;
   /** 接续（车机流转）目标端冷启动标记：恢复完成后无视「启动自动续播」设置直接续播 */
   private continuationPlaying: boolean = false;
+  /** 冷启动恢复链（setupTrackPlayer 内拉源/seek/续播完成才算落定） */
+  private restoreChain: Promise<void> = Promise.resolve();
 
   constructor() {
   }
@@ -170,7 +172,7 @@ export class TrackPlayer {
       const plugin = pluginManager.getByMedia(track);
       if (plugin !== null) {
         const quality = PersistStatus.getQuality();
-        plugin.methods.getMediaSource(track, quality)
+        this.restoreChain = plugin.methods.getMediaSource(track, quality)
           .then((newSource: MediaSource | null) => {
             if (newSource !== null && newSource.url.length > 0) {
               track.url = newSource.url;
@@ -199,6 +201,8 @@ export class TrackPlayer {
             }
           })
           .catch(() => {
+            // 拉源失败（如无窗口后台模式下插件沙箱不可用）：恢复链落定，
+            // 当前曲仍保留持久化的 url/缓存源，后续 play() 走兜底
             this.initRestoring = false;
           });
       } else {
@@ -236,7 +240,14 @@ export class TrackPlayer {
       };
       this.serviceInited = true;
     }
+    this.restoreChain = this.restoreChain.catch(() => {
+    });
     return Promise.resolve();
+  }
+
+  /** 等待冷启动恢复链落定（桌面卡片后台冷启动控制前调用，避免与恢复链竞态） */
+  awaitRestore(): Promise<void> {
+    return this.restoreChain;
   }
 
   private handleStateChanged(state: PlayState): void {
@@ -507,8 +518,14 @@ export class TrackPlayer {
       for (const quality of qualityOrder) {
         if (this.isCurrentMusic(musicItem)) {
           if (plugin !== null) {
-            const s = await plugin.methods.getMediaSource(musicItem, quality);
-            source = s === null ? null : s;
+            // 拉源失败（无窗口后台模式沙箱不可用/网络异常等）不中断：
+            // 落到缓存过的源或持久化 url 兜底
+            try {
+              const s = await plugin.methods.getMediaSource(musicItem, quality);
+              source = s === null ? null : s;
+            } catch (e) {
+              source = null;
+            }
           } else {
             source = null;
           }
@@ -546,8 +563,12 @@ export class TrackPlayer {
               for (const quality of qualityOrder) {
                 if (this.isCurrentMusic(musicItem)) {
                   if (similarMusicPlugin !== null) {
-                    const s = await similarMusicPlugin.methods.getMediaSource(similarMusic, quality);
-                    source = s === null ? null : s;
+                    try {
+                      const s = await similarMusicPlugin.methods.getMediaSource(similarMusic, quality);
+                      source = s === null ? null : s;
+                    } catch (e) {
+                      source = null;
+                    }
                   } else {
                     source = null;
                   }
@@ -723,12 +744,17 @@ export class TrackPlayer {
       this.setRepeatMode(repeatMode);
       // 2. 切换当前曲目（不清队列）
       this.setCurrentMusic(current);
-      // 3. 拉源（复用启动恢复链逻辑：不自动播，先 seek 再播）
+      // 3. 拉源（复用启动恢复链逻辑：不自动播，先 seek 再播）；
+      // 拉源失败（无窗口后台/网络异常）不中断：落到接续数据携带的 url 兜底
       this.initRestoring = true;
       const plugin = pluginManager.getByMedia(current);
       let newSource: MediaSource | null = null;
       if (plugin !== null) {
-        newSource = await plugin.methods.getMediaSource(current, PersistStatus.getQuality());
+        try {
+          newSource = await plugin.methods.getMediaSource(current, PersistStatus.getQuality());
+        } catch (e) {
+          newSource = null;
+        }
       }
       if (!this.isCurrentMusic(current)) {
         this.initRestoring = false;

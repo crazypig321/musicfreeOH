@@ -21,6 +21,7 @@ import { JsonUtil } from '../common/JsonUtil';
 import { Continuation, ContinuationData } from '../core/Continuation';
 import { SmartMobilityManager } from '../core/SmartMobilityManager';
 import { Bootstrap } from '../core/Bootstrap';
+import { WebPluginExecutor } from '../plugin/WebPluginExecutor';
 
 const DOMAIN = 0x0000;
 /** 桌面音乐卡片 call 事件方法名（与卡片页 MusicCard.ets postCardAction method 一致） */
@@ -140,6 +141,11 @@ export default class EntryAbility extends UIAbility {
   private registerMusicWidgetCaller(): void {
     try {
       this.callee.on(MUSIC_WIDGET_CALL_METHOD, (data: rpc.MessageSequence): rpc.Parcelable => {
+        // call 事件冷启动：无 WindowStage 的后台拉起，标记无窗口模式
+        // （插件沙箱不可用，挂载立即失败而非等待 30 秒超时）
+        if (!this.windowStageReady) {
+          WebPluginExecutor.getInstance().markHeadless();
+        }
         // call 事件参数以 JSON 字符串送达（卡片 postCardAction params）
         const rec = JsonUtil.parseRecord(data.readString());
         const command = rec !== null ? JsonUtil.recStr(rec, 'command') : '';

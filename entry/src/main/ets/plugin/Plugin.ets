@@ -843,6 +843,18 @@ export class Plugin {
     }
   }
 
+  /**
+   * 重试挂载（沙箱就绪后补挂载）：后台无窗口期间挂载失败的懒加载插件
+   * 复位到 Initializing 后重新走挂载流程；正常插件为空操作
+   */
+  async retryMount(): Promise<void> {
+    if (this.state === PluginState.Error && this.lazyProps !== null) {
+      this.state = PluginState.Initializing;
+      this.errorReason = null;
+    }
+    await this.ensureMounted();
+  }
+
   private async mountPlugin(funcCode: string, pluginPath: string, presetHash?: string): Promise<void> {
     this.state = PluginState.Loading;
     let hash = presetHash !== undefined ? presetHash : '';
