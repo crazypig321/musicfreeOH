@@ -1390,7 +1390,7 @@ export struct PlayerPage {
       Column({ space: Math.max(3, Math.round(5 * s)) }) {
         AVCastPicker({
           customPicker: (): void => {
-            this.CastPickerIcon();
+            this.CastPickerIcon(s);
           },
           onStateChange: (state: AVCastPickerState) => {
             if(state === AVCastPickerState.STATE_APPEARING){
@@ -1690,11 +1690,11 @@ export struct PlayerPage {
     }
   }
 
-  /** 投播组件自定义图标 */
+  /** 投播组件自定义图标（s：分栏缩放系数，与其他功能按钮图标保持一致） */
   @Builder
-  CastPickerIcon() {
+  CastPickerIcon(s: number) {
     SymbolGlyph($r('sys.symbol.airplayaudio'))
-      .fontSize(24)
+      .fontSize(Math.max(20, Math.round(24 * s)))
       .fontColor([$r('sys.color.icon_secondary')])
   }
 
