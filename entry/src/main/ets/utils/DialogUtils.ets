@@ -1587,10 +1587,9 @@ export class DialogManager {
       DialogManager.eqGainValue = '';
       DialogManager.eqGainConfirm = null;
     }
-
-    switch (key) {
-      case '创建分组':
-        break;
+    // 捐赠回调
+    if (key === '捐赠') {
+      appState.isForegroundBlur = false
     }
   }
 
