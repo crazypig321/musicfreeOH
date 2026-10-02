@@ -453,7 +453,11 @@ export struct PlaySettingPage {
           show: this.showEqSheet,
           onClose: (): void => {
             this.showEqSheet = false;
+            appState.isForegroundBlur = false
             this.refreshEqSummary();
+          },
+          appear:  (): void => {
+            appState.isForegroundBlur = true
           }
         })
       }

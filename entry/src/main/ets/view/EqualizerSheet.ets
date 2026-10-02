@@ -1,5 +1,6 @@
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { DialogManager } from '../utils/DialogUtils';
 import {
   EqualizerManager,
   EqPresetDef,
@@ -18,6 +19,8 @@ export struct EqualizerSheet {
   @Require @Param show: boolean;
   @Event onClose: () => void = (): void => {
   };
+  @Event appear: () => void = (): void => {
+  };
   /** 面板开关（与 manager 同步的本地副本） */
   @Local eqEnabled: boolean = EqualizerManager.getInstance().enabled;
   /** 10 段增益副本 */
@@ -34,6 +37,24 @@ export struct EqualizerSheet {
     return g > 0 ? '+' + g.toString() : g.toString();
   }
 
+  /** 数值调节弹窗：输入 -12 ~ 12 整数精确设置该频段增益 */
+  private showGainDialog(index: number): void {
+    DialogManager.InputEqGain(EQ_BAND_LABELS[index], this.eqGains[index], (gain: number): void => {
+      EqualizerManager.getInstance().previewBandGain(index, gain);
+      EqualizerManager.getInstance().commitGains();
+      this.syncFromManager();
+    });
+  }
+
+  /** 更新本地增益副本（整体替换数组，保证拖动时数值标签实时刷新） */
+  private applyGainToUi(index: number, v: number): void {
+    const next: Array<number> = [];
+    for (let i = 0; i < this.eqGains.length; i++) {
+      next.push(i === index ? v : this.eqGains[i]);
+    }
+    this.eqGains = next;
+  }
+
   build() {
     Column() {
       Column()
@@ -47,11 +68,62 @@ export struct EqualizerSheet {
           },
           onWillAppear: (): void => {
             this.syncFromManager();
+            this.appear()
           }
         })
     }
     .width('100%')
     .height(0)
+  }
+
+  /** 单个频段列：当前增益 + 竖向滑杆 + 频段名 + 数值调节入口 */
+  @Builder
+  private EqBandColumn(index: number) {
+    Column({ space: 6 }) {
+      Text(EqualizerSheet.formatGain(this.eqGains[index]))
+        .fontSize(10)
+        .fontColor($r('sys.color.font_tertiary'))
+      Slider({
+        value: this.eqGains[index],
+        min: EQ_GAIN_MIN,
+        max: EQ_GAIN_MAX,
+        step: 1,
+        direction: Axis.Vertical,
+        reverse: true,
+        style: SliderStyle.OutSet
+      })
+        .width(22)
+        .height(150)
+        .selectedColor(appState.accentColor)
+        .trackColor($r('sys.color.comp_background_tertiary'))
+        .blockColor($r('sys.color.icon'))
+        .onChange((value: number, mode: SliderChangeMode): void => {
+          const v = Math.round(value);
+          this.applyGainToUi(index, v);
+          if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+            EqualizerManager.getInstance().previewBandGain(index, v);
+            EqualizerManager.getInstance().commitGains();
+            this.presetKey = EqualizerManager.getInstance().presetKey;
+          } else {
+            EqualizerManager.getInstance().previewBandGain(index, v);
+          }
+        })
+      Text(EQ_BAND_LABELS[index])
+        .fontSize(10)
+        .fontColor($r('sys.color.font_secondary'))
+      SymbolGlyph($r('sys.symbol.square_and_pencil'))
+        .fontSize(13)
+        .fontColor([$r('sys.color.font_secondary')])
+        .padding({ left: 7, right: 7, top: 4, bottom: 4 })
+        .borderRadius(10)
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .margin({ top: 2 })
+        .onClick(() => {
+          this.showGainDialog(index);
+        })
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Center)
   }
 
   /** 均衡器面板：标题 + 开关 / 预设 / 10 段滑杆 / 重置 */
@@ -126,45 +198,18 @@ export struct EqualizerSheet {
       .width('100%')
       .margin({ top: 4 })
 
-      // 10 段竖向滑杆
+      // 10 段竖向滑杆（固定 10 段手动展开：滑杆节点稳定复用，拖动流畅且数值标签实时刷新）
       Row() {
-        ForEach(this.eqGains, (gain: number, index: number) => {
-          Column({ space: 6 }) {
-            Text(EqualizerSheet.formatGain(gain))
-              .fontSize(10)
-              .fontColor($r('sys.color.font_tertiary'))
-            Slider({
-              value: gain,
-              min: EQ_GAIN_MIN,
-              max: EQ_GAIN_MAX,
-              step: 1,
-              direction: Axis.Vertical,
-              reverse: true,
-              style: SliderStyle.OutSet
-            })
-              .width(22)
-              .height(150)
-              .selectedColor(appState.accentColor)
-              .trackColor($r('sys.color.comp_background_tertiary'))
-              .blockColor($r('sys.color.icon'))
-              .onChange((value: number, mode: SliderChangeMode): void => {
-                const v = Math.round(value);
-                this.eqGains[index] = v;
-                if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
-                  EqualizerManager.getInstance().previewBandGain(index, v);
-                  EqualizerManager.getInstance().commitGains();
-                  this.presetKey = EqualizerManager.getInstance().presetKey;
-                } else {
-                  EqualizerManager.getInstance().previewBandGain(index, v);
-                }
-              })
-            Text(EQ_BAND_LABELS[index])
-              .fontSize(10)
-              .fontColor($r('sys.color.font_secondary'))
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Center)
-        }, (gain: number, index: number) => EQ_BAND_LABELS[index] + '_' + gain.toString())
+        this.EqBandColumn(0)
+        this.EqBandColumn(1)
+        this.EqBandColumn(2)
+        this.EqBandColumn(3)
+        this.EqBandColumn(4)
+        this.EqBandColumn(5)
+        this.EqBandColumn(6)
+        this.EqBandColumn(7)
+        this.EqBandColumn(8)
+        this.EqBandColumn(9)
       }
       .width('100%')
       .margin({ top: 16 })

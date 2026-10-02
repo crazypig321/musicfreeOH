@@ -18,7 +18,7 @@ import { PcMainLayout } from './pcUI/PcMainLayout';
 import { CarModeView } from '../view/CarModeView';
 import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';
-  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent, LyricSourceDialogContent } from '../utils/DialogUtils';
+  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent, LyricSourceDialogContent, EqGainDialogContent } from '../utils/DialogUtils';
 import { ContextHolder } from '../common/ContextHolder';
 import { AppMeta } from '../core/AppMeta';
 import { appConfig } from '../core/AppConfig';
@@ -371,6 +371,8 @@ struct Index {
       UpdateAvailableDialogContent()
     } else if (key === '转换简洁命名') {
       SimpleRenameDialogContent()
+    } else if (key === '均衡器增益') {
+      EqGainDialogContent()
     }
   }
 }

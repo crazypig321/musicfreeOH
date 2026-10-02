@@ -21,6 +21,7 @@ const REPO_ORIGIN: string = 'https://github.com/maotoumao/MusicFree.git';
 const DEV_HOME: string = 'https://github.com/crazypig321';
 const DEP_DATE_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate';
 const DEP_COLOR_PICKER_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker';
+const DEP_FREE_PCM_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@ospark%2Ffree-pcm';
 /** GitHub 最新 release 接口 */
 const RELEASE_API_URL: string = 'https://api.github.com/repos/crazypig321/musicfreeOH/releases/latest';
 /** 国内加速前缀型代理（拼接在目标 URL 前），检查更新与下载均依次回退尝试 */
@@ -419,6 +420,15 @@ export struct AboutPage {
             showChevron: true,
             action: (): void => {
               this.openWeb(DEP_COLOR_PICKER_URL);
+            }
+          },
+          {
+            icon: $r('sys.symbol.store'),
+            title: '@ospark/free-pcm',
+            trailing: '1.0.4',
+            showChevron: true,
+            action: (): void => {
+              this.openWeb(DEP_FREE_PCM_URL);
             }
           }
         ]

@@ -35,6 +35,7 @@ import { LyricView } from '../view/LyricView';
 import { EqualizerSheet } from '../view/EqualizerSheet';
 import { EqualizerManager } from '../core/EqualizerManager';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
+import { CommonBlur } from '../view/CommonCom';
 
 /** 歌词字体大小档位标签与缩放（下标对应 appConfig lyric.fontSize） */
 const LYRIC_FONT_LABELS: Array<string> = ['小', '标准', '大', '特大'];
@@ -816,7 +817,11 @@ export struct PlayerPage {
           show: this.showEqSheet,
           onClose: (): void => {
             this.showEqSheet = false;
+            this.isForegroundBlur = false
             this.eqOn = EqualizerManager.getInstance().enabled;
+          },
+          appear:  (): void => {
+            this.isForegroundBlur = true
           }
         })
 
@@ -887,6 +892,8 @@ export struct PlayerPage {
     })
   }
 
+  @Local isBottonExpand: boolean = false
+
   /** 分栏布局：左侧从上到下依次为封面 + 名称/副文本 + 进度条和时间 + 播控按钮排 + 其他功能按钮排，右侧歌词常驻滚动 */
   @Builder
   SplitBody() {
@@ -899,7 +906,7 @@ export struct PlayerPage {
           this.SongInfo(this.uiScale())
           this.ProgressArea(this.uiScale())
           this.ControlsRow(this.uiScale())
-          this.BottomActions(this.uiScale())
+        //  this.BottomActions(this.uiScale())
         }
         .layoutWeight(1)
         .height('100%')
@@ -907,13 +914,36 @@ export struct PlayerPage {
         // 右侧：歌词常驻滚动（当前行自动居中）+ 底部歌词操作按钮排（与左侧功能按钮排底部对齐）
         Column() {
           this.LyricArea()
-          this.LyricActions(this.uiScale())
+        //  this.LyricActions(this.uiScale())
         }
         .layoutWeight(1)
         .height('100%')
       }
       .width('100%')
       .layoutWeight(1)
+
+      SymbolGlyph($r('sys.symbol.dot_grid_1x2_circle'))
+        .fontSize(Math.max(20, Math.round(24 * this.uiScale())))
+        .fontColor([$r('sys.color.icon_secondary')])
+        .padding(5)
+        .position({ top: this.isBottonExpand ? '80%' : '95%', right: 0 })
+        .onClick(()=>{
+          this.getUIContext().animateTo({ duration: 250, curve: Curve.Smooth }, (): void => {
+            this.isBottonExpand = !this.isBottonExpand
+          });
+        })
+
+      if (this.isBottonExpand){
+          Row({ space: 36 }){
+            Row(){
+              this.BottomActions(this.uiScale())
+            }.layoutWeight(1).width('50%')
+
+            Row(){
+              this.LyricActions(this.uiScale())
+            }.layoutWeight(1).width('50%')
+          }.width('100%')
+      }
     }
     .width('100%')
     .height('100%')
@@ -921,7 +951,7 @@ export struct PlayerPage {
       left: 32,
       right: 32,
       top: appState.topRect + 4,
-      bottom: appState.bottomRect + 12
+      bottom: appState.bottomRect
     })
   }
 
@@ -1435,22 +1465,6 @@ export struct PlayerPage {
       .onClick(() => {
         this.showEqSheet = true;
       })
-
-      // TODO: 系统音效开关对插件音源无明显效果，原版音效为均衡器调音，后续再做
-      // Column({ space: 5 }) {
-      //   SymbolGlyph($r('sys.symbol.waveform_headphones'))
-      //     .fontSize(24)
-      //     .fontColor([this.audioEffectOn ?
-      //       $r('sys.color.icon_emphasize') : $r('sys.color.icon_secondary')])
-      //   Text('音效')
-      //     .fontSize(10)
-      //     .fontColor(this.audioEffectOn ?
-      //       appState.accentColor : $r('sys.color.font_secondary'))
-      // }
-      // .alignItems(HorizontalAlign.Center)
-      // .onClick(() => {
-      //   this.toggleAudioEffect();
-      // })
 
       Column({ space: Math.max(3, Math.round(5 * s)) }) {
         SymbolGlyph($r('sys.symbol.ellipsis_circle'))

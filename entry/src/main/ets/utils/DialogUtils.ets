@@ -8,6 +8,7 @@ import { PathConst } from "../common/PathConst";
 import { FileUtils } from "./FileUtils";
 import { CoverSearch } from "./CoverSearch";
 import { ArtworkCache } from "./ArtworkCache";
+import { EQ_GAIN_MIN, EQ_GAIN_MAX } from "../core/EqualizerManager";
 
 
 /** 插件用户变量字段（弹窗内编辑） */
@@ -309,6 +310,70 @@ export struct CacheInputDialogContent {
         })
     }
     .width('100%')
+  }
+}
+
+
+/** 「均衡器增益」弹窗内容：数值输入框（限数字与负号）+ 自定义按钮（校验失败提示错误，弹窗保持打开） */
+@ComponentV2
+export struct EqGainDialogContent {
+  build() {
+    Column({ space: 12 }) {
+      TextInput({
+        text: DialogManager.eqGainValue,
+        placeholder: '请输入 ' + EQ_GAIN_MIN.toString() + ' 到 ' + EQ_GAIN_MAX.toString() + ' 之间的整数'
+      })
+        .width('100%')
+        .height(44)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(10)
+        .inputFilter('[-0-9]')
+        .onChange((v: string): void => {
+          DialogManager.eqGainValue = v;
+        })
+      Row({ space: 10 }) {
+        Button('取消')
+          .layoutWeight(1)
+          .height(40)
+          .fontSize(15)
+          .fontColor(appState.accentColor)
+          .backgroundColor(Color.Transparent)
+          .borderRadius(100)
+          .onClick(() => {
+            DialogManager.CloseDialog();
+          })
+        Button('确定')
+          .layoutWeight(1)
+          .height(40)
+          .fontSize(15)
+          .fontColor(Color.White)
+          .backgroundColor(appState.accentColor)
+          .borderRadius(100)
+          .onClick(() => {
+            EqGainDialogContent.confirmGain();
+          })
+      }
+      .width('100%')
+      .margin({ top: 4 })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 校验输入（-12 ~ 12 整数）：非法提示错误且不关闭弹窗，合法则执行回调并关闭 */
+  private static confirmGain(): void {
+    const n = parseInt(DialogManager.eqGainValue, 10);
+    if (isNaN(n) || n < EQ_GAIN_MIN || n > EQ_GAIN_MAX) {
+      DialogManager.Toast('填写错误，请输入 ' + EQ_GAIN_MIN.toString() + ' 到 ' + EQ_GAIN_MAX.toString() + ' 之间的整数');
+      return;
+    }
+    if (DialogManager.eqGainConfirm !== null) {
+      DialogManager.eqGainConfirm(n);
+    }
+    DialogManager.CloseDialog();
   }
 }
 
@@ -741,6 +806,12 @@ export class DialogManager {
   public static cacheInputUnit: string = 'M';
   /** 「设置缓存」确认回调（text 为输入文本，弹窗关闭后自动清空） */
   public static cacheInputConfirm: ((text: string) => void) | null = null;
+  /** 「均衡器增益」频段名（打开前赋值，用作弹窗标题） */
+  public static eqGainBandLabel: string = '';
+  /** 「均衡器增益」当前输入（打开前赋初值，弹窗内编辑） */
+  public static eqGainValue: string = '';
+  /** 「均衡器增益」确认回调（gain 为 -12 ~ 12 整数，弹窗关闭后自动清空；取消/关闭不触发） */
+  public static eqGainConfirm: ((gain: number) => void) | null = null;
   /** 「清除缓存」正文（打开前由调用方赋值） */
   public static clearCacheMessage: string = '';
   /** 「清除缓存」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
@@ -861,6 +932,15 @@ export class DialogManager {
     }
   }
 
+  /** 均衡器频段增益输入弹窗：bandLabel 频段名（标题），currentGain 当前增益，
+   *  onConfirm(gain) 输入合法（-12 ~ 12 整数）点击「确定」后执行（取消/关闭不触发） */
+  public static InputEqGain(bandLabel: string, currentGain: number, onConfirm: (gain: number) => void): void {
+    DialogManager.eqGainBandLabel = bandLabel;
+    DialogManager.eqGainValue = currentGain.toString();
+    DialogManager.eqGainConfirm = onConfirm;
+    DialogManager.OpenDialog('均衡器增益');
+  }
+
   /** 获取弹窗标题文本 */
   public static DialogTitle(key: string): ResourceStr {
     switch (key) {
@@ -904,6 +984,8 @@ export class DialogManager {
         return '免责声明';
       case '转换简洁命名':
         return '转换简洁命名';
+      case '均衡器增益':
+        return DialogManager.eqGainBandLabel + 'Hz 频段增益';
     }
     return '';
   }
@@ -1181,6 +1263,10 @@ export class DialogManager {
           }
         };
         buttons.push(cancel, confirm);
+        break;
+      }
+      case '均衡器增益': {
+        // 按钮在内容区域渲染（校验失败提示错误并保持弹窗打开）
         break;
       }
       case '清除缓存': {
@@ -1475,6 +1561,12 @@ export class DialogManager {
     if (key === '转换简洁命名') {
       DialogManager.simpleRenameMessage = '';
       DialogManager.simpleRenameConfirm = null;
+    }
+    // 均衡器增益同理（取消或关闭弹窗不触发确认回调）
+    if (key === '均衡器增益') {
+      DialogManager.eqGainBandLabel = '';
+      DialogManager.eqGainValue = '';
+      DialogManager.eqGainConfirm = null;
     }
 
     switch (key) {
