@@ -986,6 +986,8 @@ export class DialogManager {
         return '转换简洁命名';
       case '均衡器增益':
         return DialogManager.eqGainBandLabel + 'Hz 频段增益';
+      case '捐赠':
+        return '支持作者';
     }
     return '';
   }
@@ -1365,6 +1367,19 @@ export class DialogManager {
         buttons.push(ok);
         break;
       }
+      case '捐赠': {
+        const ok: ButtonOptions = {
+          value: '🙏感谢你的支持!',
+          fontColor: Color.White,
+          background: appState.accentColor,
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: (): void => {
+            appState.isForegroundBlur = false
+          }
+        };
+        buttons.push(ok);
+        break;
+      }
     }
     return buttons;
   }
@@ -1469,6 +1484,10 @@ export class DialogManager {
         break;
       case '添加标签':
         appState.isForegroundBlur = true
+        break
+      case '捐赠':
+        appState.isForegroundBlur = true
+        break
     }
   }
 

@@ -448,14 +448,18 @@ export class PlayerEngine {
         await this.pcmPlayer.resume();
       } catch (e) {
         // 解码器已退出（如长暂停后网络断开）：从当前位置重建管线
-        const resumePosMs = decoder.getPosition();
+        const resumePosMs = Math.max(0, decoder.getPosition());
         await this.load(this.lastUrl, this.lastHeaders);
         const fresh = this.pcmDecoder;
         const freshInfo = this.pcmInfo;
         if (fresh === null || freshInfo === null) {
           throw new Error('PCM 管线重建失败');
         }
-        fresh.seekTo(resumePosMs);
+        try {
+          fresh.seekTo(resumePosMs);
+        } catch (e) {
+          Log.error('PCM 重建后 seek 失败: ' + (e as Error).message);
+        }
         this.pcmPlayer = this.createPcmPlayer();
         await this.pcmPlayer.play(fresh, freshInfo);
       }
@@ -586,22 +590,41 @@ export class PlayerEngine {
 
   /** 跳转（秒） */
   seek(positionSec: number): void {
-    const ms = Math.floor(positionSec * 1000);
+    // Slider 等来源可能回调 NaN/负数（动画期间越界）；native seekTo 对负数同步抛错，必须钳位
+    if (!(positionSec > 0)) {
+      positionSec = 0;
+    }
+    let ms = Math.floor(positionSec * 1000);
+    if (ms < 0) {
+      ms = 0;
+    }
     if (this.pcmMode) {
       const decoder = this.pcmDecoder;
       if (decoder === null) {
         return;
       }
+      const info = this.pcmInfo;
+      if (info !== null && info.durationMs > 0 && ms > info.durationMs) {
+        ms = info.durationMs;
+      }
       const player = this.pcmPlayer;
       if (player !== null && this.stateInternal === PlayState.Playing) {
-        player.seekTo(ms).then((): void => {
-          this.onSeekDone(positionSec);
-        }).catch((): void => {
-        });
+        try {
+          player.seekTo(ms).then((): void => {
+            this.onSeekDone(positionSec);
+          }).catch((): void => {
+          });
+        } catch (e) {
+          Log.error('PCM seek 失败: ' + (e as Error).message);
+        }
       } else {
-        // 未开始渲染（prepared/paused）：直接对解码器跳转
-        decoder.seekTo(ms);
-        this.onSeekDone(positionSec);
+        // 未开始渲染（prepared/paused）：直接对解码器跳转（native 对非法值同步抛错，需捕获）
+        try {
+          decoder.seekTo(ms);
+          this.onSeekDone(positionSec);
+        } catch (e) {
+          Log.error('PCM 解码器 seek 失败: ' + (e as Error).message);
+        }
       }
       return;
     }
@@ -611,7 +634,7 @@ export class PlayerEngine {
     }
     if (p.state === 'prepared' || p.state === 'playing' || p.state === 'paused' ||
       p.state === 'completed') {
-      p.seek(Math.floor(positionSec * 1000));
+      p.seek(ms);
     }
   }
 

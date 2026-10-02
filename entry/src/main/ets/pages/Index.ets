@@ -23,6 +23,7 @@ import { ContextHolder } from '../common/ContextHolder';
 import { AppMeta } from '../core/AppMeta';
 import { appConfig } from '../core/AppConfig';
 import { ChangelogSheet } from '../view/ChangelogSheet';
+import { PaySupport } from '../view/PaySuport';
 
 @Entry
 @ComponentV2
@@ -373,6 +374,8 @@ struct Index {
       SimpleRenameDialogContent()
     } else if (key === '均衡器增益') {
       EqGainDialogContent()
+    } else if (key === '捐赠'){
+      PaySupport()
     }
   }
 }

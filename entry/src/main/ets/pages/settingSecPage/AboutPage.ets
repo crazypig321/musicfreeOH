@@ -432,6 +432,19 @@ export struct AboutPage {
             }
           }
         ]
+      },
+      {
+        title: '其他',
+        rows: [
+          {
+            icon: $r('sys.symbol.star_hexagon_fill'),
+            title: '支持作者',
+            showChevron: true,
+            action: (): void => {
+              DialogManager.OpenDialog('捐赠')
+            }
+          },
+        ]
       }
     ];
   }

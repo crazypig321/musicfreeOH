@@ -939,8 +939,10 @@ export class TrackPlayer {
   }
 
   seekTo(progress: number): void {
-    PersistStatus.setProgress(progress);
-    playerEngine.seek(progress);
+    // Slider 越界回调可能给出 NaN/负数：钳位，避免脏进度被持久化并传入引擎
+    const safeProgress = progress > 0 ? progress : 0;
+    PersistStatus.setProgress(safeProgress);
+    playerEngine.seek(safeProgress);
   }
 
   getProgress(): ProgressInfo {

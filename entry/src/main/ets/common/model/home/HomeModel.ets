@@ -17,3 +17,10 @@ export interface ControlButtonConfig {
   fontColor: ResourceColor[]
   action: () => void
 }
+
+export interface ButtonItem {
+  icon?: Resource;
+  text: ResourceStr
+  label?: ResourceStr
+  color?: ResourceColor
+}

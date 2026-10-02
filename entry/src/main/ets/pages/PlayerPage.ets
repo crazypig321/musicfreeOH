@@ -1291,14 +1291,16 @@ export struct PlayerPage {
         .width('100%')
         .onChange((value: number, mode: SliderChangeMode) => {
           this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, (): void => {
+            // Slider 在 value/max 动画不同步时可能越界回调负数，统一钳位到 [0, sliderMax]
+            const v = value > 0 ? Math.min(value, this.sliderMax()) : 0;
             if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
               this.isSeeking = true;
-              this.currentPosition = value;
+              this.currentPosition = v;
             } else {
               // End（拖动结束）/ Click（点按）：提交进度
               this.isSeeking = false;
-              this.currentPosition = value;
-              trackPlayer.seekTo(value);
+              this.currentPosition = v;
+              trackPlayer.seekTo(v);
             }
           });
         })
