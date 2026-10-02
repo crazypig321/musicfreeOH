@@ -44,6 +44,9 @@ export class ConfigKeys {
   static readonly FLOAT_LYRIC_SHOW_TRANSLATION = 'floatLyric.showTranslation';
   static readonly FLOAT_LYRIC_WINDOW_SIZE = 'floatLyric.windowSize';
   static readonly LOCAL_MUSIC_AUTO_MATCH_COVER = 'localMusic.autoMatchCover';
+  static readonly EQ_ENABLED = 'eq.enabled';
+  static readonly EQ_PRESET = 'eq.preset';
+  static readonly EQ_GAINS = 'eq.gains';
   static readonly BACKUP_RESUME_MODE = 'backup.resumeMode';
   static readonly APPEARANCE_THEME_COLOR = 'appearance.themeColor';
   static readonly APPEARANCE_COLOR_MODE = 'appearance.colorMode';
@@ -402,6 +405,53 @@ export class AppConfig {
   /** 本地音乐自动匹配音乐封面（导入时提取内嵌封面并回填网络封面） */
   getLocalMusicAutoMatchCover(): boolean {
     return this.getBoolean(ConfigKeys.LOCAL_MUSIC_AUTO_MATCH_COVER, true);
+  }
+
+  // ---------- 均衡器 ----------
+
+  /** 均衡器开关（默认关闭） */
+  getEqEnabled(): boolean {
+    return this.getBoolean(ConfigKeys.EQ_ENABLED, false);
+  }
+
+  setEqEnabled(enabled: boolean): void {
+    this.setConfig(ConfigKeys.EQ_ENABLED, enabled);
+  }
+
+  /** 均衡器预设名（自定义 = 'custom'，默认 'default'） */
+  getEqPreset(): string {
+    const v = this.getString(ConfigKeys.EQ_PRESET, 'default');
+    return v.length > 0 ? v : 'default';
+  }
+
+  setEqPreset(preset: string): void {
+    this.setConfig(ConfigKeys.EQ_PRESET, preset);
+  }
+
+  /** 均衡器 10 段增益（dB，逗号分隔存储；无效回退全 0） */
+  getEqGains(): Array<number> {
+    const raw = this.getString(ConfigKeys.EQ_GAINS, '');
+    if (raw.length === 0) {
+      return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    }
+    const parts = raw.split(',');
+    const gains: Array<number> = [];
+    for (const p of parts) {
+      const v = Number(p);
+      gains.push(Number.isNaN(v) ? 0 : v);
+    }
+    if (gains.length !== 10) {
+      return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    }
+    return gains;
+  }
+
+  setEqGains(gains: Array<number>): void {
+    const parts: Array<string> = [];
+    for (const g of gains) {
+      parts.push(g.toString());
+    }
+    this.setConfig(ConfigKeys.EQ_GAINS, parts.join(','));
   }
 
   /** 沉浸光感材质等级：exquisite 精致 / gentle 轻柔 / smooth 顺滑 / adaptive 跟随系统 */

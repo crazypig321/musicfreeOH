@@ -4,6 +4,8 @@ import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
 import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
+import { EqualizerSheet } from '../../view/EqualizerSheet';
+import { EqualizerManager } from '../../core/EqualizerManager';
 
 /**
  * 播放设置页面
@@ -26,9 +28,18 @@ export struct PlaySettingPage {
   /** 各菜单手动弹出开关（bindMenu isShow 形式，便于控制 placement） */
   @Local showQualityMenu: boolean = false;
   @Local showOrderMenu: boolean = false;
+  /** 均衡器半模态 */
+  @Local showEqSheet: boolean = false;
+  /** 均衡器条目右侧摘要（关闭 / 预设名） */
+  @Local eqSummaryText: string = '关闭';
 
   aboutToAppear(): void {
     this.refreshQualityText();
+    this.refreshEqSummary();
+  }
+
+  private refreshEqSummary(): void {
+    this.eqSummaryText = EqualizerManager.getInstance().enabled ? EqualizerManager.getInstance().presetLabel : '关闭';
   }
 
   private static qualityLabel(q: QualityKey): string {
@@ -388,11 +399,62 @@ export struct PlaySettingPage {
             }
             .width('100%')
           }.ListItemStyle()
+
+          // 均衡器（独立卡片入口，半模态调节）
+          ListItem() {
+            Row({ space: 12 }) {
+              if (appState.holdingHand === 'left') {
+                Text(this.eqSummaryText)
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(14)
+                  .fontColor([$r('sys.color.icon_tertiary')])
+              }
+              if (appState.holdingHand !== 'left') {
+                SymbolGlyph($r('sys.symbol.waveform_headphones'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+              }
+              Text('均衡器')
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+                .layoutWeight(1)
+                .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+              if (appState.holdingHand !== 'left') {
+                Text(this.eqSummaryText)
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(14)
+                  .fontColor([$r('sys.color.icon_tertiary')])
+              }
+              if (appState.holdingHand === 'left') {
+                SymbolGlyph($r('sys.symbol.waveform_headphones'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+              }
+            }
+            .width('100%')
+            .height(52)
+            .onClick(() => {
+              this.showEqSheet = true;
+            })
+          }.ListItemStyle()
         }
         .ListStyle()
         .onScrollFrameBegin((offset: number) => {
           BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
           return { offsetRemain: offset }
+        })
+
+        // 均衡器半模态（零高度挂载点）
+        EqualizerSheet({
+          show: this.showEqSheet,
+          onClose: (): void => {
+            this.showEqSheet = false;
+            this.refreshEqSummary();
+          }
         })
       }
     }

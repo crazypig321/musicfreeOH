@@ -4,6 +4,14 @@ import fs from '@ohos.file.fs';
 import { BusinessError } from '@ohos.base';
 import { Log } from '../utils/Log';
 import { Delay } from '../utils/Delay';
+import { PcmDecoderTool, AudioRendererPlayer } from '@ospark/free-pcm';
+import type {
+  PcmStreamDecoder,
+  PcmStreamInfo,
+  PcmStreamDecoderOptions,
+  PcmStreamDecoderCallbacks
+} from '@ospark/free-pcm';
+import { EqualizerManager } from './EqualizerManager';
 
 /**
  * 播放器引擎状态（对应 avPlayer 状态）
@@ -35,6 +43,44 @@ export class PlayerEngine {
   /** 音效开关（true=系统默认音效 EFFECT_DEFAULT / false=关闭音效 EFFECT_NONE） */
   private audioEffectOn: boolean = true;
 
+  // ==================== free-pcm 均衡器引擎 ====================
+  /** 当前 load 是否走 free-pcm PCM 管线（均衡器开启时） */
+  private pcmMode: boolean = false;
+  private pcmDecoder: PcmStreamDecoder | null = null;
+  private pcmPlayer: AudioRendererPlayer | null = null;
+  private pcmInfo: PcmStreamInfo | null = null;
+  /** PCM 播放完成检测定时器 */
+  private pcmEndTimer: number = -1;
+  /** 最近一次加载的音源（EQ 开关切换引擎时原位重载用） */
+  private lastUrl: string = '';
+  private lastHeaders: Record<string, string> | null = null;
+  private offEqEnabled: () => void = (): void => {
+  };
+  private offEqGains: () => void = (): void => {
+  };
+
+  /** EQ 监听注册标记（模块加载期 ContextHolder 未就绪，须延迟到首次 load 时注册） */
+  private eqSynced: boolean = false;
+
+  private syncEqListenersOnce(): void {
+    if (this.eqSynced) {
+      return;
+    }
+    this.eqSynced = true;
+    const mgr = EqualizerManager.getInstance();
+    // EQ 开关 → 切换播放引擎（AVPlayer ↔ free-pcm PCM），原位重载
+    this.offEqEnabled = mgr.onEnabledChanged((enabled: boolean): void => {
+      this.handleEqEngineToggle(enabled);
+    });
+    // EQ 增益变化 → 实时下发当前 PCM 解码器（拖动滑杆即时生效）
+    this.offEqGains = mgr.onGainsChanged((gains: Array<number>): void => {
+      const decoder = this.pcmDecoder;
+      if (decoder !== null) {
+        decoder.setEqGains(gains);
+      }
+    });
+  }
+
   /** 被其他应用打断后是否自动恢复播放（basic.notInterrupt 取反） */
   resumeAfterInterrupt: boolean = true;
 
@@ -54,6 +100,10 @@ export class PlayerEngine {
 
   /** 当前播放位置（秒） */
   get position(): number {
+    if (this.pcmMode) {
+      const decoder = this.pcmDecoder;
+      return decoder === null ? 0 : decoder.getPosition() / 1000;
+    }
     if (this.player === null) {
       return 0;
     }
@@ -62,6 +112,10 @@ export class PlayerEngine {
 
   /** 总时长（秒；未知为 0） */
   get duration(): number {
+    if (this.pcmMode) {
+      const info = this.pcmInfo;
+      return info === null ? 0 : (info.durationMs > 0 ? info.durationMs / 1000 : 0);
+    }
     if (this.player === null) {
       return 0;
     }
@@ -198,11 +252,29 @@ export class PlayerEngine {
   }
 
   /**
-   * 加载音源并 prepare 完成
-   * @param url 网络地址或本地路径（支持 file:// 前缀；本地文件以 fd:// 方式播放）
-   * @param headers 自定义 HTTP 头（网络源生效）
-   */
+    * 加载音源并 prepare 完成
+    * 均衡器开启时走 free-pcm PCM 管线（解码 + AudioRenderer 渲染，EQ 生效）；
+    * 加载失败自动回退 AVPlayer（EQ 不生效但不断播）
+    * @param url 网络地址或本地路径（支持 file:// 前缀；本地文件以 fd:// 方式播放）
+    * @param headers 自定义 HTTP 头（网络源生效；PCM 管线暂不支持请求头）
+    */
   async load(url: string, headers: Record<string, string> | null): Promise<void> {
+    this.syncEqListenersOnce();
+    this.lastUrl = url;
+    this.lastHeaders = headers;
+    await this.teardownPcm();
+    if (EqualizerManager.getInstance().shouldUsePcmEngine()) {
+      // 停掉 AVPlayer 旧源，避免 PCM 与 AVPlayer 双路输出
+      await this.silenceAVPlayer();
+      try {
+        await this.loadPcm(url);
+        return;
+      } catch (e) {
+        Log.warn('PCM 引擎加载失败，回退 AVPlayer: ' + (e instanceof Error ? e.message : ''));
+        await this.teardownPcm();
+      }
+    }
+    this.pcmMode = false;
     const p = await this.recycle();
     // 播放器已回收，上一首本地文件句柄不再被占用
     this.closeLocalFile();
@@ -258,7 +330,212 @@ export class PlayerEngine {
     return p.state;
   }
 
+  // ==================== free-pcm PCM 引擎 ====================
+
+  /** 将 AVPlayer 静音回收到 idle（切换到 PCM 管线前调用，避免双路输出） */
+  private async silenceAVPlayer(): Promise<void> {
+    const p = this.player;
+    if (p === null) {
+      return;
+    }
+    const st = p.state;
+    if (st === 'idle' || st === 'released' || st === 'error') {
+      return;
+    }
+    try {
+      await p.reset();
+    } catch (e) {
+      // 忽略
+    }
+    this.closeLocalFile();
+    this.stateInternal = PlayState.Idle;
+    this.onStateChanged(this.stateInternal);
+  }
+
+  /** free-pcm 管线加载：创建流式解码器并等待就绪（EQ 增益即时应用） */
+  private async loadPcm(url: string): Promise<void> {
+    const path = url.startsWith('file://') ? url.substring('file://'.length) : url;
+    const options: PcmStreamDecoderOptions = { eqEnabled: true };
+    const callbacks: PcmStreamDecoderCallbacks = {
+      onError: (e: Error): void => {
+        Log.error('PCM 解码错误: ' + e.message);
+      }
+    };
+    const tool = new PcmDecoderTool();
+    const decoder = tool.createStreamDecoder(path, options, callbacks);
+    this.pcmDecoder = decoder;
+    // 网络/解码就绪限时，超时回退 AVPlayer
+    const info = await PlayerEngine.withTimeout(decoder.ready, 12000);
+    this.pcmInfo = info;
+    decoder.setEqGains(EqualizerManager.getInstance().getGains());
+    this.pcmMode = true;
+    this.stateInternal = PlayState.Prepared;
+    this.onStateChanged(this.stateInternal);
+  }
+
+  private static withTimeout(p: Promise<PcmStreamInfo>, timeoutMs: number): Promise<PcmStreamInfo> {
+    return new Promise<PcmStreamInfo>((resolve: (v: PcmStreamInfo) => void,
+      reject: (r: Object) => void): void => {
+      const timer = setTimeout((): void => {
+        reject(new Error('PCM 解码就绪超时'));
+      }, timeoutMs);
+      p.then((v: PcmStreamInfo): void => {
+        clearTimeout(timer);
+        resolve(v);
+      }).catch((e: Object): void => {
+        clearTimeout(timer);
+        reject(e);
+      });
+    });
+  }
+
+  /** 拆除 PCM 管线（换曲/停播/回退 AVPlayer 时调用） */
+  private async teardownPcm(): Promise<void> {
+    this.stopPcmEndWatch();
+    const player = this.pcmPlayer;
+    const decoder = this.pcmDecoder;
+    this.pcmPlayer = null;
+    this.pcmDecoder = null;
+    this.pcmInfo = null;
+    this.pcmMode = false;
+    if (player !== null) {
+      try {
+        await player.stop();
+      } catch (e) {
+        // 忽略
+      }
+    }
+    if (decoder !== null) {
+      try {
+        decoder.close();
+      } catch (e) {
+        // 忽略
+      }
+    }
+  }
+
+  /** PCM 渲染器创建后注册打断监听、恢复倍速 */
+  private setupPcmRenderer(renderer: audio.AudioRenderer): void {
+    try {
+      renderer.on('audioInterrupt', (info: audio.InterruptEvent) => {
+        this.handleInterrupt(info);
+      });
+    } catch (e) {
+      // 忽略监听注册失败
+    }
+    const player = this.pcmPlayer;
+    if (player !== null && this.rate !== 1) {
+      player.setSpeed(this.rate);
+    }
+  }
+
+  /** PCM 管线播放（已完成状态下重播；解码器退出时原位重建） */
+  private async playPcm(): Promise<void> {
+    if (this.stateInternal === PlayState.Completed) {
+      // 播完重播：重建解码器从头播放
+      await this.load(this.lastUrl, this.lastHeaders);
+    }
+    const decoder = this.pcmDecoder;
+    const info = this.pcmInfo;
+    if (decoder === null || info === null) {
+      throw new Error('player is not prepared');
+    }
+    if (this.pcmPlayer === null) {
+      this.pcmPlayer = this.createPcmPlayer();
+      await this.pcmPlayer.play(decoder, info);
+    } else {
+      try {
+        await this.pcmPlayer.resume();
+      } catch (e) {
+        // 解码器已退出（如长暂停后网络断开）：从当前位置重建管线
+        const resumePosMs = decoder.getPosition();
+        await this.load(this.lastUrl, this.lastHeaders);
+        const fresh = this.pcmDecoder;
+        const freshInfo = this.pcmInfo;
+        if (fresh === null || freshInfo === null) {
+          throw new Error('PCM 管线重建失败');
+        }
+        fresh.seekTo(resumePosMs);
+        this.pcmPlayer = this.createPcmPlayer();
+        await this.pcmPlayer.play(fresh, freshInfo);
+      }
+    }
+    this.stateInternal = PlayState.Playing;
+    this.onStateChanged(this.stateInternal);
+    this.startPcmEndWatch();
+  }
+
+  private createPcmPlayer(): AudioRendererPlayer {
+    const player = new AudioRendererPlayer();
+    player.setOnCreated((renderer: audio.AudioRenderer): void => {
+      this.setupPcmRenderer(renderer);
+    });
+    return player;
+  }
+
+  /** PCM 播放完成检测（解码位置到达时长即视为播完，与 AVPlayer completed 语义对齐） */
+  private startPcmEndWatch(): void {
+    this.stopPcmEndWatch();
+    this.pcmEndTimer = setInterval((): void => {
+      if (!this.pcmMode || this.stateInternal !== PlayState.Playing) {
+        return;
+      }
+      const decoder = this.pcmDecoder;
+      const info = this.pcmInfo;
+      if (decoder === null || info === null || info.durationMs <= 0) {
+        return;
+      }
+      if (decoder.getPosition() >= info.durationMs - 200) {
+        this.stopPcmEndWatch();
+        this.stateInternal = PlayState.Completed;
+        this.onEndReached();
+        this.onStateChanged(this.stateInternal);
+      }
+    }, 250);
+  }
+
+  private stopPcmEndWatch(): void {
+    if (this.pcmEndTimer !== -1) {
+      clearInterval(this.pcmEndTimer);
+      this.pcmEndTimer = -1;
+    }
+  }
+
+  /** EQ 开关切换引擎：已加载音源原位重载（保持进度与播放状态） */
+  private handleEqEngineToggle(_enabled: boolean): void {
+    if (this.lastUrl.length === 0) {
+      return;
+    }
+    const st = this.stateInternal;
+    if (st !== PlayState.Prepared && st !== PlayState.Playing &&
+      st !== PlayState.Paused && st !== PlayState.Completed) {
+      // 未加载音源：下次 load 按新引擎执行
+      return;
+    }
+    const wasPlaying = st === PlayState.Playing;
+    const pos = this.position;
+    this.load(this.lastUrl, this.lastHeaders).then((): void => {
+      if (pos > 0.2) {
+        this.seek(pos);
+      }
+      if (wasPlaying) {
+        this.play().catch((): void => {
+        });
+      }
+    }).catch((): void => {
+      this.stateInternal = PlayState.Error;
+      this.onError('均衡器切换失败');
+    });
+  }
+
   async play(): Promise<void> {
+    if (this.pcmMode) {
+      if (this.stateInternal === PlayState.Playing) {
+        return;
+      }
+      await this.playPcm();
+      return;
+    }
     const p = await this.ensurePlayer();
     if (p.state === 'playing') {
       return;
@@ -271,6 +548,19 @@ export class PlayerEngine {
   }
 
   async pause(): Promise<void> {
+    if (this.pcmMode) {
+      if (this.stateInternal !== PlayState.Playing) {
+        return;
+      }
+      const player = this.pcmPlayer;
+      if (player !== null) {
+        await player.pause();
+      }
+      this.stopPcmEndWatch();
+      this.stateInternal = PlayState.Paused;
+      this.onStateChanged(this.stateInternal);
+      return;
+    }
     const p = await this.ensurePlayer();
     if (p.state === 'paused' || p.state === 'idle' || p.state === 'initialized' ||
       p.state === 'stopped' || p.state === 'released' || p.state === 'error') {
@@ -280,6 +570,12 @@ export class PlayerEngine {
   }
 
   async stop(): Promise<void> {
+    if (this.pcmMode) {
+      await this.teardownPcm();
+      this.stateInternal = PlayState.Stopped;
+      this.onStateChanged(this.stateInternal);
+      return;
+    }
     const p = await this.ensurePlayer();
     if (p.state === 'stopped' || p.state === 'idle' || p.state === 'initialized' ||
       p.state === 'released' || p.state === 'error') {
@@ -290,6 +586,25 @@ export class PlayerEngine {
 
   /** 跳转（秒） */
   seek(positionSec: number): void {
+    const ms = Math.floor(positionSec * 1000);
+    if (this.pcmMode) {
+      const decoder = this.pcmDecoder;
+      if (decoder === null) {
+        return;
+      }
+      const player = this.pcmPlayer;
+      if (player !== null && this.stateInternal === PlayState.Playing) {
+        player.seekTo(ms).then((): void => {
+          this.onSeekDone(positionSec);
+        }).catch((): void => {
+        });
+      } else {
+        // 未开始渲染（prepared/paused）：直接对解码器跳转
+        decoder.seekTo(ms);
+        this.onSeekDone(positionSec);
+      }
+      return;
+    }
     const p = this.player;
     if (p === null) {
       return;
@@ -303,6 +618,13 @@ export class PlayerEngine {
   /** 倍速（0.125 ~ 3） */
   setRate(rate: number): void {
     this.rate = rate;
+    if (this.pcmMode) {
+      const player = this.pcmPlayer;
+      if (player !== null) {
+        player.setSpeed(rate);
+      }
+      return;
+    }
     const p = this.player;
     if (p === null) {
       return;
@@ -314,6 +636,14 @@ export class PlayerEngine {
   }
 
   setVolume(volume: number): void {
+    if (this.pcmMode) {
+      const player = this.pcmPlayer;
+      if (player !== null) {
+        player.setVolume(volume).catch((): void => {
+        });
+      }
+      return;
+    }
     const p = this.player;
     if (p === null) {
       return;
@@ -350,6 +680,9 @@ export class PlayerEngine {
   }
 
   async release(): Promise<void> {
+    this.offEqEnabled();
+    this.offEqGains();
+    await this.teardownPcm();
     const p = this.player;
     this.player = null;
     this.stateInternal = PlayState.Released;

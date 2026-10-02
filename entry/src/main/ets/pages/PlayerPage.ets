@@ -32,6 +32,8 @@ import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
   import { DialogManager } from '../utils/DialogUtils';
   import { LyricSearch } from '../utils/LyricSearch';
 import { LyricView } from '../view/LyricView';
+import { EqualizerSheet } from '../view/EqualizerSheet';
+import { EqualizerManager } from '../core/EqualizerManager';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 
 /** 歌词字体大小档位标签与缩放（下标对应 appConfig lyric.fontSize） */
@@ -94,6 +96,12 @@ export struct PlayerPage {
   @Local isSheetVisible: boolean = false;
   /** 「更多」歌曲操作半模态（复用搜索页组件） */
   @Local showMore: boolean = false;
+  /** 均衡器半模态 */
+  @Local showEqSheet: boolean = false;
+  /** 均衡器开启状态副本（EQ 按钮高亮） */
+  @Local eqOn: boolean = EqualizerManager.getInstance().enabled;
+  /** 当前播放音质副本（时间行中间音质入口文案） */
+  @Local currentQuality: QualityKey = trackPlayer.quality;
   @Local comments: Array<CommentItem> = [];
   @Local commentsLoading: boolean = false;
   @Local commentsEnded: boolean = false;
@@ -582,6 +590,9 @@ export struct PlayerPage {
         return;
       }
       trackPlayer.changeQuality(quality).then((ok: boolean): void => {
+        if (ok) {
+          this.currentQuality = quality;
+        }
         this.showToast(ok ? '已切换为' + PlayerPage.qualityLabel(quality) + '音质' : '音质切换失败');
       });
     };
@@ -799,6 +810,15 @@ export struct PlayerPage {
             }
           })
         }
+
+        // 均衡器半模态（零高度挂载点）
+        EqualizerSheet({
+          show: this.showEqSheet,
+          onClose: (): void => {
+            this.showEqSheet = false;
+            this.eqOn = EqualizerManager.getInstance().enabled;
+          }
+        })
 
       }
     .width('100%')
@@ -1256,12 +1276,23 @@ export struct PlayerPage {
         Text(PlayerPage.formatDuration(this.currentPosition))
           .fontSize(11)
           .fontColor($r('sys.color.font_tertiary'))
+        // 音质入口（时间行中间：纯文本，无图标、无下方文本）
+        Text(PlayerPage.qualityLabel(this.currentQuality))
+          .fontSize(11)
+          .fontColor($r('sys.color.font_secondary'))
+          .padding({ left: 10, right: 10, top: 3, bottom: 3 })
+          .borderRadius(10)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .onClick(() => {
+            this.showQualityMenu();
+          })
         Text(this.duration > 0 ? PlayerPage.formatDuration(this.duration) : '--:--')
           .fontSize(11)
           .fontColor($r('sys.color.font_tertiary'))
       }
       .width('100%')
       .justifyContent(FlexAlign.SpaceBetween)
+      .alignItems(VerticalAlign.Center)
       .margin({ top: 2 })
     }
     .width('100%')
@@ -1320,10 +1351,10 @@ export struct PlayerPage {
     .margin({ top: this.compactGap(16) })
   }
 
-  /** 底部功能：投播 / 收藏 / 下载 / 评论 / 音质 / 更多（s：分栏缩放系数，竖屏传 1 保持原样式） */
+  /** 底部功能：投播 / 收藏 / 下载 / 评论 / EQ / 更多（s：分栏缩放系数，竖屏传 1 保持原样式） */
   @Builder
   BottomActions(s: number) {
-    // 底部功能：投播 / 收藏 / 下载 / 评论 / 音质 / 更多
+    // 底部功能：投播 / 收藏 / 下载 / 评论 / EQ / 更多
     Row() {
       // 投播：系统 AVCastPicker 组件（点击拉起设备选择面板）
       Column({ space: Math.max(3, Math.round(5 * s)) }) {
@@ -1391,16 +1422,18 @@ export struct PlayerPage {
       })
 
       Column({ space: Math.max(3, Math.round(5 * s)) }) {
-        SymbolGlyph($r('sys.symbol.hi_waveform_2'))
+        SymbolGlyph($r('sys.symbol.waveform_headphones'))
           .fontSize(Math.max(20, Math.round(24 * s)))
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('音质')
+          .fontColor([this.eqOn ?
+            appState.accentColor : $r('sys.color.icon_secondary')])
+        Text('EQ')
           .fontSize(Math.max(9, Math.round(10 * s)))
-          .fontColor($r('sys.color.font_secondary'))
+          .fontColor(this.eqOn ?
+            appState.accentColor : $r('sys.color.font_secondary'))
       }
       .alignItems(HorizontalAlign.Center)
       .onClick(() => {
-        this.showQualityMenu();
+        this.showEqSheet = true;
       })
 
       // TODO: 系统音效开关对插件音源无明显效果，原版音效为均衡器调音，后续再做

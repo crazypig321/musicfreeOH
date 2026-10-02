@@ -6,6 +6,9 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "@keke/color-picker": "1.0.4"
-  }
+    "@keke/color-picker": "1.0.4",
+    "@ospark/free-pcm": "^1.0.4"
+  },
+  "devDependencies": {},
+  "dynamicDependencies": {}
 }
