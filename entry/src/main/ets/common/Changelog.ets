@@ -12,6 +12,18 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v260: ChangelogEntry = new ChangelogEntry();
+  v260.version = '2.6.0';
+  v260.date = '2026-10-02';
+  v260.markdown = '- 新增车载模式：设置 → 外观设置可手动开启驾驶界面；连接 HiCar / 超级桌面等车机时自动进入（不受开关限制），大按钮控制排 + 歌词滚动，背景随封面主色染色\n' +
+    '- 支持应用接续（流转）：当前歌曲、播放队列、进度、播放状态与循环模式随流转迁移到车机等设备，接续后自动重建播放现场并无缝续播\n' +
+    '- 新增 10 段均衡器（设置 → 播放设置或播放页 EQ 按钮进入）：内置 9 种预设与自定义增益（31Hz ~ 16kHz，单段 ±12dB），拖动实时生效，频段下方按钮可弹窗输入精确数值\n' +
+    '- 均衡器基于独立解码管线（@ospark/free-pcm）：开关切换时原位重载当前歌曲不打断聆听；个别不支持的音源自动回退系统播放器，不影响播放\n' +
+    '- 播放页音质入口移至进度条时间行中间（纯文本胶囊），封面下方功能按钮排新增 EQ 按钮（开启时主题色高亮）\n' +
+    '- 关于页「三方库」列表补充 @ospark/free-pcm\n' +
+    '- 修复横屏播放页「投播」按钮与其它功能按钮大小不一致的问题';
+  list.push(v260);
+
   const v250: ChangelogEntry = new ChangelogEntry();
   v250.version = '2.5.0';
   v250.date = '2026-09-30';

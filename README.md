@@ -104,6 +104,10 @@ hvigorw assembleHap
 
 ---
 
-> ⭐ 如果这个项目对你有帮助，欢迎给本项目MusicFreeOH和原项目 [MusicFree](https://github.com/maotoumao/MusicFree) 点个 Star 支持一下～
-> 
 
+## 👍 支持作者
+- 如果你也喜欢MusicFreeOH项目，欢迎打赏作者
+<td><img src=".appImage/erweima.png" width="50%"></td>
+
+> ⭐ 如果这个项目对你有帮助，欢迎给本项目MusicFreeOH和原项目 [MusicFree](https://github.com/maotoumao/MusicFree) 点个 Star 支持一下～
+>
