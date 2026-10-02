@@ -58,11 +58,25 @@ export struct EqualizerSheet {
   @Builder
   private EqPanelBuilder() {
     Column() {
-      Row() {
-        Text('均衡器')
-          .fontSize(17)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
+      Text('均衡器')
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ bottom: 22 })
+
+      Row({ space: 10 }) {
+        Column({ space: 2 }){
+          Text('启动均衡器')
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text('开启后将使用均衡解码管线播放，当前歌曲会自动重新加载')
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .margin({ bottom: 4 })
+        }.width('100%').layoutWeight(1).alignItems(HorizontalAlign.Start)
+
         Blank()
         Toggle({ type: ToggleType.Switch, isOn: this.eqEnabled })
           .selectedColor(appState.accentColor)
@@ -72,15 +86,11 @@ export struct EqualizerSheet {
           })
       }
       .width('100%')
-      .height(44)
-
-      if (!this.eqEnabled) {
-        Text('开启后将使用均衡解码管线播放，当前歌曲会自动重新加载')
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-          .width('100%')
-          .margin({ bottom: 4 })
-      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .alignItems(VerticalAlign.Center)
+      .borderRadius(16)
+      .padding(12)
+      .backgroundColor($r('sys.color.comp_background_list_card'))
 
       // 预设横滑
       Scroll() {

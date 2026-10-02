@@ -1246,14 +1246,14 @@ export struct PlayerPage {
   @Builder
   ProgressArea(s: number) {
     // 进度条
-    Column({ space: 0 }) {
+    Column() {
       Slider({
         value: Math.min(this.currentPosition, this.sliderMax()),
         min: 0,
         max: this.sliderMax(),
         style: SliderStyle.NONE
       })
-        .height(Math.max(30, Math.round(40 * s)))
+        .height(Math.max(15, Math.round(20 * s)))
         .selectedColor($r('sys.color.icon'))
         .trackColor($r('sys.color.comp_background_tertiary'))
         .blockColor($r('sys.color.icon'))
@@ -1280,8 +1280,8 @@ export struct PlayerPage {
         Text(PlayerPage.qualityLabel(this.currentQuality))
           .fontSize(11)
           .fontColor($r('sys.color.font_secondary'))
-          .padding({ left: 10, right: 10, top: 3, bottom: 3 })
-          .borderRadius(10)
+          .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+          .borderRadius(5)
           .backgroundColor($r('sys.color.comp_background_tertiary'))
           .onClick(() => {
             this.showQualityMenu();
@@ -1296,7 +1296,7 @@ export struct PlayerPage {
       .margin({ top: 2 })
     }
     .width('100%')
-    .margin({ top: this.compactGap(6) })
+    .margin({ top: this.compactGap(3), bottom: this.compactGap(3) })
   }
 
   /** 播放控制：循环模式 | 上一首 | 播放/暂停 | 下一首 | 播放队列（s：分栏缩放系数，竖屏传 1 保持原样式） */
