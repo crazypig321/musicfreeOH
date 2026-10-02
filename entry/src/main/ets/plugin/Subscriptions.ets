@@ -1,5 +1,5 @@
 import { KVStore } from '../infra/KVStore';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { HttpClient } from '../infra/HttpClient';
 import { appConfig } from '../core/AppConfig';
 import { pluginManager } from './PluginManager';

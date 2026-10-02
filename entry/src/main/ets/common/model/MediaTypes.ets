@@ -1,4 +1,4 @@
-import { JsonUtil, JsonRecord, JsonArray } from '../JsonUtil';
+import { JsonUtil, JsonRecord, JsonArray } from '../../utils/JsonUtil';
 import { INTERNAL_SERIALIZE_KEY } from '../Consts';
 
 /** 音质键 */

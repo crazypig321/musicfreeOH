@@ -20,7 +20,7 @@ import { ShareUtils } from '../utils/ShareUtils';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from '../utils/FileUtils';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { DialogManager, PluginVarField } from '../utils/DialogUtils';
 import { PluginImport } from '../plugin/PluginImport';
 import { Subscriptions } from '../plugin/Subscriptions';

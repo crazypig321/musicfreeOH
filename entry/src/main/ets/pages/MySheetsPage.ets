@@ -16,7 +16,7 @@ import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { SheetDetailNavParams, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { DialogManager } from '../utils/DialogUtils';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
 

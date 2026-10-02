@@ -7,7 +7,7 @@ import { CommonBlur, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from '../utils/FileUtils';

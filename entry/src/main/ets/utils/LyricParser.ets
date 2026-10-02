@@ -1,5 +1,5 @@
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
-import { JsonRecord } from '../common/JsonUtil';
+import { JsonRecord } from './JsonUtil';
 
 /** 逐字歌词项 */
 export class LyricWord {

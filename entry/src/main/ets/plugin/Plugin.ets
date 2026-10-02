@@ -1,5 +1,5 @@
 import util from '@ohos.util';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { MusicItem, MediaSource, LyricSource, QualityKey } from '../common/model/MediaTypes';
 import {
   SupportMediaType, SearchResult, AlbumItem, ArtistItem, SheetItem, MediaTag, SheetGroupItem,

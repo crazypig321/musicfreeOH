@@ -1,5 +1,5 @@
 import { KVStore } from '../infra/KVStore';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { MusicItem, MusicItemSerializer, QualityKey, qualityFromStr } from '../common/model/MediaTypes';
 import { MusicRepeatMode } from '../common/Consts';
 

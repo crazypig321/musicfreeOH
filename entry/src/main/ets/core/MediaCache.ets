@@ -1,5 +1,5 @@
 import { KVStore } from '../infra/KVStore';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { MusicItem } from '../common/model/MediaTypes';
 import { MEDIA_CACHE_MAX, MEDIA_CACHE_EVICT } from '../common/Consts';
 import { FileUtils } from '../utils/FileUtils';

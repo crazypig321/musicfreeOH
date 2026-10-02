@@ -1,5 +1,5 @@
 import { Want } from '@kit.AbilityKit';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { MusicItem, MusicItemSerializer } from '../common/model/MediaTypes';
 import { MusicRepeatMode, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { trackPlayer } from './TrackPlayer';

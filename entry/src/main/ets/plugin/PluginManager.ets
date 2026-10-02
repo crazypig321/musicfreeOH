@@ -1,5 +1,5 @@
 import { KVStore } from '../infra/KVStore';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { PathConst } from '../common/PathConst';
 import { LOCAL_PLUGIN_HASH, LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { FileUtils } from '../utils/FileUtils';

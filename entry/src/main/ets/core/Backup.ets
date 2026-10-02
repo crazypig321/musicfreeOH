@@ -1,4 +1,4 @@
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { ResumeMode } from '../common/Consts';
 import { musicSheet, SheetBackupEntry, backupEntriesFromRecord } from './MusicSheet';
 import { pluginManager } from '../plugin/PluginManager';

@@ -1,6 +1,6 @@
 import { EventEmitter, EventListenerFn } from '../common/EventBus';
 import { PathConst } from '../common/PathConst';
-import { JsonRecord } from '../common/JsonUtil';
+import { JsonRecord } from '../utils/JsonUtil';
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SupportMediaType, SearchResult } from '../common/model/SheetTypes';
 import { LyricParser, ParsedLrcItem } from '../utils/LyricParser';

@@ -1,4 +1,4 @@
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { MusicItem, MediaSource, LyricSource } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { MediaMetadata } from '../utils/MediaMetadata';

@@ -1,5 +1,5 @@
 import { EventEmitter, EventListenerFn } from '../common/EventBus';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import {
   FAVORITE_SHEET_ID,
   FAVORITE_SHEET_TITLE,

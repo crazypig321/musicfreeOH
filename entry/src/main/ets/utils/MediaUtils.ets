@@ -1,6 +1,6 @@
 import { MusicItem } from '../common/model/MediaTypes';
 import { LOCAL_PLUGIN_PLATFORM, INTERNAL_SERIALIZE_KEY } from '../common/Consts';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from './JsonUtil';
 import { MediaExtra } from '../core/MediaExtra';
 
 /**

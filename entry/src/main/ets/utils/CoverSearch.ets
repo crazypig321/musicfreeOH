@@ -1,6 +1,6 @@
 import { MusicItem } from '../common/model/MediaTypes';
 import { SupportMediaType, SearchResult } from '../common/model/SheetTypes';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from './JsonUtil';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { trackPlayer } from '../core/TrackPlayer';

@@ -19,7 +19,7 @@ import { SheetDataSource } from '../common/model/SheetDataSource';
 import { appState } from '../entryability/AppState';
 import { CommonSearch } from '../view/CommonCom';
 import { KVStore } from '../infra/KVStore';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { BottomBuilderShowType } from '@kit.UIDesignKit';
 
 /** 搜索结果不足以铺满首屏时自动续拉的阈值 */

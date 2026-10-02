@@ -1,4 +1,4 @@
-import { JsonRecord, JsonArray, JsonUtil } from '../common/JsonUtil';
+import { JsonRecord, JsonArray, JsonUtil } from '../utils/JsonUtil';
 
 /** 插件状态（对应 RN PluginState） */
 export enum PluginState {

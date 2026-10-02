@@ -1,6 +1,6 @@
 import preferences from '@ohos.data.preferences';
 import { ContextHolder } from '../common/ContextHolder';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { Log } from '../utils/Log';
 
 /**

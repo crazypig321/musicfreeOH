@@ -1,7 +1,7 @@
 import { Want } from '@kit.AbilityKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { pasteboard } from '@kit.BasicServicesKit';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from '../utils/FileUtils';
 import { Delay } from '../utils/Delay';

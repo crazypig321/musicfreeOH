@@ -6,7 +6,7 @@ import { PathConst } from '../common/PathConst';
 import { FileUtils } from './FileUtils';
 import { MediaUtils } from './MediaUtils';
 import { MusicItem } from '../common/model/MediaTypes';
-import { JsonRecord } from '../common/JsonUtil';
+import { JsonRecord } from './JsonUtil';
 import { SheetItem } from '../common/model/SheetTypes';
 import { musicSheet, SheetBackupEntry } from '../core/MusicSheet';
 

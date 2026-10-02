@@ -2,7 +2,7 @@ import { FormExtensionAbility, formBindingData, formInfo, formProvider } from '@
 import { Want } from '@kit.AbilityKit';
 import preferences from '@ohos.data.preferences';
 import fs from '@ohos.file.fs';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { FileUtils } from '../utils/FileUtils';
 import { CoverColorUtils } from '../utils/CoverColorUtils';
 import { CARD_BG_ALPHA_HEX, CARD_MAX_QUEUE_ITEMS, MusicCardData } from '../widget/MusicCardData';

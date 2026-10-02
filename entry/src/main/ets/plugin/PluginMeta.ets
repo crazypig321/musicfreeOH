@@ -1,5 +1,5 @@
 import { KVStore } from '../infra/KVStore';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 
 /**
  * 插件元数据（移植自 meta.ts，去掉旧版本迁移逻辑）

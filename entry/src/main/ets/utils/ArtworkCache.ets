@@ -3,7 +3,7 @@ import { HttpClient } from '../infra/HttpClient';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from './FileUtils';
 import { CryptoUtil } from './CryptoUtil';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from './JsonUtil';
 
 /** URL → 缓存文件名 索引持久化文件名（位于封面缓存目录内，随目录清空一起删除） */
 const INDEX_FILE = 'index.json';

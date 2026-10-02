@@ -1,5 +1,5 @@
 import { EventEmitter, EventListenerFn } from '../common/EventBus';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { MusicRepeatMode, MAX_PLAYLIST_SIZE, LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { MusicItem, MediaSource, QualityKey } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';

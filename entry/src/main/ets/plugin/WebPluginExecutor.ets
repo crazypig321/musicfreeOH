@@ -1,7 +1,7 @@
 import web_webview from '@ohos.web.webview';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import util from '@ohos.util';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { HttpClient } from '../infra/HttpClient';
 import { IPluginExecutor, PluginInstanceInfo } from './PluginTypes';
 import { PluginMeta } from './PluginMeta';

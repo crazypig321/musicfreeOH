@@ -1,5 +1,5 @@
 import { KVStore } from '../infra/KVStore';
-import { JsonUtil, JsonRecord } from '../common/JsonUtil';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 import { QualityKey, qualityFromStr } from '../common/model/MediaTypes';
 import { PathConst } from '../common/PathConst';
 

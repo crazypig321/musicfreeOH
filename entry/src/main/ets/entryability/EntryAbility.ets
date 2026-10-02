@@ -17,7 +17,7 @@ import { WebDav } from '../core/WebDav';
 import { downloader } from '../core/Downloader';
 import { ExternalOpen } from '../core/ExternalOpen';
 import { HarmonyShareRecv } from '../sharereceive/HarmonyShareRecv';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { Continuation, ContinuationData } from '../core/Continuation';
 import { SmartMobilityManager } from '../core/SmartMobilityManager';
 import { Bootstrap } from '../core/Bootstrap';

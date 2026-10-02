@@ -23,7 +23,7 @@ import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { SUPPORT_LOCAL_MEDIA_TYPE, INTERNAL_SERIALIZE_KEY } from '../common/Consts';
-import { JsonUtil } from '../common/JsonUtil';
+import { JsonUtil } from '../utils/JsonUtil';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from '../utils/FileUtils';
 import { ContextHolder } from '../common/ContextHolder';

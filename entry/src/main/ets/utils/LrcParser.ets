@@ -1,4 +1,4 @@
-import { JsonRecord } from '../common/JsonUtil';
+import { JsonRecord } from './JsonUtil';
 import { MusicItem } from '../common/model/MediaTypes';
 
 interface LyricParserOptions {

@@ -1,4 +1,4 @@
-import { JsonUtil, JsonRecord, JsonArray } from '../JsonUtil';
+import { JsonUtil, JsonRecord, JsonArray } from '../../utils/JsonUtil';
 import { MusicItem, MusicItemSerializer } from './MediaTypes';
 
 /** 支持的搜索/媒体类型 */
