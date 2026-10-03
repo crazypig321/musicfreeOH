@@ -1,6 +1,6 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
-import { CommonBlur, CommonSearch } from '../view/CommonCom';
+import { CommonBlur, CommonSearch, CommonLoading } from '../view/CommonCom';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -42,6 +42,8 @@ export struct SheetDetailPage {
   @Local loading: boolean = false;
   /** 触底续拉中 */
   @Local loadingMore: boolean = false;
+  /** 手动刷新中（列表上层显示 loading 遮罩，完成后气泡提示） */
+  @Local refreshing: boolean = false;
   /** 已加载歌曲数 */
   @Local musicCount: number = 0;
   /** 首次加载失败 */
@@ -232,6 +234,11 @@ export struct SheetDetailPage {
         }
       }
     }
+    // 手动刷新完成：气泡提示（样式同我的歌单页订阅同步）
+    if (this.refreshing) {
+      this.refreshing = false;
+      this.showToast('已刷新「' + this.sheetTitle + '」');
+    }
   }
 
   /** 追加一页歌曲到原始列表并重建数据源（应用排序；纯显示层，不改动存储） */
@@ -269,6 +276,11 @@ export struct SheetDetailPage {
     this.loadingMore = false;
     if (reset) {
       this.loadFailed = true;
+    }
+    // 手动刷新失败：气泡提示
+    if (this.refreshing) {
+      this.refreshing = false;
+      this.showToast('刷新失败');
     }
   }
 
@@ -424,8 +436,12 @@ export struct SheetDetailPage {
     this.showToast('已订阅，可在我的歌单页查看');
   }
 
-  /** 手动更新：重新拉取第一页，标题/封面/简介/歌曲列表均取源端最新 */
+  /** 手动更新：重新拉取第一页，标题/封面/简介/歌曲列表均取源端最新（刷新中列表上层显示 loading，完成后气泡提示） */
   private refreshSheet(): void {
+    if (this.refreshing) {
+      this.showToast('正在刷新，请稍候');
+      return;
+    }
     if (this.loading || this.loadingMore) {
       this.showToast('正在加载，请稍候');
       return;
@@ -434,7 +450,7 @@ export struct SheetDetailPage {
       this.showToast('插件不可用');
       return;
     }
-    this.showToast('正在更新…');
+    this.refreshing = true;
     if (this.scroller.currentOffset().yOffset !== 0) {
       this.scroller.scrollTo({ xOffset: 0, yOffset: 0 });
     }
@@ -1161,6 +1177,21 @@ export struct SheetDetailPage {
           .width('100%')
           .position({ bottom: 0 })
           .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+          .transition(TransitionEffect.OPACITY)
+        }
+
+        // 刷新 loading 遮罩（手动刷新期间叠加在列表上层，阻断误操作；样式同我的歌单页订阅同步）
+        if (this.refreshing) {
+          Column({ space: 10 }) {
+            CommonLoading({ sizeValue: 36, loadColor: Color.White })
+            Text('刷新中…')
+              .fontSize(13)
+              .fontColor(Color.White)
+          }
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor('#66000000')
           .transition(TransitionEffect.OPACITY)
         }
 

@@ -90,8 +90,6 @@ export struct PlayerPage {
   @Local lyricFontIndex: number = appConfig.getLyricFontSize();
   /** 歌词模式（点击封面或左滑进入，歌词区右滑返回封面） */
   @Local showLyric: boolean = false;
-  /** 封面|歌词 分段按钮选项 */
-  private segmentItems: SegmentButtonV2Items = new SegmentButtonV2Items([]);
   /** 当前激活的半模态（0=无） */
   @Local activeSheet: number = PlayerPage.SHEET_NONE;
   /** sheet 是否可见（关闭动画期间保持 true，内容不闪空） */
@@ -154,7 +152,6 @@ export struct PlayerPage {
       { text: '封面' },
       { text: '歌词' }
     ];
-    this.segmentItems = new SegmentButtonV2Items(itemOptions);
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
     const progress = trackPlayer.getProgress();

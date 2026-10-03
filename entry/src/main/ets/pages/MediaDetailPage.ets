@@ -1,6 +1,6 @@
 ﻿import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
-import { CommonBlur, CommonSearch } from '../view/CommonCom';
+import { CommonBlur, CommonSearch, CommonLoading } from '../view/CommonCom';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -55,6 +55,8 @@ export struct MediaDetailPage {
   @Local loading: boolean = false;
   /** 触底续拉中 */
   @Local loadingMore: boolean = false;
+  /** 手动刷新中（列表上层显示 loading 遮罩，完成后气泡提示） */
+  @Local refreshing: boolean = false;
   /** 已加载歌曲数 */
   @Local musicCount: number = 0;
   /** 首次加载失败 */
@@ -228,6 +230,11 @@ export struct MediaDetailPage {
         this.description = r.albumItem.description;
       }
     }
+    // 手动刷新完成：气泡提示（样式同我的歌单页订阅同步）
+    if (this.refreshing) {
+      this.refreshing = false;
+      this.showToast('已刷新「' + this.headerTitle + '」');
+    }
   }
 
   /** 追加一页歌曲到原始列表并重建数据源（应用排序；纯显示层，不改动存储） */
@@ -265,6 +272,11 @@ export struct MediaDetailPage {
     this.loadingMore = false;
     if (reset) {
       this.loadFailed = true;
+    }
+    // 手动刷新失败：气泡提示
+    if (this.refreshing) {
+      this.refreshing = false;
+      this.showToast('刷新失败');
     }
   }
 
@@ -362,7 +374,7 @@ export struct MediaDetailPage {
     }
   }
 
-  /** titleBar 菜单：订阅 + 搜索 */
+  /** titleBar 菜单：订阅 + 搜索（已订阅时增加「更新」手动刷新） */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const subscribe: HdsNavigationMenuItemOptions = {
       content: {
@@ -382,7 +394,41 @@ export struct MediaDetailPage {
         }
       }
     };
+    // 已订阅时提供手动更新（与歌单详情页一致）：重新拉取第一页
+    if (this.subscribed) {
+      const refresh: HdsNavigationMenuItemOptions = {
+        content: {
+          icon: $r('sys.symbol.arrow_clockwise'),
+          label: '更新',
+          action: (): void => {
+            this.refreshMedia();
+          }
+        }
+      };
+      return [subscribe, refresh, search];
+    }
     return [subscribe, search];
+  }
+
+  /** 手动刷新：重新拉取第一页（专辑/歌手通用；刷新中列表上层显示 loading，完成后气泡提示） */
+  private refreshMedia(): void {
+    if (this.refreshing) {
+      this.showToast('正在刷新，请稍候');
+      return;
+    }
+    if (this.loading || this.loadingMore) {
+      this.showToast('正在加载，请稍候');
+      return;
+    }
+    if (this.plugin === null) {
+      this.showToast('插件不可用');
+      return;
+    }
+    this.refreshing = true;
+    if (this.scroller.currentOffset().yOffset !== 0) {
+      this.scroller.scrollTo({ xOffset: 0, yOffset: 0 });
+    }
+    this.loadPage(true);
   }
 
   /** 订阅/取消订阅当前专辑/歌手（订阅后在我的歌单页展示；专辑同步检测更新，歌手保留快照） */
@@ -1110,6 +1156,21 @@ export struct MediaDetailPage {
           .width('100%')
           .position({ bottom: 0 })
           .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+          .transition(TransitionEffect.OPACITY)
+        }
+
+        // 刷新 loading 遮罩（手动刷新期间叠加在列表上层，阻断误操作；样式同我的歌单页订阅同步）
+        if (this.refreshing) {
+          Column({ space: 10 }) {
+            CommonLoading({ sizeValue: 36, loadColor: Color.White })
+            Text('刷新中…')
+              .fontSize(13)
+              .fontColor(Color.White)
+          }
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor('#66000000')
           .transition(TransitionEffect.OPACITY)
         }
 

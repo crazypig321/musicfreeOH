@@ -210,13 +210,16 @@ export struct MySheetsPage {
     this.syncSubscribed(true);
   }
 
-  /** 分段滑块切换 我的歌单/订阅歌单（退出批量模式并回顶） */
-  private switchTab(): void {
+  /** 分段滑块切换 我的歌单/订阅歌单（退出批量模式并回顶；单一状态源，滑块位移由 animateTo 驱动） */
+  private switchTab(showSubscribed: boolean): void {
+    if (this.showSubscribed === showSubscribed) {
+      return;
+    }
     if (appState.isBatchMode) {
       this.exitBatchMode();
     }
     this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
-      this.showSubscribed = !this.showSubscribed;
+      this.showSubscribed = showSubscribed;
     });
     // 回顶目标为内容区起点（contentStartOffset 的负偏移处，首条目位于标题栏下方）；
     // 滚到 0 会把首条目顶进标题栏下方被遮挡（短列表切长列表时无法被钳制复位）
@@ -1430,7 +1433,7 @@ export struct MySheetsPage {
       titleBarOp: titleBarOf($r('app.string.tab_my_sheets'),
         this.subTitleText(), this.titleMenus(),
         (this.hostTabIndex === 1) ?
-          { builder: (): void => { this.TitleExtraBuilder() } } : undefined),
+          { builder: (): void => { this.TitleExtraBuilder() }, height: this.showSearchBox ? 110 : 40 } : undefined),
       isHideBackButton: true,
       embedded: true,
       // 分段滑块常驻标题栏下方，不随滚动隐藏（否则上滑隐藏、下滑才重现）
@@ -1744,35 +1747,40 @@ export struct MySheetsPage {
     .backgroundColor($r('sys.color.comp_background_list_card'))
   }
 
-  @Local switchIndex: number = 0
-
   /** 标题栏下方扩展区：「我的歌单/订阅歌单」分段滑块（样式仿播放页封面/歌词切换）+ 可展开搜索框 */
   @Builder
   TitleExtraBuilder() {
     Column() {
-      Stack({ alignContent: this.switchIndex === 1 ? Alignment.End : Alignment.Start }) {
+      Stack({ alignContent: Alignment.Start }) {
         Row()
           .width('50%')
           .height(26)
           .borderRadius(13)
           .backgroundColor($r('sys.color.background_secondary'))
+          // 位移必须用绝对值：'50%' 与 0 之间无法插值，animateTo 会瞬移；81 = 滑轨内宽 162 的一半
+          .offset({ x: this.showSubscribed ? 81 : 0 })
 
         Row() {
-          ForEach(['我的歌单', '订阅歌单'], (v: ResourceStr, i: number)=>{
-            Text(v)
-              .fontSize(12)
-              .fontWeight(this.switchIndex === i ? FontWeight.Bold : FontWeight.Normal)
-              .fontColor(this.switchIndex === i ? appState.accentColor : $r('sys.color.font_tertiary'))
-              .height(26)
-              .layoutWeight(1)
-              .textAlign(TextAlign.Center)
-              .onClick(() => {
-                this.getUIContext().animateTo({ duration: 250, curve: Curve.Linear }, () => {
-                  this.switchIndex = i
-                });
-                this.switchTab();
-              })
-          })
+          Text('我的歌单')
+            .fontSize(12)
+            .fontWeight(!this.showSubscribed ? FontWeight.Bold : FontWeight.Normal)
+            .fontColor(!this.showSubscribed ? appState.accentColor : $r('sys.color.font_tertiary'))
+            .height(26)
+            .layoutWeight(1)
+            .textAlign(TextAlign.Center)
+            .onClick(() => {
+              this.switchTab(false);
+            })
+          Text('订阅歌单')
+            .fontSize(12)
+            .fontWeight(this.showSubscribed ? FontWeight.Bold : FontWeight.Normal)
+            .fontColor(this.showSubscribed ? appState.accentColor : $r('sys.color.font_tertiary'))
+            .height(26)
+            .layoutWeight(1)
+            .textAlign(TextAlign.Center)
+            .onClick(() => {
+              this.switchTab(true);
+            })
         }
         .width('100%')
       }
