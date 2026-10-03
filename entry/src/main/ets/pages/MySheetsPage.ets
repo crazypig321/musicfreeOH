@@ -1398,7 +1398,7 @@ export struct MySheetsPage {
                     this.SubscribedRowBuilder(rec);
                   },
                   swipeActionOptions: this.subscribedSwipeOptions(rec)
-                })
+                }).transition(TransitionEffect.move(TransitionEdge.END).animation({duration: 300, curve: Curve.EaseOut}))
               }, (rec: SubscribedSheetRecord, _index: number) => rec.platform + '_' + rec.id +
                 '_' + rec.title + '_' + rec.worksNum.toString() + (rec.hasUpdate ? '_upd' : '') +
                 (appState.isBatchMode && this.isSubscribedSelected(rec) ? '_sel' : '') +
@@ -1411,7 +1411,7 @@ export struct MySheetsPage {
                   .width('100%')
                   .textAlign(TextAlign.Center)
                   .margin({ top: 32 })
-              }
+              }.transition(TransitionEffect.move(TransitionEdge.END).animation({duration: 300, curve: Curve.EaseOut}))
             }
           } else if (this.displayRows().length > 0) {
             ForEach(this.displayRows(), (row: SheetRow, index: number) => {
@@ -1420,7 +1420,7 @@ export struct MySheetsPage {
                   this.SheetRowBuilder(row);
                 },
                 swipeActionOptions: this.swipeOptions(row)
-              })
+              }).transition(TransitionEffect.move(TransitionEdge.START).animation({duration: 300, curve: Curve.EaseOut}))
             }, (row: SheetRow, index: number) => row.id + '_' + index.toString() + '_' + row.title +
               '_' + row.coverUrl + '_' + row.worksNum.toString() +
               (appState.isBatchMode && this.isSelected(row) ? '_sel' : '') +
@@ -1433,7 +1433,7 @@ export struct MySheetsPage {
                 .width('100%')
                 .textAlign(TextAlign.Center)
                 .margin({ top: 32 })
-            }
+            }.transition(TransitionEffect.move(TransitionEdge.START).animation({duration: 300, curve: Curve.EaseOut}))
           }
         }
         .ListStyle(44 + (this.showSearchBox ? 56 : 0))
