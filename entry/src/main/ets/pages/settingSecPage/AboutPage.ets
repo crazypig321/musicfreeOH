@@ -14,6 +14,7 @@ import { ContextHolder } from '../../common/ContextHolder';
 import { PathConst } from '../../common/PathConst';
 import { FileUtils } from '../../utils/FileUtils';
 import { ChangelogSheet } from '../../view/ChangelogSheet';
+import { UpdateChecker, ReleaseAsset } from '../../utils/UpdateChecker';
 
 /** 仓库地址常量 */
 const REPO_OH: string = 'https://github.com/crazypig321/musicfreeOH.git';
@@ -22,79 +23,6 @@ const DEV_HOME: string = 'https://github.com/crazypig321';
 const DEP_DATE_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate';
 const DEP_COLOR_PICKER_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker';
 const DEP_FREE_PCM_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@ospark%2Ffree-pcm';
-/** GitHub 最新 release 接口 */
-const RELEASE_API_URL: string = 'https://api.github.com/repos/crazypig321/musicfreeOH/releases/latest';
-/** 国内加速前缀型代理（拼接在目标 URL 前），检查更新与下载均依次回退尝试 */
-const GH_PROXY_PREFIXES: Array<string> = ['https://gh-proxy.com/', 'https://ghfast.top/'];
-
-/** GitHub latest release 接口返回体（仅声明所需字段） */
-interface ReleaseRaw {
-  tag_name?: string;
-  assets?: Array<ReleaseAssetRaw>;
-}
-
-/** release 资产原始字段 */
-interface ReleaseAssetRaw {
-  name?: string;
-  browser_download_url?: string;
-}
-
-/** 归一化后的 release 软件包资产 */
-class ReleaseAsset {
-  name: string = '';
-  url: string = '';
-}
-
-/** 从 release 资产中选取软件包：优先 .hap，其次第一个有效资产；无资产返回 null */
-function pickReleaseAsset(release: ReleaseRaw): ReleaseAsset | null {
-  const assets = release.assets;
-  if (assets === undefined) {
-    return null;
-  }
-  let fallback: ReleaseAsset | null = null;
-  for (const raw of assets) {
-    const name = raw.name;
-    const url = raw.browser_download_url;
-    if (typeof name !== 'string' || name.length === 0 || typeof url !== 'string' || url.length === 0) {
-      continue;
-    }
-    const asset = new ReleaseAsset();
-    asset.name = name;
-    asset.url = url;
-    if (fallback === null) {
-      fallback = asset;
-    }
-    if (name.toLowerCase().endsWith('.hap')) {
-      return asset;
-    }
-  }
-  return fallback;
-}
-
-/** 比较语义化版本号（忽略 v 前缀与非数字字符，逐段比较）：a 是否大于 b */
-function isNewerVersion(a: string, b: string): boolean {
-  const parse = (v: string): Array<number> => {
-    const parts: Array<number> = [];
-    const segs = v.replace(/^[vV]/, '').split('.');
-    for (const seg of segs) {
-      const digits = seg.replace(/[^0-9]/g, '');
-      const n = digits.length > 0 ? Number(digits) : 0;
-      parts.push(Number.isFinite(n) ? n : 0);
-    }
-    return parts;
-  };
-  const pa = parse(a);
-  const pb = parse(b);
-  const len = Math.max(pa.length, pb.length);
-  for (let i = 0; i < len; i++) {
-    const x = i < pa.length ? pa[i] : 0;
-    const y = i < pb.length ? pb[i] : 0;
-    if (x !== y) {
-      return x > y;
-    }
-  }
-  return false;
-}
 
 /** 关于页条目行：头像/图标 + 标题 + 右侧说明/开关 + chevron，可选点击行为 */
 interface AboutRow {
@@ -128,8 +56,8 @@ interface AboutSection {
 @ComponentV2
 export struct AboutPage {
   scroller: Scroller = new Scroller();
-  /** GitHub 最新 release 版本号；为空表示无需更新（标签不展示） */
-  @Local latestVersion: string = '';
+  /** GitHub 最新 release 版本号；为空表示无需更新（标签不展示），与 appState.latestVersion 同步 */
+  @Local latestVersion: string = appState.latestVersion;
   /** 下载新版本时优先走国内代理加速（关闭时直连优先，代理仅作失败回退） */
   @Local proxyDownload: boolean = appConfig.getUpdateProxyDownload();
   /** 更新日志半模态 */
@@ -139,74 +67,31 @@ export struct AboutPage {
     this.checkUpdate();
   }
 
-  /** 拉取 GitHub 最新 release 信息：直连不通时依次走国内代理；全部失败返回 null */
-  private async fetchLatestRelease(): Promise<ReleaseRaw | null> {
-    const headers: Record<string, string> = {
-      'User-Agent': 'musicfreeOH',
-      'Accept': 'application/vnd.github+json'
-    };
-    const urls = this.orderedUrls(RELEASE_API_URL);
-    for (const url of urls) {
-      const result = await HttpClient.get(url, headers, 6000);
-      if (result === null || result.statusCode !== 200) {
-        continue;
-      }
-      try {
-        const raw = JSON.parse(result.body) as ReleaseRaw;
-        const tag = raw.tag_name;
-        if (typeof tag === 'string' && tag.length > 0) {
-          return raw;
-        }
-      } catch (e) {
-        // 当前源解析失败，尝试下一个
-      }
-    }
-    return null;
-  }
-
-  /** 进入页面静默检查更新：最新版本高于本地时记录，供版本号旁标签展示 */
+  /** 进入页面静默检查更新（与设置页共用会话内节流）：
+   *  最新版本高于本地时记录，供版本号旁标签与设置页红点展示 */
   private async checkUpdate(): Promise<void> {
-    const raw = await this.fetchLatestRelease();
-    if (raw === null) {
-      return;
-    }
-    const tag = raw.tag_name;
-    if (tag !== undefined && isNewerVersion(tag, AppMeta.appVersion)) {
-      this.latestVersion = tag;
-    }
-  }
-
-  /** 按代理开关排序候选地址（检查与下载共用）：
-   *  开启 = 国内代理在前、直连兜底；关闭 = 直连在前、代理回退；均含全部来源，失败自动切换 */
-  private orderedUrls(targetUrl: string): Array<string> {
-    const urls: Array<string> = [];
-    if (!this.proxyDownload) {
-      urls.push(targetUrl);
-    }
-    for (const prefix of GH_PROXY_PREFIXES) {
-      urls.push(prefix + targetUrl);
-    }
-    if (this.proxyDownload) {
-      urls.push(targetUrl);
-    }
-    return urls;
+    await UpdateChecker.checkLatestSilently();
+    this.latestVersion = appState.latestVersion;
   }
 
   /** 检查更新入口（新版本标签与「检查更新」条目共用）：无新版本时提示；有新版本时弹窗确认下载 */
   private async doCheckUpdate(): Promise<void> {
     this.showToast('正在检查更新…');
-    const release = await this.fetchLatestRelease();
+    const release = await UpdateChecker.fetchLatestRelease(this.proxyDownload);
     if (release === null) {
       this.showToast('检查更新失败，请稍后重试');
       return;
     }
     const tag = release.tag_name;
-    if (tag === undefined || !isNewerVersion(tag, AppMeta.appVersion)) {
+    if (tag === undefined || !UpdateChecker.isNewerVersion(tag, AppMeta.appVersion)) {
+      appState.latestVersion = '';
+      this.latestVersion = '';
       this.showToast('当前已是最新版本');
       return;
     }
     this.latestVersion = tag;
-    const asset = pickReleaseAsset(release);
+    appState.latestVersion = tag;
+    const asset = UpdateChecker.pickReleaseAsset(release);
     if (asset === null) {
       this.showToast('发布页未提供软件包，请到发布页查看');
       return;
@@ -243,7 +128,7 @@ export struct AboutPage {
     const version = this.latestVersion.length > 0 ? this.latestVersion : asset.name;
     const nameText = '新版本 ' + version;
     const tempPath = PathConst.cachePath + 'update_' + Date.now().toString() + '_' + asset.name;
-    const urls = this.orderedUrls(asset.url);
+    const urls = UpdateChecker.orderedUrls(asset.url, this.proxyDownload);
     const headers: Record<string, string> = { 'User-Agent': 'musicfreeOH' };
     // 无歌曲下载批次运行时接管数据传输长时任务（进度实况通知 + 后台保活）；
     // 有批次运行时不接管，避免抢占/提前取消歌曲下载的任务与进度通知

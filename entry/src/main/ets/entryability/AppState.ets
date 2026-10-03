@@ -74,6 +74,8 @@ class AppState{
   tabSearchClose: (() => void) | null = null;
   // Tab 切换计数：左滑条目以 key 引用，切换 tab 时重建行以复位左滑状态
   @Trace swipeResetTick: number = 0;
+  // 静默检查更新发现的 GitHub 新版本号（空 = 暂无更新；设置页「关于」红点与关于页新版本标签共用）
+  @Trace latestVersion: string = '';
 
   /**
    * 屏幕避让及断点

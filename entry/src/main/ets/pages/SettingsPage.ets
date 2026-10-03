@@ -3,6 +3,7 @@ import { appState } from '../entryability/AppState';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_APPEARANCE_SETTING } from '../common/model/NavModels';
+import { UpdateChecker } from '../utils/UpdateChecker';
 
 /** 设置条目 */
 interface SettingRow {
@@ -18,6 +19,12 @@ interface SettingRow {
 @ComponentV2
 export struct SettingsPage {
   scroller: Scroller = new Scroller();
+
+  aboutToAppear(): void {
+    // 进入设置页静默检查更新（会话内节流，与关于页共用）：
+    // 发现新版本时「关于」条目显示红点，无新版本时清空红点
+    UpdateChecker.checkLatestSilently();
+  }
 
   /** 设置条目数据 */
   private static rows(): Array<SettingRow> {
@@ -79,6 +86,16 @@ export struct SettingsPage {
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
+
+                // 「关于」条目红点：静默检查发现新版本时展示（颜色同订阅「有更新」标记）
+                if (row.title === '关于' && appState.latestVersion.length > 0) {
+                  Row()
+                    .width(8)
+                    .height(8)
+                    .borderRadius(4)
+                    .backgroundColor('#e5484d')
+                    .transition(TransitionEffect.OPACITY)
+                }
 
                 SymbolGlyph($r('sys.symbol.chevron_right'))
                   .fontSize(14)
