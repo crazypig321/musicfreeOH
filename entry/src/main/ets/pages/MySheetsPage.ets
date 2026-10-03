@@ -36,6 +36,41 @@ interface SheetRow {
   isDefault: boolean;
 }
 
+/** 我的歌单列表懒加载数据源（LazyForEach 用，搜索过滤后整体替换并通知刷新） */
+class MySheetRowDataSource implements IDataSource {
+  private rows: Array<SheetRow> = [];
+  private listeners: Array<DataChangeListener> = [];
+
+  totalCount(): number {
+    return this.rows.length;
+  }
+
+  getData(index: number): SheetRow {
+    return this.rows[index];
+  }
+
+  registerDataChangeListener(listener: DataChangeListener): void {
+    if (this.listeners.indexOf(listener) === -1) {
+      this.listeners.push(listener);
+    }
+  }
+
+  unregisterDataChangeListener(listener: DataChangeListener): void {
+    const i = this.listeners.indexOf(listener);
+    if (i >= 0) {
+      this.listeners.splice(i, 1);
+    }
+  }
+
+  /** 整体替换数据并通知重载 */
+  reload(rows: Array<SheetRow>): void {
+    this.rows = rows;
+    for (const listener of this.listeners) {
+      listener.onDataReloaded();
+    }
+  }
+}
+
 /**
  * 我的歌单页：顶部「我的歌单/订阅歌单」分段滑块切换两个列表
  * 我的歌单：展示全部本地歌单（含默认歌单「我的收藏」）
@@ -60,6 +95,8 @@ export struct MySheetsPage {
   @Local batchUpdating: boolean = false;
   /** 订阅列表懒加载数据源（搜索过滤后整体替换） */
   private subscribedSource: SubscribedSheetsDataSource = new SubscribedSheetsDataSource();
+  /** 我的歌单列表懒加载数据源（搜索过滤后整体替换） */
+  private sheetSource: MySheetRowDataSource = new MySheetRowDataSource();
   @Local batchSelected: Array<string> = [];
   /** 新建歌单半模态 */
   @Local showCreateSheet: boolean = false;
@@ -136,6 +173,11 @@ export struct MySheetsPage {
     this.subscribedSource.reload(this.displaySubscribed());
   }
 
+  /** 按当前关键词重建我的歌单列表数据源 */
+  private rebuildSheetSource(): void {
+    this.sheetSource.reload(this.displayRows());
+  }
+
   /** 同步订阅歌单（force=true 忽略节流强制刷新，完成后提示） */
   private syncSubscribed(force: boolean): void {
     if (this.syncing) {
@@ -169,15 +211,12 @@ export struct MySheetsPage {
   }
 
   /** 分段滑块切换 我的歌单/订阅歌单（退出批量模式并回顶） */
-  private switchTab(showSubscribed: boolean): void {
-    if (this.showSubscribed === showSubscribed) {
-      return;
-    }
+  private switchTab(): void {
     if (appState.isBatchMode) {
       this.exitBatchMode();
     }
     this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
-      this.showSubscribed = showSubscribed;
+      this.showSubscribed = !this.showSubscribed;
     });
     // 回顶目标为内容区起点（contentStartOffset 的负偏移处，首条目位于标题栏下方）；
     // 滚到 0 会把首条目顶进标题栏下方被遮挡（短列表切长列表时无法被钳制复位）
@@ -203,6 +242,7 @@ export struct MySheetsPage {
       rows.push(row);
     }
     this.sheetRows = rows;
+    this.rebuildSheetSource();
   }
 
   private static formatDate(ts: number): string {
@@ -349,19 +389,23 @@ export struct MySheetsPage {
     });
   }
 
-  /** 手动更新单个订阅（重新拉取源端对比曲目数；歌手订阅无变更信号，提示不支持） */
+  /** 手动更新单个订阅（同步期间列表上层显示 loading，完成后气泡提示结果） */
   private updateSubscribed(rec: SubscribedSheetRecord): void {
     if (rec.mediaType === SubscribedMediaType.ARTIST) {
       this.showToast('歌手订阅暂不支持更新');
       return;
     }
-    if (this.batchUpdating) {
-      this.showToast('正在更新，请稍候');
+    if (this.syncing) {
+      this.showToast('正在同步，请稍候');
       return;
     }
-    this.showToast('正在更新…');
+    this.syncing = true;
     subscribedSheets.syncRecord(rec.platform, rec.id).then((success: boolean): void => {
+      this.syncing = false;
       this.showToast(success ? '已更新「' + rec.title + '」' : '更新失败');
+    }).catch((_e: Object): void => {
+      this.syncing = false;
+      this.showToast('更新失败');
     });
   }
 
@@ -410,6 +454,7 @@ export struct MySheetsPage {
       this.searchKeyword = '';
       this.searchInput = '';
       appState.tabSearchClose = null;
+      this.rebuildSheetSource();
       this.rebuildSubscribedSource();
       return;
     }
@@ -1214,7 +1259,7 @@ export struct MySheetsPage {
     return result;
   }
 
-  /** 批量更新选中订阅（逐条拉取源端对比；歌手订阅/插件不可用计入失败） */
+  /** 批量更新选中订阅（逐条拉取源端对比；歌手订阅/插件不可用计入失败；同步期间列表上层显示 loading） */
   private async batchUpdateSubscribed(): Promise<void> {
     const recs = this.selectedSubscribedRecords();
     if (recs.length === 0) {
@@ -1226,14 +1271,20 @@ export struct MySheetsPage {
       return;
     }
     this.batchUpdating = true;
+    this.syncing = true;
     let ok = 0;
-    for (const rec of recs) {
-      const success = await subscribedSheets.syncRecord(rec.platform, rec.id);
-      if (success) {
-        ok++;
+    try {
+      for (const rec of recs) {
+        const success = await subscribedSheets.syncRecord(rec.platform, rec.id);
+        if (success) {
+          ok++;
+        }
       }
+    } catch (_e) {
+      // 中途异常时保留已更新计数，最终统一气泡提示
     }
     this.batchUpdating = false;
+    this.syncing = false;
     this.showToast('已更新 ' + ok.toString() + '/' + recs.length.toString() + ' 个订阅');
   }
 
@@ -1390,7 +1441,7 @@ export struct MySheetsPage {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 16 }) {
           if (this.showSubscribed) {
-            // 订阅歌单列表（懒加载）
+            // 订阅歌单列表（懒加载；HdsListItem 不支持通用属性，链式设置会破坏横滑手势，故不挂 transition）
             if (this.subscribedSource.totalCount() > 0) {
               LazyForEach(this.subscribedSource, (rec: SubscribedSheetRecord, _index: number) => {
                 HdsListItem({
@@ -1398,7 +1449,7 @@ export struct MySheetsPage {
                     this.SubscribedRowBuilder(rec);
                   },
                   swipeActionOptions: this.subscribedSwipeOptions(rec)
-                }).transition(TransitionEffect.move(TransitionEdge.END).animation({duration: 300, curve: Curve.EaseOut}))
+                })
               }, (rec: SubscribedSheetRecord, _index: number) => rec.platform + '_' + rec.id +
                 '_' + rec.title + '_' + rec.worksNum.toString() + (rec.hasUpdate ? '_upd' : '') +
                 (appState.isBatchMode && this.isSubscribedSelected(rec) ? '_sel' : '') +
@@ -1413,14 +1464,15 @@ export struct MySheetsPage {
                   .margin({ top: 32 })
               }.transition(TransitionEffect.move(TransitionEdge.END).animation({duration: 300, curve: Curve.EaseOut}))
             }
-          } else if (this.displayRows().length > 0) {
-            ForEach(this.displayRows(), (row: SheetRow, index: number) => {
+          } else if (this.sheetSource.totalCount() > 0) {
+            // 我的歌单列表（懒加载；HdsListItem 不支持通用属性，链式设置会破坏横滑手势，故不挂 transition）
+            LazyForEach(this.sheetSource, (row: SheetRow, index: number) => {
               HdsListItem({
                 customItemBuilder: (): void => {
                   this.SheetRowBuilder(row);
                 },
                 swipeActionOptions: this.swipeOptions(row)
-              }).transition(TransitionEffect.move(TransitionEdge.START).animation({duration: 300, curve: Curve.EaseOut}))
+              })
             }, (row: SheetRow, index: number) => row.id + '_' + index.toString() + '_' + row.title +
               '_' + row.coverUrl + '_' + row.worksNum.toString() +
               (appState.isBatchMode && this.isSelected(row) ? '_sel' : '') +
@@ -1692,40 +1744,35 @@ export struct MySheetsPage {
     .backgroundColor($r('sys.color.comp_background_list_card'))
   }
 
+  @Local switchIndex: number = 0
+
   /** 标题栏下方扩展区：「我的歌单/订阅歌单」分段滑块（样式仿播放页封面/歌词切换）+ 可展开搜索框 */
   @Builder
   TitleExtraBuilder() {
     Column() {
-      Stack({ alignContent: Alignment.Start }) {
+      Stack({ alignContent: this.switchIndex === 1 ? Alignment.End : Alignment.Start }) {
         Row()
           .width('50%')
           .height(26)
           .borderRadius(13)
           .backgroundColor($r('sys.color.background_secondary'))
-          .opacity(0.7)
-          .offset({ x: this.showSubscribed ? '50%' : 0 })
 
         Row() {
-          Text('我的歌单')
-            .fontSize(12)
-            .fontWeight(!this.showSubscribed ? FontWeight.Bold : FontWeight.Normal)
-            .fontColor(!this.showSubscribed ? appState.accentColor : $r('sys.color.font_tertiary'))
-            .height(26)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-            .onClick(() => {
-              this.switchTab(false);
-            })
-          Text('订阅歌单')
-            .fontSize(12)
-            .fontWeight(this.showSubscribed ? FontWeight.Bold : FontWeight.Normal)
-            .fontColor(this.showSubscribed ? appState.accentColor : $r('sys.color.font_tertiary'))
-            .height(26)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-            .onClick(() => {
-              this.switchTab(true);
-            })
+          ForEach(['我的歌单', '订阅歌单'], (v: ResourceStr, i: number)=>{
+            Text(v)
+              .fontSize(12)
+              .fontWeight(this.switchIndex === i ? FontWeight.Bold : FontWeight.Normal)
+              .fontColor(this.switchIndex === i ? appState.accentColor : $r('sys.color.font_tertiary'))
+              .height(26)
+              .layoutWeight(1)
+              .textAlign(TextAlign.Center)
+              .onClick(() => {
+                this.getUIContext().animateTo({ duration: 250, curve: Curve.Linear }, () => {
+                  this.switchIndex = i
+                });
+                this.switchTab();
+              })
+          })
         }
         .width('100%')
       }
@@ -1851,6 +1898,7 @@ export struct MySheetsPage {
       focusId: 'my_sheets_search',
       submit: (): void => {
         this.searchKeyword = this.searchInput.trim();
+        this.rebuildSheetSource();
         this.rebuildSubscribedSource();
       },
       change: (v: string): void => {
@@ -1859,6 +1907,7 @@ export struct MySheetsPage {
       didDelete: (): void => {
         this.searchInput = '';
         this.searchKeyword = '';
+        this.rebuildSheetSource();
         this.rebuildSubscribedSource();
       },
     })
