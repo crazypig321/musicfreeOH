@@ -1734,22 +1734,21 @@ export struct PlayerPage {
           this.lyricEditText = v;
         })
       Row({ space: 12 }) {
-        Button('取消')
-          .layoutWeight(1)
-          .height(40)
-          .fontSize(15)
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .fontColor($r('sys.color.font_primary'))
-          .onClick(() => {
-            this.isSheetVisible = false;
-          })
-        Button('保存')
-          .layoutWeight(1)
-          .height(40)
-          .fontSize(15)
-          .onClick(() => {
-            this.saveLyricEditor();
-          })
+        ForEach(['取消', '保存'], (v: ResourceStr, i: number)=>{
+          Button(v)
+            .layoutWeight(1)
+            .height(40)
+            .fontSize(15)
+            .backgroundColor(i === 0 ? $r('sys.color.comp_background_tertiary') : appState.accentColor)
+            .fontColor(i === 0 ? $r('sys.color.font_primary') : undefined)
+            .onClick(() => {
+              if (i === 0) {
+                this.activeSheet = PlayerPage.SHEET_LYRIC_MORE
+              }else{
+                this.saveLyricEditor();
+              }
+            })
+        })
       }
       .width('100%')
       .margin({ top: 16 })

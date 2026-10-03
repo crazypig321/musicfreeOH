@@ -42,8 +42,9 @@ interface SheetRow {
  *   顶部右侧：添加菜单（新建歌单 / 导入歌单 / 导入单曲）+ 批量操作（全选/分享/删除，UI 同歌单详情页批量底栏）
  *   条目 UI 同插件页；左滑呼出 编辑/删除（HdsListItem，默认歌单与批量模式下不提供横滑）
  *   点击进入歌单详情页（本地歌单模式），长按进入批量模式
- * 订阅歌单：展示插件歌单/榜单订阅（详情页心形按钮订阅），进入页面/手动同步拉取更新；
- *   左滑取消订阅，点击进入详情页并清除「有更新」标记
+ * 订阅歌单：展示插件歌单/榜单/专辑/歌手订阅（详情页心形按钮订阅），进入页面/手动同步拉取更新；
+ *   左滑 分享/更新/排序/取消订阅，点击进入详情页并清除「有更新」标记；
+ *   长按或右上角批量按钮进入批量模式（全选/更新/分享/删除，UI 同我的歌单批量底栏）
  */
 @ComponentV2
 export struct MySheetsPage {
@@ -55,6 +56,8 @@ export struct MySheetsPage {
   @Local subscribedItems: Array<SubscribedSheetRecord> = [];
   /** 订阅同步进行中 */
   @Local syncing: boolean = false;
+  /** 批量更新订阅进行中 */
+  @Local batchUpdating: boolean = false;
   /** 订阅列表懒加载数据源（搜索过滤后整体替换） */
   private subscribedSource: SubscribedSheetsDataSource = new SubscribedSheetsDataSource();
   @Local batchSelected: Array<string> = [];
@@ -173,8 +176,11 @@ export struct MySheetsPage {
     this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
       this.showSubscribed = showSubscribed;
     });
-    if (this.scroller.currentOffset().yOffset !== 0) {
-      this.scroller.scrollTo({ xOffset: 0, yOffset: 0 });
+    // 回顶目标为内容区起点（contentStartOffset 的负偏移处，首条目位于标题栏下方）；
+    // 滚到 0 会把首条目顶进标题栏下方被遮挡（短列表切长列表时无法被钳制复位）
+    const top = -(appState.topRect + 66 + 44 + (this.showSearchBox ? 56 : 0));
+    if (this.scroller.currentOffset().yOffset !== top) {
+      this.scroller.scrollTo({ xOffset: 0, yOffset: top, animation: { duration: 250, curve: Curve.EaseOut } });
     }
   }
 
@@ -276,12 +282,38 @@ export struct MySheetsPage {
     subscribedSheets.markViewed(rec.platform, rec.id);
   }
 
-  /** 订阅条目横滑操作（左滑取消订阅）；批量模式下不提供 */
+  /** 订阅条目横滑操作（左滑 分享/更新/排序/取消订阅）；批量模式下不提供 */
   private subscribedSwipeOptions(rec: SubscribedSheetRecord): HdsSwipeActionOptions | undefined {
     if (appState.isBatchMode) {
       return undefined;
     }
     const options: HdsSwipeActionOptions = {
+      icons: [
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.share'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.shareSubscribed(rec);
+          }
+        },
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.arrow_clockwise'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.updateSubscribed(rec);
+          }
+        },
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.arrow_left_arrow_right'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.editSubscribedSort(rec);
+          }
+        }
+      ],
       deleteIconOptions: {
         onAction: (): void => {
           this.confirmUnsubscribe(rec);
@@ -289,6 +321,60 @@ export struct MySheetsPage {
       }
     };
     return options;
+  }
+
+  /** 订阅类型文案（分享内容用） */
+  private static mediaTypeLabel(mediaType: string): string {
+    if (mediaType === SubscribedMediaType.TOP_LIST) {
+      return '榜单';
+    }
+    if (mediaType === SubscribedMediaType.ALBUM) {
+      return '专辑';
+    }
+    if (mediaType === SubscribedMediaType.ARTIST) {
+      return '歌手';
+    }
+    return '歌单';
+  }
+
+  /** 分享单个订阅（文本：名称/类型/来源插件） */
+  private shareSubscribed(rec: SubscribedSheetRecord): void {
+    const content = '「' + rec.title + '」（' + MySheetsPage.mediaTypeLabel(rec.mediaType) +
+      '）· 来源插件：' + rec.platform;
+    ShareUtils.shareText(rec.title, content, (message: string): void => {
+      this.showToast(message);
+    });
+  }
+
+  /** 手动更新单个订阅（重新拉取源端对比曲目数；歌手订阅无变更信号，提示不支持） */
+  private updateSubscribed(rec: SubscribedSheetRecord): void {
+    if (rec.mediaType === SubscribedMediaType.ARTIST) {
+      this.showToast('歌手订阅暂不支持更新');
+      return;
+    }
+    if (this.batchUpdating) {
+      this.showToast('正在更新，请稍候');
+      return;
+    }
+    this.showToast('正在更新…');
+    subscribedSheets.syncRecord(rec.platform, rec.id).then((success: boolean): void => {
+      this.showToast(success ? '已更新「' + rec.title + '」' : '更新失败');
+    });
+  }
+
+  /** 订阅排序：弹「跳转排序」对话框，确认后移动并保存（按全量订阅列表顺序） */
+  private editSubscribedSort(rec: SubscribedSheetRecord): void {
+    const index = subscribedSheets.indexOf(rec.platform, rec.id);
+    if (index < 0 || this.subscribedItems.length === 0) {
+      return;
+    }
+    DialogManager.sortJumpValue = (index + 1).toString();
+    DialogManager.sortJumpMax = this.subscribedItems.length;
+    DialogManager.sortJumpConfirm = (target: number): void => {
+      subscribedSheets.moveRecordTo(rec.platform, rec.id, target);
+      this.showToast('已移动到第 ' + (target + 1).toString() + ' 位');
+    };
+    DialogManager.OpenDialog('跳转排序');
   }
 
   /** 取消订阅（弹窗确认，取消不移除） */
@@ -371,7 +457,16 @@ export struct MySheetsPage {
           }
         }
       };
-      return [sync, search];
+      const batch: HdsNavigationMenuItemOptions = {
+        content: {
+          icon: $r('sys.symbol.dot_grid_2x2'),
+          label: '批量操作',
+          action: (): void => {
+            this.openSubscribedBatch();
+          }
+        }
+      };
+      return [sync, search, batch];
     }
     const add: HdsNavigationMenuItemOptions = {
       content: {
@@ -419,6 +514,15 @@ export struct MySheetsPage {
   private runMenuAction(action: () => void): void {
     MenuUtils.Dismiss();
     action();
+  }
+
+  /** 进入订阅批量操作模式（空列表提示） */
+  private openSubscribedBatch(): void {
+    if (this.subscribedItems.length === 0) {
+      this.showToast('暂无订阅歌单');
+      return;
+    }
+    this.enterBatchMode();
   }
 
   /** 添加菜单：新建歌单 / 导入歌单 / 导入单曲 */
@@ -949,8 +1053,120 @@ export struct MySheetsPage {
     this.batchSelected = this.batchSelected.length === all.length ? [] : all;
   }
 
-  /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」） */
+  /** 订阅条目勾选键（platform_id） */
+  private subscribedKey(rec: SubscribedSheetRecord): string {
+    return rec.platform + '_' + rec.id;
+  }
+
+  /** 订阅条目是否被勾选 */
+  private isSubscribedSelected(rec: SubscribedSheetRecord): boolean {
+    return this.batchSelected.indexOf(this.subscribedKey(rec)) !== -1;
+  }
+
+  /** 批量模式下点击订阅条目：切换勾选状态 */
+  private toggleSubscribedSelect(rec: SubscribedSheetRecord): void {
+    const key = this.subscribedKey(rec);
+    const next = this.batchSelected.slice();
+    const idx = next.indexOf(key);
+    if (idx === -1) {
+      next.push(key);
+    } else {
+      next.splice(idx, 1);
+    }
+    this.batchSelected = next;
+  }
+
+  /** 订阅 tab 全选/取消全选（按全量订阅列表） */
+  private toggleSelectAllSubscribed(): void {
+    if (this.subscribedItems.length > 0 && this.batchSelected.length === this.subscribedItems.length) {
+      this.batchSelected = [];
+      return;
+    }
+    const keys: Array<string> = [];
+    for (const rec of this.subscribedItems) {
+      keys.push(this.subscribedKey(rec));
+    }
+    this.batchSelected = keys;
+  }
+
+  /** 勾选的订阅记录列表 */
+  private selectedSubscribedRecords(): Array<SubscribedSheetRecord> {
+    const result: Array<SubscribedSheetRecord> = [];
+    for (const key of this.batchSelected) {
+      for (const rec of this.subscribedItems) {
+        if (this.subscribedKey(rec) === key) {
+          result.push(rec);
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  /** 批量更新选中订阅（逐条拉取源端对比；歌手订阅/插件不可用计入失败） */
+  private async batchUpdateSubscribed(): Promise<void> {
+    const recs = this.selectedSubscribedRecords();
+    if (recs.length === 0) {
+      this.showToast('请先勾选订阅');
+      return;
+    }
+    if (this.batchUpdating) {
+      this.showToast('正在更新，请稍候');
+      return;
+    }
+    this.batchUpdating = true;
+    let ok = 0;
+    for (const rec of recs) {
+      const success = await subscribedSheets.syncRecord(rec.platform, rec.id);
+      if (success) {
+        ok++;
+      }
+    }
+    this.batchUpdating = false;
+    this.showToast('已更新 ' + ok.toString() + '/' + recs.length.toString() + ' 个订阅');
+  }
+
+  /** 批量分享选中订阅（文本清单：名称/类型/来源插件） */
+  private batchShareSubscribed(): void {
+    const recs = this.selectedSubscribedRecords();
+    if (recs.length === 0) {
+      this.showToast('请先勾选订阅');
+      return;
+    }
+    const lines: Array<string> = [];
+    for (const rec of recs) {
+      lines.push('「' + rec.title + '」（' + MySheetsPage.mediaTypeLabel(rec.mediaType) +
+        '）· 来源插件：' + rec.platform);
+    }
+    const title = recs.length === 1 ? recs[0].title : '订阅分享（' + recs.length.toString() + ' 个）';
+    ShareUtils.shareText(title, lines.join('\n'), (message: string): void => {
+      this.showToast(message);
+    });
+  }
+
+  /** 批量取消订阅（弹窗确认，取消不删除） */
+  private batchDeleteSubscribed(): void {
+    const recs = this.selectedSubscribedRecords();
+    if (recs.length === 0) {
+      this.showToast('请先勾选订阅');
+      return;
+    }
+    DialogManager.ConfirmDelete('确定取消订阅选中的 ' + recs.length.toString() + ' 个订阅吗？', (): void => {
+      for (const rec of recs) {
+        subscribedSheets.unsubscribe(rec.platform, rec.id);
+      }
+      this.exitBatchMode();
+      this.showToast('已取消订阅 ' + recs.length.toString() + ' 个');
+    });
+  }
+
+  /** 批量操作按钮文案（全部勾选后「全选」切换为「取消全选」；订阅 tab 为 全选/更新/分享/删除） */
   private batchButtonLabels(): Array<string> {
+    if (this.showSubscribed) {
+      const allSelected = this.subscribedItems.length > 0 &&
+        this.batchSelected.length === this.subscribedItems.length;
+      return [allSelected ? '取消全选' : '全选', this.batchUpdating ? '更新中…' : '更新', '分享', '删除'];
+    }
     let selectable = 0;
     for (const row of this.sheetRows) {
       if (!row.isDefault) {
@@ -1074,6 +1290,7 @@ export struct MySheetsPage {
                 })
               }, (rec: SubscribedSheetRecord, _index: number) => rec.platform + '_' + rec.id +
                 '_' + rec.title + '_' + rec.worksNum.toString() + (rec.hasUpdate ? '_upd' : '') +
+                (appState.isBatchMode && this.isSubscribedSelected(rec) ? '_sel' : '') +
                 '_' + appState.swipeResetTick.toString())
             } else {
               ListItem() {
@@ -1132,7 +1349,7 @@ export struct MySheetsPage {
 
           Column({ space: 10 }) {
             Row() {
-              Text('已选 ' + this.batchSelected.length.toString() + ' 个歌单')
+              Text('已选 ' + this.batchSelected.length.toString() + (this.showSubscribed ? ' 个订阅' : ' 个歌单'))
                 .fontSize(13)
                 .fontColor($r('sys.color.font_secondary'))
               Blank()
@@ -1157,12 +1374,24 @@ export struct MySheetsPage {
                   .backgroundColor($r('sys.color.comp_background_tertiary'))
                   .fontColor($r('sys.color.font_primary'))
                   .onClick(() => {
-                    if (i === 0) {// 全选/取消全选
-                      this.toggleSelectAll();
-                    } else if (i === 1) {// 分享
-                      this.batchShareSheets();
-                    } else {// 删除
-                      this.batchDelete();
+                    if (this.showSubscribed) {
+                      if (i === 0) {// 全选/取消全选
+                        this.toggleSelectAllSubscribed();
+                      } else if (i === 1) {// 更新
+                        this.batchUpdateSubscribed();
+                      } else if (i === 2) {// 分享
+                        this.batchShareSubscribed();
+                      } else {// 删除
+                        this.batchDeleteSubscribed();
+                      }
+                    } else {
+                      if (i === 0) {// 全选/取消全选
+                        this.toggleSelectAll();
+                      } else if (i === 1) {// 分享
+                        this.batchShareSheets();
+                      } else {// 删除
+                        this.batchDelete();
+                      }
                     }
                   })
               }, (v: string, i: number) => v + '_' + i.toString())
@@ -1373,11 +1602,18 @@ export struct MySheetsPage {
     .alignItems(HorizontalAlign.Center)
   }
 
-  /** 订阅条目行（卡片样式；点击进详情并清除更新标记，左滑取消订阅） */
+  /** 订阅条目行（卡片样式；批量模式下点击勾选、长按进入批量模式，否则点击进详情并清除更新标记） */
   @Builder
   SubscribedRowBuilder(rec: SubscribedSheetRecord) {
     Column() {
       Row({ space: 12 }) {
+        // 批量模式：勾选圈
+        if (appState.isBatchMode) {
+          SymbolGlyph(this.isSubscribedSelected(rec) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+            .fontSize(24)
+            .fontColor([this.isSubscribedSelected(rec) ? appState.accentColor : $r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
+        }
         // 封面：有图用 Image，无图用歌单占位图标
         if (rec.coverUrl().length > 0) {
           Image(ArtworkCache.resolve(rec.coverUrl()))
@@ -1427,14 +1663,32 @@ export struct MySheetsPage {
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.icon_tertiary')])
+        if (!appState.isBatchMode) {
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .transition(TransitionEffect.OPACITY)
+        }
       }
       .width('100%')
       .height(56)
+      .gesture(
+        LongPressGesture({ repeat: false, duration: 500 })
+          .onAction((_event: GestureEvent) => {
+            // 长按进入批量模式并勾选当前条目
+            if (appState.isBatchMode) {
+              return;
+            }
+            this.enterBatchMode();
+            this.toggleSubscribedSelect(rec);
+          })
+      )
       .onClick(() => {
-        this.openSubscribedDetail(rec);
+        if (appState.isBatchMode) {
+          this.toggleSubscribedSelect(rec);
+        } else {
+          this.openSubscribedDetail(rec);
+        }
       })
     }
     .width('100%')
