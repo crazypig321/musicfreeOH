@@ -34,6 +34,7 @@ import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
 import { LyricView } from '../view/LyricView';
 import { EqualizerSheet } from '../view/EqualizerSheet';
 import { EqualizerManager } from '../core/EqualizerManager';
+import { AudioEnhanceManager, AudioEnhanceState } from '../audioenhance/AudioEnhanceManager';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 import { CommonBlur } from '../view/CommonCom';
 
@@ -103,6 +104,8 @@ export struct PlayerPage {
   @Local eqOn: boolean = EqualizerManager.getInstance().enabled;
   /** 当前播放音质副本（时间行中间音质入口文案） */
   @Local currentQuality: QualityKey = trackPlayer.quality;
+  /** 当前音源音频格式（从实际播放地址扩展名解析，如 FLAC；未知为空） */
+  @Local currentFormat: string = '';
   @Local comments: Array<CommentItem> = [];
   @Local commentsLoading: boolean = false;
   @Local commentsEnded: boolean = false;
@@ -110,6 +113,8 @@ export struct PlayerPage {
   private commentSource: CommentDataSource = new CommentDataSource();
   /** 音效开关 */
   @Local audioEffectOn: boolean = true;
+  /** 空间音频生效中（标题旁标签展示用） */
+  @Local spatialAudioOn: boolean = false;
   /** 用户拖动进度条期间不回写进度事件 */
   @Local isSeeking: boolean = false;
   @Local currIndex: number = 0
@@ -134,6 +139,12 @@ export struct PlayerPage {
   private offCurrentLyric: () => void = (): void => {
   };
   private offFavorite: () => void = (): void => {
+  };
+  private offQuality: () => void = (): void => {
+  };
+  private offSourceLoaded: () => void = (): void => {
+  };
+  private offSpatialAudio: () => void = (): void => {
   };
 
   aboutToAppear(): void {
@@ -167,6 +178,22 @@ export struct PlayerPage {
     this.offRepeatMode = trackPlayer.onRepeatModeChanged((mode: MusicRepeatMode) => {
       this.repeatMode = mode;
     });
+    // 冷启动恢复/自动换源后实际音质变化时同步音质入口文案
+    this.offQuality = trackPlayer.onQualityChanged((quality: QualityKey) => {
+      this.currentQuality = quality;
+    });
+    // 初始快照：恢复链可能已加载完音源（页面稍后才打开）
+    this.currentFormat = PlayerPage.audioFormatFromUrl(playerEngine.loadedUrl);
+    // 实际播放地址切换（切歌/切音质/恢复）时刷新音频格式
+    this.offSourceLoaded = trackPlayer.onSourceLoaded((url: string) => {
+      this.currentFormat = PlayerPage.audioFormatFromUrl(url);
+    });
+    // 空间音频开关或输出设备变化时同步标题旁标签
+    this.syncSpatialAudioState();
+    this.offSpatialAudio = AudioEnhanceManager.getInstance()
+      .onChanged((state: AudioEnhanceState): void => {
+        this.applySpatialAudioState(state);
+      });
     this.offProgress = trackPlayer.onProgressChanged((position: number, duration: number) => {
       if (duration > 0) {
         this.duration = duration;
@@ -202,6 +229,46 @@ export struct PlayerPage {
     this.offLyricState();
     this.offCurrentLyric();
     this.offFavorite();
+    this.offQuality();
+    this.offSourceLoaded();
+    this.offSpatialAudio();
+  }
+
+  /** 从播放地址解析音频格式扩展名（去查询串/锚点后取最后一段的扩展名；无法识别返回空） */
+  private static audioFormatFromUrl(url: string): string {
+    if (url.length === 0) {
+      return '';
+    }
+    let clean = url;
+    const queryIdx = clean.indexOf('?');
+    if (queryIdx >= 0) {
+      clean = clean.substring(0, queryIdx);
+    }
+    const hashIdx = clean.indexOf('#');
+    if (hashIdx >= 0) {
+      clean = clean.substring(0, hashIdx);
+    }
+    const slashIdx = clean.lastIndexOf('/');
+    const name = slashIdx >= 0 ? clean.substring(slashIdx + 1) : clean;
+    const dotIdx = name.lastIndexOf('.');
+    if (dotIdx <= 0 || dotIdx === name.length - 1) {
+      return '';
+    }
+    const ext = name.substring(dotIdx + 1).toUpperCase();
+    // 超长"扩展名"多为路径片段/会话 ID 等垃圾数据，不展示
+    if (ext.length > 5) {
+      return '';
+    }
+    return ext;
+  }
+
+  private syncSpatialAudioState(): void {
+    this.applySpatialAudioState(AudioEnhanceManager.getInstance().refreshState());
+  }
+
+  /** 空间音频标签显示条件：系统开关开启且当前输出设备支持（低延时无三方检测接口，不参与判定） */
+  private applySpatialAudioState(state: AudioEnhanceState): void {
+    this.spatialAudioOn = state.spatializationEnabled && state.spatializationSupported;
   }
 
   private syncLyricState(state: LyricState): void {
@@ -1211,13 +1278,26 @@ export struct PlayerPage {
     // 歌曲信息
     if (this.currentMusic !== null) {
       Column({ space: Math.max(4, Math.round(6 * s)) }) {
-        Text(this.currentMusic.title)
-          .fontSize(Math.max(18, Math.round(22 * s)))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
+        Row({ space: 3 }) {
+          Text(this.currentMusic.title)
+            .fontSize(Math.max(18, Math.round(22 * s)))
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .layoutWeight(1)
+            .textOverflow({ overflow: TextOverflow.MARQUEE })
+          if (this.spatialAudioOn) {
+            Text('空间音频')
+              .fontSize(11)
+              .fontColor(Color.White)
+              .padding(5)
+              .borderRadius(3)
+              .backgroundColor('#ffffaa00')
+          }
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
         Text(this.currentMusic.artist +
           (this.currentMusic.album.length > 0 ? ' · ' + this.currentMusic.album : ''))
           .fontSize(Math.max(12, Math.round(13 * s)))
@@ -1308,8 +1388,14 @@ export struct PlayerPage {
         Text(PlayerPage.formatDuration(this.currentPosition))
           .fontSize(11)
           .fontColor($r('sys.color.font_tertiary'))
-        // 音质入口（时间行中间：纯文本，无图标、无下方文本）
-        Text(PlayerPage.qualityLabel(this.currentQuality))
+        // 音质入口（时间行中间：纯文本，无图标、无下方文本；音质 + 音频格式）
+        Text(){
+          Span(PlayerPage.qualityLabel(this.currentQuality))
+          Span(' ')
+          if (this.currentFormat.length > 0) {
+            Span(this.currentFormat)
+          }
+        }
           .fontSize(11)
           .fontColor($r('sys.color.font_secondary'))
           .padding({ left: 10, right: 10, top: 5, bottom: 5 })

@@ -127,6 +127,11 @@ export class PlayerEngine {
     return this.rate;
   }
 
+  /** 当前已加载音源地址（裸路径或网络地址；用于识别音频格式） */
+  get loadedUrl(): string {
+    return this.lastUrl;
+  }
+
   get isPlaying(): boolean {
     return this.stateInternal === PlayState.Playing;
   }

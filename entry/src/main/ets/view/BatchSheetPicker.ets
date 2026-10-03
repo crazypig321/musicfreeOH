@@ -1,4 +1,6 @@
 import { SheetItem } from '../common/model/SheetTypes';
+import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
+import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 
 /**
@@ -15,15 +17,14 @@ export struct BatchSheetPicker {
         .fontSize(17)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ top: 4, bottom: 4 })
+        .margin({ bottom: 12 })
+
       if (this.sheets.length === 0) {
         Text('暂无自建歌单，请先在歌单页创建')
           .fontSize(14)
           .fontColor($r('sys.color.font_tertiary'))
           .width('100%')
           .textAlign(TextAlign.Center)
-          .margin({ top: 32, bottom: 32 })
       } else {
         List() {
           ForEach(this.sheets, (sheet: SheetItem, index: number) => {
@@ -48,10 +49,13 @@ export struct BatchSheetPicker {
           }, (sheet: SheetItem, index: number) => sheet.id + '_' + index.toString())
         }
         .width('100%')
-        .margin({ top: 4 })
         .nestedScroll({
           scrollForward: NestedScrollMode.PARENT_FIRST,
           scrollBackward: NestedScrollMode.SELF_FIRST
+        })
+        .divider({
+          strokeWidth: 0.5,
+          color: $r('sys.color.comp_divider')
         })
       }
     }

@@ -63,6 +63,16 @@ export class RepeatModeChangedEvent {
   mode: MusicRepeatMode = MusicRepeatMode.QUEUE;
 }
 
+/** 播放音质变化事件：播放页音质入口文案同步用 */
+export class QualityChangedEvent {
+  quality: QualityKey = 'standard';
+}
+
+/** 音源加载完成事件（实际播放地址已切换到引擎） */
+export class TrackSourceLoadedEvent {
+  url: string = '';
+}
+
 /** 移动网络播放被禁止事件（UI 弹提示用） */
 export class CellularForbiddenEvent {
 }
@@ -148,6 +158,8 @@ export class TrackPlayer {
     const modeEv = new RepeatModeChangedEvent();
     modeEv.mode = this.repeatModeValue;
     this.ee.emit('repeat-mode-changed', modeEv);
+    // 音质同理：恢复持久化音质并广播（冷启动时 qualityValue 仍是默认值）
+    this.setQualityInternal(PersistStatus.getQuality());
     if (rate !== 1) {
       playerEngine.setRate(rate);
     }
@@ -1009,6 +1021,9 @@ export class TrackPlayer {
   private setQualityInternal(quality: QualityKey): void {
     this.qualityValue = quality;
     PersistStatus.setQuality(quality);
+    const ev = new QualityChangedEvent();
+    ev.quality = quality;
+    this.ee.emit('quality-changed', ev);
   }
 
   /** 设置音源 */
@@ -1018,6 +1033,10 @@ export class TrackPlayer {
     await playerEngine.load(track.url, headers);
     PersistStatus.setMusicItem(track);
     PersistStatus.setProgress(0);
+    // 实际播放地址已切换：通知 UI 更新音频格式等信息
+    const ev = new TrackSourceLoadedEvent();
+    ev.url = track.url;
+    this.ee.emit('source-loaded', ev);
     if (autoPlay) {
       await playerEngine.play();
     }
@@ -1280,6 +1299,30 @@ export class TrackPlayer {
     this.ee.on('repeat-mode-changed', wrapper);
     return (): void => {
       this.ee.off('repeat-mode-changed', wrapper);
+    };
+  }
+
+  onQualityChanged(cb: (quality: QualityKey) => void): () => void {
+    const wrapper: EventListenerFn = (payload?: Object) => {
+      if (payload instanceof QualityChangedEvent) {
+        cb(payload.quality);
+      }
+    };
+    this.ee.on('quality-changed', wrapper);
+    return (): void => {
+      this.ee.off('quality-changed', wrapper);
+    };
+  }
+
+  onSourceLoaded(cb: (url: string) => void): () => void {
+    const wrapper: EventListenerFn = (payload?: Object) => {
+      if (payload instanceof TrackSourceLoadedEvent) {
+        cb(payload.url);
+      }
+    };
+    this.ee.on('source-loaded', wrapper);
+    return (): void => {
+      this.ee.off('source-loaded', wrapper);
     };
   }
 

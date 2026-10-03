@@ -29,6 +29,7 @@ import { FileUtils } from '../utils/FileUtils';
 import { ContextHolder } from '../common/ContextHolder';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortMenu, MusicSortUtil } from '../view/MusicSortMenu';
+import { BatchSheetPicker } from '../view/BatchSheetPicker';
 
 /**
  * 下载页面：上半部分为下载任务（等待/准备中/下载中/失败，带进度条），
@@ -2682,60 +2683,12 @@ export struct DownloadPage {
   /** 批量「添加到歌单」歌单选择半模态（列表样式同单项操作的二级面板） */
   @Builder
   BatchSheetPickerBuilder() {
-    Column() {
-      Text('添加到歌单')
-        .fontSize(17)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ top: 4, bottom: 4 })
-      if (this.getUserSheets().length === 0) {
-        Text('暂无自建歌单，请先在歌单页创建')
-          .fontSize(14)
-          .fontColor($r('sys.color.font_tertiary'))
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .margin({ top: 32, bottom: 32 })
-      } else {
-        List() {
-          ForEach(this.getUserSheets(), (sheet: SheetItem, index: number) => {
-            ListItem() {
-              Row({ space: 12 }) {
-                Text(sheet.title)
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .layoutWeight(1)
-                Text(sheet.worksNum.toString() + ' 首')
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.batchAddToSheet(sheet);
-              })
-            }
-          }, (sheet: SheetItem, index: number) => sheet.id + '_' + index.toString())
-        }
-        .divider({
-          strokeWidth: 0.5,
-          color: $r('sys.color.comp_divider'),
-          startMargin: 0,
-          endMargin: 0
-        })
-        .width('100%')
-        .margin({ top: 4 })
-        .nestedScroll({
-          scrollForward: NestedScrollMode.PARENT_FIRST,
-          scrollBackward: NestedScrollMode.SELF_FIRST
-        })
+    BatchSheetPicker({
+      sheets: this.getUserSheets(),
+      onPick: (sheet) => {
+        this.batchAddToSheet(sheet)
       }
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
-    .alignItems(HorizontalAlign.Start)
+    })
   }
 }
 

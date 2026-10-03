@@ -6,6 +6,8 @@ import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
 import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 import { EqualizerSheet } from '../../view/EqualizerSheet';
 import { EqualizerManager } from '../../core/EqualizerManager';
+import { AudioEnhancePanel } from '../../audioenhance/AudioEnhancePanel';
+import { AudioEnhanceManager } from '../../audioenhance/AudioEnhanceManager';
 
 /**
  * 播放设置页面
@@ -32,10 +34,28 @@ export struct PlaySettingPage {
   @Local showEqSheet: boolean = false;
   /** 均衡器条目右侧摘要（关闭 / 预设名） */
   @Local eqSummaryText: string = '关闭';
+  /** 空间音频与低延时半模态 */
+  @Local showEnhanceSheet: boolean = false;
+  /** 空间音频条目右侧摘要 */
+  @Local enhanceSummaryText: string = '';
 
   aboutToAppear(): void {
     this.refreshQualityText();
     this.refreshEqSummary();
+    this.refreshEnhanceSummary();
+  }
+
+  private refreshEnhanceSummary(): void {
+    const state = AudioEnhanceManager.getInstance().refreshState();
+    if (!state.spatializationApiAvailable) {
+      this.enhanceSummaryText = '不支持';
+      return;
+    }
+    if (!state.spatializationSupported) {
+      this.enhanceSummaryText = '设备不支持';
+      return;
+    }
+    this.enhanceSummaryText = state.spatializationEnabled ? '已开启' : '已关闭';
   }
 
   private refreshEqSummary(): void {
@@ -441,6 +461,54 @@ export struct PlaySettingPage {
               this.showEqSheet = true;
             })
           }.ListItemStyle()
+
+          // 空间音频与耳机低延时（独立卡片入口，半模态查看状态）
+          ListItem() {
+            Row({ space: 12 }) {
+              if (appState.holdingHand === 'left') {
+                Text(this.enhanceSummaryText)
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(14)
+                  .fontColor([$r('sys.color.icon_tertiary')])
+              }
+              if (appState.holdingHand !== 'left') {
+                SymbolGlyph($r('sys.symbol.earphone_16643_fill'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+              }
+              Column({ space: 2 }){
+                Text('空间音频与低延时')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                Text('仅作为查询入口，软件无法调节和开启')
+                  .fontSize(12)
+                  .fontColor($r('sys.color.font_tertiary'))
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+              }.layoutWeight(1).width('100%').alignItems(HorizontalAlign.Start)
+
+              if (appState.holdingHand !== 'left') {
+                Text(this.enhanceSummaryText)
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(14)
+                  .fontColor([$r('sys.color.icon_tertiary')])
+              }
+              if (appState.holdingHand === 'left') {
+                SymbolGlyph($r('sys.symbol.earphone_16643_fill'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+              }
+            }
+            .width('100%')
+            .height(52)
+            .onClick(() => {
+              this.showEnhanceSheet = true;
+            })
+          }.ListItemStyle()
         }
         .ListStyle()
         .onScrollFrameBegin((offset: number) => {
@@ -458,6 +526,19 @@ export struct PlaySettingPage {
           },
           appear:  (): void => {
             appState.isForegroundBlur = true
+          }
+        })
+
+        // 空间音频与低延时半模态（零高度挂载点）
+        AudioEnhancePanel({
+          show: this.showEnhanceSheet,
+          onClose: (): void => {
+            this.showEnhanceSheet = false;
+            appState.isForegroundBlur = false;
+            this.refreshEnhanceSummary();
+          },
+          appear: (): void => {
+            appState.isForegroundBlur = true;
           }
         })
       }
