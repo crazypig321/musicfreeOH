@@ -31,7 +31,7 @@ export class MusicWidgetCommand {
  */
 export class MusicWidgetManager {
   /** 卡片配置名（与 form_config.json name 一致，用于过滤本应用卡片） */
-  private static readonly CARD_NAMES: Array<string> = ['MusicCard', 'MusicCardLarge'];
+  private static readonly CARD_NAMES: Array<string> = ['MusicCard', 'MusicCardMedium', 'MusicCardLarge'];
   /** 状态推送防抖间隔（切歌/播放态变化在短时间内可能连续触发） */
   private static readonly REFRESH_DEBOUNCE_MS = 300;
 
