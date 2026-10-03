@@ -778,13 +778,21 @@ export struct PluginPage {
     }
   }
 
-  /** 横滑操作（左滑呼出 编辑/卸载）；批量模式与内置插件不提供 */
+  /** 横滑操作（左滑呼出 分享/编辑/卸载）；批量模式与内置插件不提供 */
   private swipeOptions(row: PluginRow): HdsSwipeActionOptions | undefined {
     if (appState.isBatchMode || row.name === '本地') {
       return undefined;
     }
     const options: HdsSwipeActionOptions = {
       icons: [
+        {
+          icon: new SymbolGlyphModifier($r('sys.symbol.share'))
+            .fontColor([Color.White]).fontSize(20),
+          backgroundColor: appState.accentColor,
+          onAction: (): void => {
+            this.shareRow(row);
+          }
+        },
         {
           icon: new SymbolGlyphModifier($r('sys.symbol.arrow_left_arrow_right'))
             .fontColor([Color.White]).fontSize(20),
@@ -801,6 +809,19 @@ export struct PluginPage {
       }
     };
     return options;
+  }
+
+  /** 行内分享：优先分享本地插件文件（.mfplugin 直达安装）；文件缺失回落源地址文件（接收端从 URL 安装） */
+  private shareRow(row: PluginRow): void {
+    const plugin = pluginManager.getByName(row.name);
+    if (plugin === null) {
+      this.showToast('插件不存在');
+      return;
+    }
+    const srcUrl = plugin.instanceInfo !== null ? plugin.instanceInfo.srcUrl : '';
+    ShareUtils.sharePlugin(plugin.name, plugin.path, srcUrl, (message: string): void => {
+      this.showToast(message);
+    });
   }
 
   /** 行内编辑：弹「跳转排序」对话框，确认后直接改序并保存 */
