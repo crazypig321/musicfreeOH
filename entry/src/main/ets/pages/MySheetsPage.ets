@@ -42,9 +42,9 @@ interface SheetRow {
  *   顶部右侧：添加菜单（新建歌单 / 导入歌单 / 导入单曲）+ 批量操作（全选/分享/删除，UI 同歌单详情页批量底栏）
  *   条目 UI 同插件页；左滑呼出 编辑/删除（HdsListItem，默认歌单与批量模式下不提供横滑）
  *   点击进入歌单详情页（本地歌单模式），长按进入批量模式
- * 订阅歌单：展示插件歌单/榜单/专辑/歌手订阅（详情页心形按钮订阅），进入页面/手动同步拉取更新；
+ * 订阅歌单：展示插件歌单/榜单/专辑/歌手订阅（详情页心形按钮订阅），进入页面/手动同步拉取更新（同步中列表上层显示 loading）；
  *   左滑 分享/更新/排序/取消订阅，点击进入详情页并清除「有更新」标记；
- *   长按或右上角批量按钮进入批量模式（全选/更新/分享/删除，UI 同我的歌单批量底栏）
+ *   右上角菜单：订阅排序/批量操作/歌单说明；长按进入批量模式（全选/更新/分享/删除，UI 同我的歌单批量底栏）
  */
 @ComponentV2
 export struct MySheetsPage {
@@ -95,6 +95,9 @@ export struct MySheetsPage {
   /** 歌单排序半模态（默认歌单固定首位，仅排序其余歌单） */
   @Local showSortSheet: boolean = false;
   @Local sortSheetIds: Array<string> = [];
+  /** 订阅排序半模态（按全量订阅列表顺序） */
+  @Local showSubscribedSortSheet: boolean = false;
+  @Local subscribedSortKeys: Array<string> = [];
   /** 当前所处 tab 序号（由 Index 传入，切走时收起搜索框） */
   @Param hostTabIndex: number = 1;
 
@@ -457,16 +460,16 @@ export struct MySheetsPage {
           }
         }
       };
-      const batch: HdsNavigationMenuItemOptions = {
+      const menu: HdsNavigationMenuItemOptions = {
         content: {
           icon: $r('sys.symbol.dot_grid_2x2'),
           label: '批量操作',
           action: (): void => {
-            this.openSubscribedBatch();
+            this.openSubscribedMenu();
           }
         }
       };
-      return [sync, search, batch];
+      return [sync, search, menu];
     }
     const add: HdsNavigationMenuItemOptions = {
       content: {
@@ -506,7 +509,46 @@ export struct MySheetsPage {
         this.openSortSheet()
       });
     };
-    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [sortItem, batchItem], {
+    const introItem = new MenuItemParams();
+    introItem.icon = $r('sys.symbol.info_circle');
+    introItem.label = '歌单说明';
+    introItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        DialogManager.OpenDialog('歌单说明');
+      });
+    };
+    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [sortItem, batchItem, introItem], {
+      placement: Placement.BottomRight
+    });
+  }
+
+  /** 订阅 tab 菜单：订阅排序 / 批量操作 / 歌单说明 */
+  private openSubscribedMenu(): void {
+    const sortItem = new MenuItemParams();
+    sortItem.icon = $r('sys.symbol.line_3_horizontal');
+    sortItem.label = '订阅排序';
+    sortItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        this.openSubscribedSortSheet();
+      });
+    };
+    const batchItem = new MenuItemParams();
+    batchItem.icon = $r('sys.symbol.dot_grid_2x2');
+    batchItem.label = '批量操作';
+    batchItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        this.openSubscribedBatch();
+      });
+    };
+    const introItem = new MenuItemParams();
+    introItem.icon = $r('sys.symbol.info_circle');
+    introItem.label = '歌单说明';
+    introItem.onAction = (): void => {
+      this.runMenuAction((): void => {
+        DialogManager.OpenDialog('歌单说明');
+      });
+    };
+    MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [sortItem, batchItem, introItem], {
       placement: Placement.BottomRight
     });
   }
@@ -1006,6 +1048,75 @@ export struct MySheetsPage {
     DialogManager.OpenDialog('跳转排序');
   }
 
+  /** 打开订阅排序半模态 */
+  private openSubscribedSortSheet(): void {
+    if (appState.isBatchMode) {
+      this.exitBatchMode();
+    }
+    if (this.subscribedItems.length === 0) {
+      this.showToast('暂无可排序的订阅');
+      return;
+    }
+    const keys: Array<string> = [];
+    for (const rec of this.subscribedItems) {
+      keys.push(this.subscribedKey(rec));
+    }
+    this.subscribedSortKeys = keys;
+    this.showSubscribedSortSheet = true;
+  }
+
+  /** 订阅排序条目标题（按勾选键查找） */
+  private subscribedSortTitle(key: string): string {
+    for (const rec of this.subscribedItems) {
+      if (this.subscribedKey(rec) === key) {
+        return rec.title;
+      }
+    }
+    return '';
+  }
+
+  private moveSubscribedSortItem(index: number, delta: number): void {
+    const target = index + delta;
+    if (index < 0 || index >= this.subscribedSortKeys.length ||
+      target < 0 || target >= this.subscribedSortKeys.length) {
+      return;
+    }
+    const keys = this.subscribedSortKeys.slice();
+    const tmp = keys[index];
+    keys[index] = keys[target];
+    keys[target] = tmp;
+    this.subscribedSortKeys = keys;
+  }
+
+  /** 打开订阅「跳转排序」弹窗：将当前条目直接移动到输入的序号位置 */
+  private openSubscribedSortJump(index: number): void {
+    DialogManager.sortJumpValue = (index + 1).toString();
+    DialogManager.sortJumpMax = this.subscribedSortKeys.length;
+    DialogManager.sortJumpConfirm = (target: number): void => {
+      this.moveSubscribedSortItemTo(index, target);
+    };
+    DialogManager.OpenDialog('跳转排序');
+  }
+
+  /** 将订阅排序条目从 from 移动到 to（0 基索引） */
+  private moveSubscribedSortItemTo(from: number, to: number): void {
+    if (from === to || from < 0 || from >= this.subscribedSortKeys.length ||
+      to < 0 || to >= this.subscribedSortKeys.length) {
+      return;
+    }
+    const keys = this.subscribedSortKeys.slice();
+    const item = keys.splice(from, 1)[0];
+    keys.splice(to, 0, item);
+    this.subscribedSortKeys = keys;
+    this.showToast('已移动到第 ' + (to + 1).toString() + ' 位');
+  }
+
+  private saveSubscribedSortOrder(): void {
+    subscribedSheets.setOrder(this.subscribedSortKeys);
+    this.showSubscribedSortSheet = false;
+    this.showToast('订阅排序已保存');
+  }
+
   /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出；显式动画包裹避免突兀） */
   private enterBatchMode(): void {
     this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
@@ -1294,7 +1405,7 @@ export struct MySheetsPage {
                 '_' + appState.swipeResetTick.toString())
             } else {
               ListItem() {
-                Text(this.subscribedItems.length > 0 ? '未找到匹配的订阅' : '暂无订阅，进入歌单、专辑或歌手详情页点击心形按钮订阅')
+                Text(this.subscribedItems.length > 0 ? '未找到匹配的订阅' : '暂无订阅，进入歌单、专辑或歌手详情页点击订阅按钮订阅')
                   .fontSize(13)
                   .fontColor($r('sys.color.font_tertiary'))
                   .width('100%')
@@ -1404,6 +1515,21 @@ export struct MySheetsPage {
           .transition(TransitionEffect.OPACITY)
         }
 
+        // 订阅同步 loading 遮罩（同步期间叠加在列表上层，阻断误操作）
+        if (this.showSubscribed && this.syncing) {
+          Column({ space: 10 }) {
+            CommonLoading({ sizeValue: 36, loadColor: Color.White })
+            Text('同步中…')
+              .fontSize(13)
+              .fontColor(Color.White)
+          }
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor('#66000000')
+          .transition(TransitionEffect.OPACITY)
+        }
+
         // 编辑歌单半模态锚点（独立节点挂载半模态，不与新建歌单 sheet 共用宿主）
         Column()
           .width('100%')
@@ -1429,6 +1555,22 @@ export struct MySheetsPage {
             dragBar: true,
             onWillDisappear: () => {
               this.showSortSheet = false;
+              appState.isForegroundBlur = false
+            },
+            onWillAppear: () => {
+              appState.isForegroundBlur = true
+            }
+          })
+
+        // 订阅排序半模态锚点（独立节点挂载半模态）
+        Column()
+          .width('100%')
+          .height(0)
+          .bindSheet(!!this.showSubscribedSortSheet, this.SubscribedSortSheetBuilder(), {
+            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            dragBar: true,
+            onWillDisappear: () => {
+              this.showSubscribedSortSheet = false;
               appState.isForegroundBlur = false
             },
             onWillAppear: () => {
@@ -1883,6 +2025,76 @@ export struct MySheetsPage {
         .backgroundColor(appState.accentColor)
         .onClick(() => {
           this.saveSortOrder();
+        })
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 订阅排序半模态：上移/下移/跳转，保存后生效 */
+  @Builder
+  SubscribedSortSheetBuilder() {
+    Column() {
+      Text('订阅排序')
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ top: 4, bottom: 8 })
+      List() {
+        ForEach(this.subscribedSortKeys, (key: string, index: number) => {
+          ListItem() {
+            Row({ space: 12 }) {
+              Text((index + 1).toString())
+                .fontSize(13)
+                .fontColor($r('sys.color.font_tertiary'))
+                .width(20)
+                .textAlign(TextAlign.Center)
+              Text(this.subscribedSortTitle(key))
+                .fontSize(15)
+                .fontColor($r('sys.color.font_primary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .layoutWeight(1)
+
+              ForEach([$r('sys.symbol.chevron_up'), $r('sys.symbol.chevron_down'), $r('sys.symbol.arrow_left_arrow_right')],(v: Resource, i: number)=>{
+                SymbolGlyph(v)
+                  .fontSize(18)
+                  .fontColor([$r('sys.color.icon_secondary')])
+                  .onClick(() => {
+                    if (i === 0) {// 上移
+                      this.moveSubscribedSortItem(index, -1);
+                    }else if (i === 1) {// 下移
+                      this.moveSubscribedSortItem(index, 1);
+                    }else{// 跳转
+                      this.openSubscribedSortJump(index);
+                    }
+                  })
+              })
+            }
+            .width('100%')
+            .height(52)
+          }
+        }, (key: string, index: number) => key + '_' + index.toString())
+      }
+      .divider({
+        strokeWidth: 0.5,
+        color: $r('sys.color.comp_divider'),
+      })
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .margin({ top: 4 })
+      Button('保存排序')
+        .width('100%')
+        .height(42)
+        .fontSize(15)
+        .margin({ top: 12 })
+        .backgroundColor(appState.accentColor)
+        .onClick(() => {
+          this.saveSubscribedSortOrder();
         })
     }
     .width('100%')

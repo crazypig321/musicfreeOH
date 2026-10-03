@@ -18,7 +18,7 @@ import { PcMainLayout } from './pcUI/PcMainLayout';
 import { CarModeView } from '../view/CarModeView';
 import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';
-  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent, LyricSourceDialogContent, EqGainDialogContent } from '../utils/DialogUtils';
+  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent, LyricSourceDialogContent, EqGainDialogContent, SheetIntroDialogContent } from '../utils/DialogUtils';
 import { ContextHolder } from '../common/ContextHolder';
 import { AppMeta } from '../core/AppMeta';
 import { appConfig } from '../core/AppConfig';
@@ -347,6 +347,8 @@ struct Index {
       RenameDialogContent()
     } else if (key === '跳转排序') {
       SortJumpDialogContent()
+    } else if (key === '歌单说明') {
+      SheetIntroDialogContent()
     } else if (key === '下载到文件夹' || key === '移动到文件夹' ||
       key === '添加标签' || key === '编辑标签') {
       DownloadFolderDialogContent()
