@@ -658,7 +658,7 @@ export struct SearchPage {
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .contentStartOffset(this.hasSearched ? 235 : appState.topRect + 160)
-      .contentEndOffset(appState.bottomRect)
+      .contentEndOffset(appState.bottomRect + 60)
       .padding({ left: 16, right: 16 })
       .onReachEnd(() => {
         this.loadMore();
