@@ -1462,7 +1462,7 @@ export struct MySheetsPage {
                   .width('100%')
                   .textAlign(TextAlign.Center)
                   .margin({ top: 32 })
-              }.transition(TransitionEffect.move(TransitionEdge.END).animation({duration: 300, curve: Curve.EaseOut}))
+              }
             }
           } else if (this.sheetSource.totalCount() > 0) {
             // 我的歌单列表（懒加载；HdsListItem 不支持通用属性，链式设置会破坏横滑手势，故不挂 transition）
@@ -1485,7 +1485,7 @@ export struct MySheetsPage {
                 .width('100%')
                 .textAlign(TextAlign.Center)
                 .margin({ top: 32 })
-            }.transition(TransitionEffect.move(TransitionEdge.START).animation({duration: 300, curve: Curve.EaseOut}))
+            }
           }
         }
         .ListStyle(44 + (this.showSearchBox ? 56 : 0))
