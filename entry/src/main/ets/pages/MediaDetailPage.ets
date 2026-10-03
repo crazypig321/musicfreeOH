@@ -16,6 +16,7 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { downloader } from '../core/Downloader';
 import { downloadedSheet, localMusicSheet } from '../core/LocalMusicSheet';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
+import { subscribedSheets, SubscribedMediaType } from '../core/SubscribedSheets';
 import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
@@ -71,6 +72,8 @@ export struct MediaDetailPage {
   @Local batchChangeProgress: string = '';
   /** 标题栏搜索框展开 */
   @Local showSearchBox: boolean = false;
+  /** 是否已订阅当前专辑/歌手 */
+  @Local subscribed: boolean = false;
   /** 已应用的搜索关键词（点搜索/回车后生效） */
   @Local searchKeyword: string = '';
   /** 搜索框输入内容 */
@@ -87,6 +90,8 @@ export struct MediaDetailPage {
   private searchSource: MusicDataSource = new MusicDataSource();
   private scroller: Scroller = new Scroller();
   private plugin: Plugin | null = null;
+  /** 来源插件名（订阅记录按插件名+条目 id 索引） */
+  private pluginName: string = '';
   private album: AlbumItem | null = null;
   private artist: ArtistItem | null = null;
   private page: number = 1;
@@ -117,7 +122,11 @@ export struct MediaDetailPage {
       this.artistStats = MediaDetailPage.formatArtistStats(this.artist);
     }
     const name = MediaDetailNavParams.pluginName;
+    this.pluginName = name;
     this.plugin = name.length > 0 ? pluginManager.getByName(name) : null;
+    const mediaId = this.isAlbum ?
+      (this.album !== null ? this.album.id : '') : (this.artist !== null ? this.artist.id : '');
+    this.subscribed = name.length > 0 && mediaId.length > 0 && subscribedSheets.isSubscribed(name, mediaId);
     this.loadPage(true);
   }
 
@@ -196,6 +205,13 @@ export struct MediaDetailPage {
     if (reset) {
       this.dataSource.clear();
       this.originItems = [];
+      // 已订阅专辑：用源端最新信息刷新订阅快照（用户正在查看，清除更新标记）
+      if (this.subscribed && this.pluginName.length > 0 && this.isAlbum && this.album !== null) {
+        const snapAlbum = r.albumItem !== null ? r.albumItem : this.album;
+        const count = snapAlbum.worksNum > 0 ? snapAlbum.worksNum : r.musicList.length;
+        subscribedSheets.refreshSnapshot(this.pluginName, this.album.id, snapAlbum.toRecord(),
+          snapAlbum.title, snapAlbum.artwork, count, true);
+      }
     }
     this.appendOrigin(r.musicList);
     // 搜索中：新到达的页同样纳入过滤结果
@@ -346,8 +362,17 @@ export struct MediaDetailPage {
     }
   }
 
-  /** titleBar 搜索按钮 */
+  /** titleBar 菜单：订阅 + 搜索 */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const subscribe: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: this.subscribed ? $r('sys.symbol.pin_fill') : $r('sys.symbol.pin_slash'),
+        label: this.subscribed ? '取消订阅' : '订阅',
+        action: (): void => {
+          this.toggleSubscribe();
+        }
+      }
+    };
     const search: HdsNavigationMenuItemOptions = {
       content: {
         icon: $r('sys.symbol.magnifyingglass'),
@@ -357,7 +382,41 @@ export struct MediaDetailPage {
         }
       }
     };
-    return [search];
+    return [subscribe, search];
+  }
+
+  /** 订阅/取消订阅当前专辑/歌手（订阅后在我的歌单页展示；专辑同步检测更新，歌手保留快照） */
+  private toggleSubscribe(): void {
+    const name = this.pluginName;
+    if (name.length === 0) {
+      this.showToast('插件不可用');
+      return;
+    }
+    if (this.isAlbum && this.album !== null) {
+      if (this.subscribed) {
+        subscribedSheets.unsubscribe(name, this.album.id);
+        this.subscribed = false;
+        this.showToast('已取消订阅');
+        return;
+      }
+      subscribedSheets.subscribeSheet(SubscribedMediaType.ALBUM, this.album.toRecord(), name,
+        this.album.title, this.album.worksNum);
+      this.subscribed = true;
+      this.showToast('已订阅，可在我的歌单页查看');
+      return;
+    }
+    if (this.artist !== null) {
+      if (this.subscribed) {
+        subscribedSheets.unsubscribe(name, this.artist.id);
+        this.subscribed = false;
+        this.showToast('已取消订阅');
+        return;
+      }
+      subscribedSheets.subscribeSheet(SubscribedMediaType.ARTIST, this.artist.toRecord(), name,
+        this.artist.name, this.artist.worksNum);
+      this.subscribed = true;
+      this.showToast('已订阅，可在我的歌单页查看');
+    }
   }
 
   /** 后台加载剩余页并追加到播放队列尾部（同时补全页面列表）；loadingMore=true 阻断手动触底加载 */

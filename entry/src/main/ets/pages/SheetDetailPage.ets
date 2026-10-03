@@ -16,6 +16,7 @@ import { trackPlayer } from '../core/TrackPlayer';
 import { downloader } from '../core/Downloader';
 import { downloadedSheet, localMusicSheet } from '../core/LocalMusicSheet';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
+import { subscribedSheets, SubscribedMediaType } from '../core/SubscribedSheets';
 import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
@@ -56,6 +57,8 @@ export struct SheetDetailPage {
   @Local batchChanging: boolean = false;
   /** 批量换源进度文案 */
   @Local batchChangeProgress: string = '';
+  /** 是否已订阅当前歌单/榜单（本地歌单不支持订阅） */
+  @Local subscribed: boolean = false;
   /** 标题栏搜索框展开 */
   @Local showSearchBox: boolean = false;
   /** 已应用的搜索关键词（点搜索/回车后生效） */
@@ -74,6 +77,8 @@ export struct SheetDetailPage {
   private searchSource: MusicDataSource = new MusicDataSource();
   private scroller: Scroller = new Scroller();
   private plugin: Plugin | null = null;
+  /** 解析出的来源插件名（订阅记录按插件名+歌单 id 索引） */
+  private pluginName: string = '';
   private sheet: SheetItem | null = null;
   private isTopList: boolean = false;
   private page: number = 1;
@@ -110,11 +115,13 @@ export struct SheetDetailPage {
     }
     const name = SheetDetailNavParams.pluginName.length > 0 ?
       SheetDetailNavParams.pluginName : (this.sheet !== null ? this.sheet.platform : '');
+    this.pluginName = name;
     this.plugin = name.length > 0 ? pluginManager.getByName(name) : null;
     // 榜单详情能力缺失时回退歌单信息接口
     if (this.isTopList && this.plugin !== null && !this.plugin.hasMethod('getTopListDetail')) {
       this.isTopList = false;
     }
+    this.subscribed = name.length > 0 && this.sheet !== null && subscribedSheets.isSubscribed(name, this.sheet.id);
     this.loadPage(true);
   }
 
@@ -192,6 +199,13 @@ export struct SheetDetailPage {
     if (reset) {
       this.dataSource.clear();
       this.originItems = [];
+      // 已订阅：用源端最新信息刷新订阅快照（用户正在查看，清除更新标记）
+      if (this.subscribed && this.pluginName.length > 0 && this.sheet !== null) {
+        const snapItem = item !== null ? item : this.sheet;
+        const count = snapItem.worksNum > 0 ? snapItem.worksNum : musicList.length;
+        subscribedSheets.refreshSnapshot(this.pluginName, this.sheet.id, snapItem.toRecord(),
+          snapItem.title, snapItem.coverUrl(), count, true);
+      }
     }
     this.appendOrigin(musicList);
     // 搜索中：新到达的页同样纳入过滤结果
@@ -200,11 +214,22 @@ export struct SheetDetailPage {
       if (item.title.length > 0) {
         this.sheetTitle = item.title;
       }
-      if (this.coverUrl.length === 0 && item.coverUrl().length > 0) {
-        this.coverUrl = item.coverUrl();
-      }
-      if (item.description.length > 0 && this.description.length === 0) {
-        this.description = item.description;
+      const latestCover = item.coverUrl();
+      if (reset) {
+        // 重新拉取第一页（含手动更新）：封面与简介始终采用源端最新
+        if (latestCover.length > 0) {
+          this.coverUrl = latestCover;
+        }
+        if (item.description.length > 0) {
+          this.description = item.description;
+        }
+      } else {
+        if (this.coverUrl.length === 0 && latestCover.length > 0) {
+          this.coverUrl = latestCover;
+        }
+        if (item.description.length > 0 && this.description.length === 0) {
+          this.description = item.description;
+        }
       }
     }
   }
@@ -341,7 +366,7 @@ export struct SheetDetailPage {
     }
   }
 
-  /** titleBar 搜索按钮 */
+  /** titleBar 菜单：订阅（本地歌单不显示）+ 更新（仅已订阅显示）+ 搜索 */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const search: HdsNavigationMenuItemOptions = {
       content: {
@@ -352,7 +377,68 @@ export struct SheetDetailPage {
         }
       }
     };
-    return [search];
+    if (this.isLocalSheet) {
+      return [search];
+    }
+    const subscribe: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: this.subscribed ? $r('sys.symbol.pin_fill') : $r('sys.symbol.pin_slash'),
+        label: this.subscribed ? '取消订阅' : '订阅',
+        action: (): void => {
+          this.toggleSubscribe();
+        }
+      }
+    };
+    if (!this.subscribed) {
+      return [subscribe, search];
+    }
+    const refresh: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.arrow_clockwise'),
+        label: '更新',
+        action: (): void => {
+          this.refreshSheet();
+        }
+      }
+    };
+    return [subscribe, refresh, search];
+  }
+
+  /** 订阅/取消订阅当前歌单（订阅后在我的歌单页展示并拉取式同步更新） */
+  private toggleSubscribe(): void {
+    const sheet = this.sheet;
+    if (sheet === null || this.pluginName.length === 0) {
+      this.showToast('插件不可用');
+      return;
+    }
+    if (this.subscribed) {
+      subscribedSheets.unsubscribe(this.pluginName, sheet.id);
+      this.subscribed = false;
+      this.showToast('已取消订阅');
+      return;
+    }
+    const count = sheet.worksNum;
+    subscribedSheets.subscribeSheet(this.isTopList ? SubscribedMediaType.TOP_LIST : SubscribedMediaType.SHEET,
+      sheet.toRecord(), this.pluginName, sheet.title, count);
+    this.subscribed = true;
+    this.showToast('已订阅，可在我的歌单页查看');
+  }
+
+  /** 手动更新：重新拉取第一页，标题/封面/简介/歌曲列表均取源端最新 */
+  private refreshSheet(): void {
+    if (this.loading || this.loadingMore) {
+      this.showToast('正在加载，请稍候');
+      return;
+    }
+    if (this.plugin === null || this.sheet === null) {
+      this.showToast('插件不可用');
+      return;
+    }
+    this.showToast('正在更新…');
+    if (this.scroller.currentOffset().yOffset !== 0) {
+      this.scroller.scrollTo({ xOffset: 0, yOffset: 0 });
+    }
+    this.loadPage(true);
   }
 
   /** 后台加载剩余页并追加到播放队列尾部（同时补全页面列表）；loadingMore=true 阻断手动触底加载 */

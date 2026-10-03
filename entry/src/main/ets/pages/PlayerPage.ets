@@ -1085,7 +1085,7 @@ export struct PlayerPage {
       if (showToggle) {
         Stack({ alignContent: Alignment.Start }){
           Row().width('161px').height(26).borderRadius(13)
-            .backgroundColor($r('sys.color.comp_background_primary'))
+            .backgroundColor($r('sys.color.background_secondary'))
             .opacity(0.7)
             .offset({x: this.showLyric ? '168px' : 0})
 

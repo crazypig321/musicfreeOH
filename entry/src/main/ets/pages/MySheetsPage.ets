@@ -4,6 +4,7 @@ import { ShareUtils } from '../utils/ShareUtils';
 import { CommonBlur, CommonLoading, CommonSearch, MenuItemParams } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { musicSheet, SheetBasePatch } from '../core/MusicSheet';
+import { subscribedSheets, SubscribedSheetRecord, SubscribedSheetsDataSource, SubscribedMediaType } from '../core/SubscribedSheets';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { PluginState } from '../plugin/PluginTypes';
@@ -13,7 +14,7 @@ import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
-import { SheetDetailNavParams, ROUTE_SHEET_DETAIL } from '../common/model/NavModels';
+import { SheetDetailNavParams, ROUTE_SHEET_DETAIL, MediaDetailNavParams, ROUTE_ALBUM_DETAIL, ROUTE_ARTIST_DETAIL } from '../common/model/NavModels';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { JsonUtil } from '../utils/JsonUtil';
@@ -36,15 +37,26 @@ interface SheetRow {
 }
 
 /**
- * 我的歌单页：展示全部本地歌单（含默认歌单「我的收藏」）
- * 顶部右侧：添加菜单（新建歌单 / 导入歌单 / 导入单曲）+ 批量操作（全选/分享/删除，UI 同歌单详情页批量底栏）
- * 条目 UI 同插件页；左滑呼出 编辑/删除（HdsListItem，默认歌单与批量模式下不提供横滑）
- * 点击进入歌单详情页（本地歌单模式），长按进入批量模式
+ * 我的歌单页：顶部「我的歌单/订阅歌单」分段滑块切换两个列表
+ * 我的歌单：展示全部本地歌单（含默认歌单「我的收藏」）
+ *   顶部右侧：添加菜单（新建歌单 / 导入歌单 / 导入单曲）+ 批量操作（全选/分享/删除，UI 同歌单详情页批量底栏）
+ *   条目 UI 同插件页；左滑呼出 编辑/删除（HdsListItem，默认歌单与批量模式下不提供横滑）
+ *   点击进入歌单详情页（本地歌单模式），长按进入批量模式
+ * 订阅歌单：展示插件歌单/榜单订阅（详情页心形按钮订阅），进入页面/手动同步拉取更新；
+ *   左滑取消订阅，点击进入详情页并清除「有更新」标记
  */
 @ComponentV2
 export struct MySheetsPage {
   scroller: Scroller = new Scroller();
   @Local sheetRows: Array<SheetRow> = [];
+  /** 分段滑块：当前是否展示订阅歌单 tab */
+  @Local showSubscribed: boolean = false;
+  /** 订阅歌单记录 */
+  @Local subscribedItems: Array<SubscribedSheetRecord> = [];
+  /** 订阅同步进行中 */
+  @Local syncing: boolean = false;
+  /** 订阅列表懒加载数据源（搜索过滤后整体替换） */
+  private subscribedSource: SubscribedSheetsDataSource = new SubscribedSheetsDataSource();
   @Local batchSelected: Array<string> = [];
   /** 新建歌单半模态 */
   @Local showCreateSheet: boolean = false;
@@ -99,6 +111,71 @@ export struct MySheetsPage {
     musicSheet.onSheetBasicUpdated((): void => {
       this.refreshSheets();
     });
+    this.refreshSubscribed();
+    subscribedSheets.onUpdated((): void => {
+      this.refreshSubscribed();
+    });
+    // 进入页面时拉取式同步订阅（每条 10 分钟节流）
+    this.syncSubscribed(false);
+  }
+
+  /** 刷新订阅列表 */
+  private refreshSubscribed(): void {
+    this.subscribedItems = subscribedSheets.getAll().slice();
+    this.rebuildSubscribedSource();
+  }
+
+  /** 按当前关键词重建订阅列表数据源 */
+  private rebuildSubscribedSource(): void {
+    this.subscribedSource.reload(this.displaySubscribed());
+  }
+
+  /** 同步订阅歌单（force=true 忽略节流强制刷新，完成后提示） */
+  private syncSubscribed(force: boolean): void {
+    if (this.syncing) {
+      return;
+    }
+    this.syncing = true;
+    subscribedSheets.syncAll(force).then((): void => {
+      this.syncing = false;
+      if (force) {
+        this.showToast('订阅歌单已同步');
+      }
+    }).catch((_e: Object): void => {
+      this.syncing = false;
+      if (force) {
+        this.showToast('同步失败');
+      }
+    });
+  }
+
+  /** 手动同步订阅歌单 */
+  private manualSyncSubscribed(): void {
+    if (this.syncing) {
+      this.showToast('正在同步，请稍候');
+      return;
+    }
+    if (this.subscribedItems.length === 0) {
+      this.showToast('暂无订阅歌单');
+      return;
+    }
+    this.syncSubscribed(true);
+  }
+
+  /** 分段滑块切换 我的歌单/订阅歌单（退出批量模式并回顶） */
+  private switchTab(showSubscribed: boolean): void {
+    if (this.showSubscribed === showSubscribed) {
+      return;
+    }
+    if (appState.isBatchMode) {
+      this.exitBatchMode();
+    }
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      this.showSubscribed = showSubscribed;
+    });
+    if (this.scroller.currentOffset().yOffset !== 0) {
+      this.scroller.scrollTo({ xOffset: 0, yOffset: 0 });
+    }
   }
 
   /** 刷新歌单列表 */
@@ -154,10 +231,82 @@ export struct MySheetsPage {
     return rows;
   }
 
-  /** 标题副文本：搜索中显示命中数量 */
+  /** 按关键词过滤订阅条目（名称，不区分大小写；空关键词返回全部） */
+  private displaySubscribed(): Array<SubscribedSheetRecord> {
+    const kw = this.searchKeyword.trim().toLowerCase();
+    if (kw.length === 0) {
+      return this.subscribedItems;
+    }
+    const rows: Array<SubscribedSheetRecord> = [];
+    for (const rec of this.subscribedItems) {
+      if (rec.title.toLowerCase().indexOf(kw) >= 0) {
+        rows.push(rec);
+      }
+    }
+    return rows;
+  }
+
+  /** 订阅条目副标题：来源插件 · 共 N 首 */
+  private subscribedRowSubtitle(rec: SubscribedSheetRecord): string {
+    let text = rec.platform;
+    if (rec.worksNum > 0) {
+      text += ' · 共 ' + rec.worksNum.toString() + ' 首';
+    }
+    return text;
+  }
+
+  /** 进入订阅条目详情页（歌单/榜单/专辑/歌手按类型路由），并清除「有更新」标记 */
+  private openSubscribedDetail(rec: SubscribedSheetRecord): void {
+    if (rec.mediaType === SubscribedMediaType.ALBUM) {
+      MediaDetailNavParams.pluginName = rec.platform;
+      MediaDetailNavParams.album = rec.albumItem();
+      MediaDetailNavParams.artist = null;
+      NavPathUtils.push(ROUTE_ALBUM_DETAIL);
+    } else if (rec.mediaType === SubscribedMediaType.ARTIST) {
+      MediaDetailNavParams.pluginName = rec.platform;
+      MediaDetailNavParams.album = null;
+      MediaDetailNavParams.artist = rec.artistItem();
+      NavPathUtils.push(ROUTE_ARTIST_DETAIL);
+    } else {
+      SheetDetailNavParams.pluginName = rec.platform;
+      SheetDetailNavParams.sheet = rec.sheetItem();
+      SheetDetailNavParams.isTopList = rec.mediaType === SubscribedMediaType.TOP_LIST;
+      NavPathUtils.push(ROUTE_SHEET_DETAIL);
+    }
+    subscribedSheets.markViewed(rec.platform, rec.id);
+  }
+
+  /** 订阅条目横滑操作（左滑取消订阅）；批量模式下不提供 */
+  private subscribedSwipeOptions(rec: SubscribedSheetRecord): HdsSwipeActionOptions | undefined {
+    if (appState.isBatchMode) {
+      return undefined;
+    }
+    const options: HdsSwipeActionOptions = {
+      deleteIconOptions: {
+        onAction: (): void => {
+          this.confirmUnsubscribe(rec);
+        }
+      }
+    };
+    return options;
+  }
+
+  /** 取消订阅（弹窗确认，取消不移除） */
+  private confirmUnsubscribe(rec: SubscribedSheetRecord): void {
+    DialogManager.ConfirmDelete('确定取消订阅「' + rec.title + '」吗？', (): void => {
+      subscribedSheets.unsubscribe(rec.platform, rec.id);
+      this.showToast('已取消订阅');
+    });
+  }
+
+  /** 标题副文本：搜索中显示命中数量；订阅 tab 显示订阅数 */
   private subTitleText(): string {
     if (this.searchKeyword.trim().length > 0) {
-      return '找到 ' + this.displayRows().length.toString() + ' 歌单';
+      const hit = this.showSubscribed ? this.displaySubscribed().length : this.displayRows().length;
+      return '找到 ' + hit.toString() + ' 歌单';
+    }
+    if (this.showSubscribed) {
+      return '共 ' + this.subscribedItems.length.toString() + ' 个订阅';
     }
     return '共 ' + this.sheetRows.length.toString() + ' 个歌单';
   }
@@ -172,6 +321,7 @@ export struct MySheetsPage {
       this.searchKeyword = '';
       this.searchInput = '';
       appState.tabSearchClose = null;
+      this.rebuildSubscribedSource();
       return;
     }
     // 登记收起回调：tab 页的返回手势由 Index 统一拦截，优先收起搜索框
@@ -188,7 +338,7 @@ export struct MySheetsPage {
       }
     }, 320);
     if (this.scroller.currentOffset().yOffset !== 0) {
-      this.scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 66 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
+      this.scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 66 + 44 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
     }
   }
 
@@ -200,23 +350,35 @@ export struct MySheetsPage {
     }
   }
 
-  /** titleBar 菜单按钮（添加菜单 + 搜索 + 批量操作） */
+  /** titleBar 菜单按钮（订阅 tab：同步+搜索；我的歌单 tab：添加菜单+搜索+批量操作） */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
-    const add: HdsNavigationMenuItemOptions = {
-      content: {
-        icon: $r('sys.symbol.plus'),
-        label: '添加',
-        action: (): void => {
-          this.openAddMenu();
-        }
-      }
-    };
     const search: HdsNavigationMenuItemOptions = {
       content: {
         icon: $r('sys.symbol.magnifyingglass'),
         label: '搜索',
         action: (): void => {
           this.toggleSearchBox();
+        }
+      }
+    };
+    if (this.showSubscribed) {
+      const sync: HdsNavigationMenuItemOptions = {
+        content: {
+          icon: $r('sys.symbol.arrow_clockwise'),
+          label: '同步',
+          action: (): void => {
+            this.manualSyncSubscribed();
+          }
+        }
+      };
+      return [sync, search];
+    }
+    const add: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.plus'),
+        label: '添加',
+        action: (): void => {
+          this.openAddMenu();
         }
       }
     };
@@ -889,16 +1051,41 @@ export struct MySheetsPage {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_my_sheets'),
         this.subTitleText(), this.titleMenus(),
-        (this.showSearchBox && this.hostTabIndex === 1) ?
-          { builder: (): void => { this.SearchBuilder() } } : undefined),
+        (this.hostTabIndex === 1) ?
+          { builder: (): void => { this.TitleExtraBuilder() } } : undefined),
       isHideBackButton: true,
       embedded: true,
+      // 分段滑块常驻标题栏下方，不随滚动隐藏（否则上滑隐藏、下滑才重现）
+      isSearchBarScroller: false,
       scroller: this.scroller,
       doubleTapToTop: true,
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 16 }) {
-          if (this.displayRows().length > 0) {
+          if (this.showSubscribed) {
+            // 订阅歌单列表（懒加载）
+            if (this.subscribedSource.totalCount() > 0) {
+              LazyForEach(this.subscribedSource, (rec: SubscribedSheetRecord, _index: number) => {
+                HdsListItem({
+                  customItemBuilder: (): void => {
+                    this.SubscribedRowBuilder(rec);
+                  },
+                  swipeActionOptions: this.subscribedSwipeOptions(rec)
+                })
+              }, (rec: SubscribedSheetRecord, _index: number) => rec.platform + '_' + rec.id +
+                '_' + rec.title + '_' + rec.worksNum.toString() + (rec.hasUpdate ? '_upd' : '') +
+                '_' + appState.swipeResetTick.toString())
+            } else {
+              ListItem() {
+                Text(this.subscribedItems.length > 0 ? '未找到匹配的订阅' : '暂无订阅，进入歌单、专辑或歌手详情页点击心形按钮订阅')
+                  .fontSize(13)
+                  .fontColor($r('sys.color.font_tertiary'))
+                  .width('100%')
+                  .textAlign(TextAlign.Center)
+                  .margin({ top: 32 })
+              }
+            }
+          } else if (this.displayRows().length > 0) {
             ForEach(this.displayRows(), (row: SheetRow, index: number) => {
               HdsListItem({
                 customItemBuilder: (): void => {
@@ -921,7 +1108,7 @@ export struct MySheetsPage {
             }
           }
         }
-        .ListStyle(this.showSearchBox ? 56 : 0)
+        .ListStyle(44 + (this.showSearchBox ? 56 : 0))
         .onScrollFrameBegin((offset: number) => {
           BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
           return { offsetRemain: offset }
@@ -1134,6 +1321,128 @@ export struct MySheetsPage {
     .backgroundColor($r('sys.color.comp_background_list_card'))
   }
 
+  /** 标题栏下方扩展区：「我的歌单/订阅歌单」分段滑块（样式仿播放页封面/歌词切换）+ 可展开搜索框 */
+  @Builder
+  TitleExtraBuilder() {
+    Column() {
+      Stack({ alignContent: Alignment.Start }) {
+        Row()
+          .width('50%')
+          .height(26)
+          .borderRadius(13)
+          .backgroundColor($r('sys.color.background_secondary'))
+          .opacity(0.7)
+          .offset({ x: this.showSubscribed ? '50%' : 0 })
+
+        Row() {
+          Text('我的歌单')
+            .fontSize(12)
+            .fontWeight(!this.showSubscribed ? FontWeight.Bold : FontWeight.Normal)
+            .fontColor(!this.showSubscribed ? appState.accentColor : $r('sys.color.font_tertiary'))
+            .height(26)
+            .layoutWeight(1)
+            .textAlign(TextAlign.Center)
+            .onClick(() => {
+              this.switchTab(false);
+            })
+          Text('订阅歌单')
+            .fontSize(12)
+            .fontWeight(this.showSubscribed ? FontWeight.Bold : FontWeight.Normal)
+            .fontColor(this.showSubscribed ? appState.accentColor : $r('sys.color.font_tertiary'))
+            .height(26)
+            .layoutWeight(1)
+            .textAlign(TextAlign.Center)
+            .onClick(() => {
+              this.switchTab(true);
+            })
+        }
+        .width('100%')
+      }
+      .width(168)
+      .height(30)
+      .borderRadius(15)
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .padding(3)
+      .margin({ top: 4, bottom: 10 })
+
+      if (this.showSearchBox) {
+        this.SearchBuilder()
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  /** 订阅条目行（卡片样式；点击进详情并清除更新标记，左滑取消订阅） */
+  @Builder
+  SubscribedRowBuilder(rec: SubscribedSheetRecord) {
+    Column() {
+      Row({ space: 12 }) {
+        // 封面：有图用 Image，无图用歌单占位图标
+        if (rec.coverUrl().length > 0) {
+          Image(ArtworkCache.resolve(rec.coverUrl()))
+            .width(40)
+            .height(40)
+            .borderRadius(10)
+            .objectFit(ImageFit.Cover)
+            .alt($r('app.media.altImage'))
+        } else {
+          Column() {
+            SymbolGlyph($r('sys.symbol.music_note_list'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.icon_secondary')])
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(10)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .justifyContent(FlexAlign.Center)
+        }
+
+        Column({ space: 2 }) {
+          Row({ space: 6 }) {
+            Text(rec.title)
+              .fontSize(15)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
+            if (rec.hasUpdate) {
+              Text('有更新')
+                .fontSize(10)
+                .fontColor(Color.White)
+                .backgroundColor('#e5484d')
+                .borderRadius(8)
+                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            }
+          }
+          .width('100%')
+
+          Text(this.subscribedRowSubtitle(rec))
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      .width('100%')
+      .height(56)
+      .onClick(() => {
+        this.openSubscribedDetail(rec);
+      })
+    }
+    .width('100%')
+    .borderRadius(16)
+    .padding(12)
+    .backgroundColor($r('sys.color.comp_background_list_card'))
+  }
+
   /**
    * 搜索框（固定于标题栏下方，不随列表滚动消失；切到其他 tab 自动收起；
    * 输入不即时过滤，点搜索按钮/软键盘回车后才应用关键词）
@@ -1146,6 +1455,7 @@ export struct MySheetsPage {
       focusId: 'my_sheets_search',
       submit: (): void => {
         this.searchKeyword = this.searchInput.trim();
+        this.rebuildSubscribedSource();
       },
       change: (v: string): void => {
         this.searchInput = v;
@@ -1153,6 +1463,7 @@ export struct MySheetsPage {
       didDelete: (): void => {
         this.searchInput = '';
         this.searchKeyword = '';
+        this.rebuildSubscribedSource();
       },
     })
       .width('100%')
