@@ -774,7 +774,7 @@ export struct MusicOptionsSheet {
             ListItem() {
               ActionRowItem({
                 icon: $r('sys.symbol.square_and_pencil'),
-                label: '编辑信息',
+                label: '编辑音频文件元数据',
                 onTap: (): void => {
                   this.openMetaEditor();
                 }

@@ -287,7 +287,7 @@ export class DialogManager {
       case '均衡器增益':
         return DialogManager.eqGainBandLabel + 'Hz 频段增益';
       case '编辑信息':
-        return '编辑信息';
+        return '编辑音频文件元数据';
       case '捐赠':
         return '支持作者';
     }
