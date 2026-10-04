@@ -104,9 +104,7 @@ export struct CachePage {
 
   /** 清除确认弹窗（对齐 RN 的 SimpleDialog 确认流程） */
   private confirmClear(message: string, onConfirm: () => void): void {
-    DialogManager.clearCacheMessage = message;
-    DialogManager.clearCacheConfirm = onConfirm;
-    DialogManager.OpenDialog('清除缓存');
+    DialogManager.ClearCache(message, onConfirm);
   }
 
   build() {

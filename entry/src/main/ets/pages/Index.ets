@@ -18,7 +18,23 @@ import { PcMainLayout } from './pcUI/PcMainLayout';
 import { CarModeView } from '../view/CarModeView';
 import { MainTabPagesBuilder, PageMapBuilder } from '../view/AppPages';
 import { CustomContentDialog } from '@kit.ArkUI';
-  import { DialogManager, UsageDialogContent, VarFieldsDialogContent, RenameDialogContent, SortJumpDialogContent, DownloadFolderDialogContent, TextPickerDialogContent, ChangeSourceDialogContent, CoverPickDialogContent, DisclaimerDialogContent, CacheInputDialogContent, ClearCacheDialogContent, ConfirmDeleteDialogContent, ConfirmImportDialogContent, UpdateAvailableDialogContent, SimpleRenameDialogContent, LyricSourceDialogContent, EqGainDialogContent, SheetIntroDialogContent, MetaEditDialogContent } from '../utils/DialogUtils';
+  import { DialogManager } from '../utils/DialogUtils';
+import { UsageDialogContent } from '../view/DialogView/UsageDialogContent';
+import { VarFieldsDialogContent } from '../view/DialogView/VarFieldsDialogContent';
+import { RenameDialogContent } from '../view/DialogView/RenameDialogContent';
+import { SortJumpDialogContent } from '../view/DialogView/SortJumpDialogContent';
+import { DownloadFolderDialogContent } from '../view/DialogView/DownloadFolderDialogContent';
+import { TextPickerDialogContent } from '../view/DialogView/TextPickerDialogContent';
+import { ChangeSourceDialogContent } from '../view/DialogView/ChangeSourceDialogContent';
+import { CoverPickDialogContent } from '../view/DialogView/CoverPickDialogContent';
+import { DisclaimerDialogContent } from '../view/DialogView/DisclaimerDialogContent';
+import { CacheInputDialogContent } from '../view/DialogView/CacheInputDialogContent';
+import { ConfirmMessageDialogContent } from '../view/DialogView/ConfirmMessageDialogContent';
+import { SimpleRenameDialogContent } from '../view/DialogView/SimpleRenameDialogContent';
+import { LyricSourceDialogContent } from '../view/DialogView/LyricSourceDialogContent';
+import { EqGainDialogContent } from '../view/DialogView/EqGainDialogContent';
+import { SheetIntroDialogContent } from '../view/DialogView/SheetIntroDialogContent';
+import { MetaEditDialogContent } from '../view/DialogView/MetaEditDialogContent';
 import { ContextHolder } from '../common/ContextHolder';
 import { AppMeta } from '../core/AppMeta';
 import { appConfig } from '../core/AppConfig';
@@ -364,14 +380,9 @@ struct Index {
       DisclaimerDialogContent()
     } else if (key === '设置缓存') {
       CacheInputDialogContent()
-    } else if (key === '清除缓存') {
-      ClearCacheDialogContent()
-    } else if (key === '确认删除') {
-      ConfirmDeleteDialogContent()
-    } else if (key === '确认导入') {
-      ConfirmImportDialogContent()
-    } else if (key === '发现新版本') {
-      UpdateAvailableDialogContent()
+    } else if (key === '清除缓存' || key === '确认删除' || key === '确认导入' ||
+      key === '发现新版本') {
+      ConfirmMessageDialogContent()
     } else if (key === '转换简洁命名') {
       SimpleRenameDialogContent()
     } else if (key === '均衡器增益') {

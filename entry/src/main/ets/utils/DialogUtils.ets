@@ -1,14 +1,7 @@
 import { appState } from "../entryability/AppState";
 import { pluginManager } from "../plugin/PluginManager";
 import { ButtonOptions } from "@kit.ArkUI";
-import { MarkdownView } from "../view/MarkdownView";
 import { MusicItem } from "../common/model/MediaTypes";
-import { trackPlayer } from "../core/TrackPlayer";
-import { PathConst } from "../common/PathConst";
-import { FileUtils } from "./FileUtils";
-import { CoverSearch } from "./CoverSearch";
-import { ArtworkCache } from "./ArtworkCache";
-import { EQ_GAIN_MIN, EQ_GAIN_MAX } from "../core/EqualizerManager";
 
 
 /** 插件用户变量字段（弹窗内编辑） */
@@ -16,301 +9,6 @@ export class PluginVarField {
   public key: string = '';
   public name: string = '';
   public value: string = '';
-}
-
-
-/** 「使用说明」弹窗内容（markdown 渲染，隐藏滚动条） */
-@ComponentV2
-export struct UsageDialogContent {
-  build() {
-    Scroll() {
-      MarkdownView({ markdown: DialogManager.usageMessage })
-    }
-    .constraintSize({ maxHeight: 420 })
-    .scrollBar(BarState.Off)
-    .nestedScroll({
-      scrollForward: NestedScrollMode.PARALLEL,
-      scrollBackward: NestedScrollMode.PARALLEL
-    })
-    .width('100%')
-  }
-}
-
-
-/** 「歌单说明」弹窗内容：我的歌单与订阅歌单的区别 */
-@ComponentV2
-export struct SheetIntroDialogContent {
-  build() {
-    Scroll() {
-      Column({ space: 14 }) {
-        Column({ space: 6 }) {
-          Text('我的歌单')
-            .fontSize(15)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .width('100%')
-          Text('保存在本地的歌单（含默认歌单「我的收藏」，为静态歌单），支持新建、编辑、导入、排序与批量管理；歌曲加入本地歌单后可下载离线播放，歌单数据随应用备份保留。')
-            .fontSize(13)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
-            .lineHeight(20)
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        Column({ space: 6 }) {
-          Text('订阅歌单')
-            .fontSize(15)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .width('100%')
-          Text('来自音乐插件的歌单 / 榜单 / 专辑 / 歌手的订阅入口，在对应详情页点击右上角订阅按钮即可订阅。订阅只保存条目快照、不保存歌曲（为动态歌单）：进入页面或点击「同步」时拉取源端最新曲目数，数量变化会标记「有更新」，点击条目进入详情即可查看最新内容。左滑条目可分享、更新、排序或取消订阅，长按进入批量操作；取消订阅不会影响源端数据。')
-            .fontSize(13)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
-            .lineHeight(20)
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
-    }
-    .constraintSize({ maxHeight: 420 })
-    .scrollBar(BarState.Off)
-    .nestedScroll({
-      scrollForward: NestedScrollMode.PARALLEL,
-      scrollBackward: NestedScrollMode.PARALLEL
-    })
-    .width('100%')
-  }
-}
-
-
-/** 「配置变量」弹窗内容：所有变量统一填写（cookie 类字段用多行 TextArea，其余单行输入） */
-@ComponentV2
-export struct VarFieldsDialogContent {
-  /** 是否为 cookie 类字段（key/name 含 cookie，不区分大小写）：值较长，用多行输入 */
-  private static isCookieField(f: PluginVarField): boolean {
-    return f.key.toLowerCase().indexOf('cookie') !== -1 ||
-      f.name.toLowerCase().indexOf('cookie') !== -1;
-  }
-
-  build() {
-    Scroll() {
-      Column({ space: 14 }) {
-        ForEach(DialogManager.varFields, (f: PluginVarField) => {
-          Column({ space: 6 }) {
-            Text(f.name)
-              .fontSize(13)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-              //.maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            if (VarFieldsDialogContent.isCookieField(f)) {
-              TextArea({ text: f.value, placeholder: f.key })
-                .width('100%')
-                .constraintSize({ minHeight: 72, maxHeight: 160 })
-                .fontSize(14)
-                .fontColor($r('sys.color.font_primary'))
-                .placeholderColor($r('sys.color.font_tertiary'))
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-                .borderRadius(10)
-                .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-                .alignSelf(ItemAlign.Start)
-                .onChange((v: string): void => {
-                  f.value = v;
-                })
-            } else {
-              TextInput({ text: f.value, placeholder: f.key })
-                .width('100%')
-                .height(42)
-                .fontSize(14)
-                .fontColor($r('sys.color.font_primary'))
-                .placeholderColor($r('sys.color.font_tertiary'))
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-                .borderRadius(10)
-                .onChange((v: string): void => {
-                  f.value = v;
-                })
-            }
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-        }, (f: PluginVarField, index: number) => f.key + '_' + index.toString())
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
-    }
-    .scrollBar(BarState.Off)
-    .constraintSize({ maxHeight: 360 })
-    .nestedScroll({
-      scrollForward: NestedScrollMode.PARALLEL,
-      scrollBackward: NestedScrollMode.PARALLEL
-    })
-    .width('100%')
-  }
-}
-
-
-/** 「重命名」弹窗内容：名称输入框 */
-@ComponentV2
-export struct RenameDialogContent {
-  build() {
-    TextInput({ text: DialogManager.renameValue, placeholder: '名称（清空则恢复默认）' })
-      .width('100%')
-      .height(44)
-      .fontSize(14)
-      .fontColor($r('sys.color.font_primary'))
-      .placeholderColor($r('sys.color.font_tertiary'))
-      .backgroundColor($r('sys.color.comp_background_tertiary'))
-      .borderRadius(10)
-      .onChange((v: string): void => {
-        DialogManager.renameValue = v;
-      })
-  }
-}
-
-
-/** 「跳转排序」弹窗内容：目标序号输入框 */
-@ComponentV2
-export struct SortJumpDialogContent {
-  build() {
-    TextInput({ text: DialogManager.sortJumpValue, placeholder: '目标序号（1-' + DialogManager.sortJumpMax.toString() + '）' })
-      .type(InputType.Number)
-      .width('100%')
-      .height(44)
-      .fontSize(14)
-      .fontColor($r('sys.color.font_primary'))
-      .placeholderColor($r('sys.color.font_tertiary'))
-      .backgroundColor($r('sys.color.comp_background_tertiary'))
-      .borderRadius(10)
-      .onChange((v: string): void => {
-        DialogManager.sortJumpValue = v;
-      })
-  }
-}
-
-
-/**
- * 「下载/移动到文件夹/添加标签/编辑标签」弹窗内容：目标文件夹名输入框 + 已有文件夹选择列表
- * 下载留空 = 默认目录；移动留空 = 根目录；点选已有文件夹自动填入输入框
- */
-@ComponentV2
-export struct DownloadFolderDialogContent {
-  /** 输入框内容（本地状态驱动选中态高亮；确认时已同步到 DialogManager.downloadFolderValue） */
-  @Local inputValue: string = DialogManager.downloadFolderValue;
-  /** 下载目录下已有的子文件夹（弹窗打开时扫描；添加/编辑标签场景不显示列表） */
-  @Local existFolders: Array<string> = [];
-
-  aboutToAppear(): void {
-    if (DialogManager.dialogChangeKey === '添加标签' || DialogManager.dialogChangeKey === '编辑标签') {
-      return;
-    }
-    const base = PathConst.downloadPath.endsWith('/') ?
-      PathConst.downloadPath : PathConst.downloadPath + '/';
-    const names = FileUtils.listDir(base);
-    for (const n of names) {
-      if (FileUtils.isDirectory(base + n) &&
-        PathConst.RESERVED_DOWNLOAD_FOLDERS.indexOf(n) === -1) {
-        this.existFolders.push(n);
-      }
-    }
-  }
-
-  build() {
-    Column({ space: 12 }) {
-      TextInput({
-        text: this.inputValue,
-        placeholder: DialogManager.dialogChangeKey === '移动到文件夹'
-          ? '目标文件夹名（留空则移到根目录）'
-          : (DialogManager.dialogChangeKey === '添加标签' ? '标签名称' : (
-            DialogManager.dialogChangeKey === '编辑标签' ? '新标签名称' : '文件夹名称（留空则下载到默认目录）'))
-      })
-        .width('100%')
-        .height(44)
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .borderRadius(10)
-        .enabled(!appState.isDialogSaving)
-        .onChange((v: string): void => {
-          this.inputValue = v;
-          DialogManager.downloadFolderValue = v;
-        })
-      // 已有文件夹选择列表（点击填入输入框并高亮；Flex 换行自适应高度，样式同页面标签条）
-      if (this.existFolders.length > 0) {
-        Text('或选择已有文件夹')
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-          .width('100%')
-        Flex({ wrap: FlexWrap.Wrap }) {
-          ForEach(this.existFolders, (folder: string) => {
-            Text(folder)
-              .fontSize(13)
-              .maxLines(1)
-              .fontColor(this.inputValue === folder ?
-              $r('sys.color.font_on') : $r('sys.color.font_secondary'))
-              .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-              .borderRadius(16)
-              .backgroundColor(this.inputValue === folder ?
-              $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
-              .margin({ right: 8, bottom: 8 })
-              .onClick(() => {
-                this.inputValue = folder;
-                DialogManager.downloadFolderValue = folder;
-              })
-          }, (folder: string) => folder + (this.inputValue === folder ? '_on' : '_off'))
-        }
-        .width('100%')
-      }
-      // 编辑标签：自定义按钮（支持 loading 态，异步保存完成后手动关闭弹窗）
-      if (DialogManager.dialogChangeKey === '编辑标签') {
-        Row({ space: 10 }) {
-          Button('取消')
-            .layoutWeight(1)
-            .height(40)
-            .fontSize(15)
-            .fontColor(appState.accentColor)
-            .backgroundColor(Color.Transparent)
-            .borderRadius(100)
-            .enabled(!appState.isDialogSaving)
-            .onClick(() => {
-              DialogManager.CloseDialog();
-            })
-          if (appState.isDialogSaving) {
-            Column() {
-              LoadingProgress()
-                .width(24)
-                .height(24)
-                .color(Color.White)
-            }
-            .layoutWeight(1)
-            .height(40)
-            .justifyContent(FlexAlign.Center)
-            .borderRadius(100)
-            .backgroundColor(appState.accentColor)
-          } else {
-            Button('保存')
-              .layoutWeight(1)
-              .height(40)
-              .fontSize(15)
-              .fontColor(Color.White)
-              .backgroundColor(appState.accentColor)
-              .borderRadius(100)
-              .onClick(() => {
-                DialogManager.ConfirmButtonDialog('编辑标签');
-              })
-          }
-        }
-        .width('100%')
-        .margin({ top: 4 })
-      }
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
 }
 
 
@@ -323,570 +21,6 @@ export class MetaEditFieldDesc {
   /** 输入框内容（弹窗内编辑，确认时读取） */
   public value: string = '';
 }
-
-
-/** 「编辑信息」弹窗内容：标签输入框组（ForEach 循环渲染）+ 自定义按钮
- *  （校验失败提示错误并保持弹窗打开，保存中显示 loading） */
-@ComponentV2
-export struct MetaEditDialogContent {
-  build() {
-    Column({ space: 12 }) {
-      Text('修改将写入音频文件标签，本地音乐与已下载列表同步更新')
-        .fontSize(12)
-        .fontColor($r('sys.color.font_tertiary'))
-        .width('100%')
-      ForEach(DialogManager.editMetaFields, (field: MetaEditFieldDesc) => {
-        Column({ space: 6 }) {
-          Text(field.label)
-            .fontSize(13)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
-          TextInput({ text: field.value, placeholder: field.placeholder })
-            .width('100%')
-            .height(44)
-            .fontSize(14)
-            .fontColor($r('sys.color.font_primary'))
-            .placeholderColor($r('sys.color.font_tertiary'))
-            .backgroundColor($r('sys.color.comp_background_tertiary'))
-            .borderRadius(10)
-            .enabled(!appState.isDialogSaving)
-            .onChange((v: string): void => {
-              field.value = v;
-            })
-            .onSubmit((_enterKey: EnterKeyType) => {
-              DialogManager.ConfirmButtonDialog('编辑信息');
-            })
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-      }, (field: MetaEditFieldDesc) => field.label)
-      // 自定义按钮（支持 loading 态，异步写入完成后手动关闭弹窗）
-      Row({ space: 10 }) {
-        Button('取消')
-          .layoutWeight(1)
-          .height(40)
-          .fontSize(15)
-          .fontColor(appState.accentColor)
-          .backgroundColor(Color.Transparent)
-          .borderRadius(100)
-          .enabled(!appState.isDialogSaving)
-          .onClick(() => {
-            DialogManager.CloseDialog();
-          })
-        if (appState.isDialogSaving) {
-          Column() {
-            LoadingProgress()
-              .width(24)
-              .height(24)
-              .color(Color.White)
-          }
-          .layoutWeight(1)
-          .height(40)
-          .justifyContent(FlexAlign.Center)
-          .borderRadius(100)
-          .backgroundColor(appState.accentColor)
-        } else {
-          Button('保存')
-            .layoutWeight(1)
-            .height(40)
-            .fontSize(15)
-            .fontColor(Color.White)
-            .backgroundColor(appState.accentColor)
-            .borderRadius(100)
-            .onClick(() => {
-              DialogManager.ConfirmButtonDialog('编辑信息');
-            })
-        }
-      }
-      .width('100%')
-      .margin({ top: 4 })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-}
-
-
-/** 「设置缓存」弹窗内容：缓存上限输入框 + 单位选择（并排显示） */
-@ComponentV2
-export struct CacheInputDialogContent {
-  @Local unit: string = DialogManager.cacheInputUnit;
-
-  /** 单位选项（MB / GB） */
-  private static unitOptions(): Array<SelectOption> {
-    const opts: Array<SelectOption> = [];
-    const mb: SelectOption = { value: 'MB' };
-    const gb: SelectOption = { value: 'GB' };
-    opts.push(mb, gb);
-    return opts;
-  }
-
-  build() {
-    Row({ space: 8 }) {
-      TextInput({ text: DialogManager.cacheInputValue, placeholder: '100M-8G' })
-        .type(InputType.Number)
-        .layoutWeight(1)
-        .height(44)
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .borderRadius(10)
-        .onChange((v: string): void => {
-          DialogManager.cacheInputValue = v;
-        })
-
-      Select(CacheInputDialogContent.unitOptions())
-        .selected(this.unit === 'G' ? 1 : 0)
-        .value(this.unit === 'G' ? 'GB' : 'MB')
-        .font({ size: 14 })
-        .fontColor($r('sys.color.font_primary'))
-        .selectedOptionFont({ size: 14 })
-        .optionFont({ size: 14 })
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .borderRadius(10)
-        .height(44)
-        .width(96)
-        .onSelect((index: number, _text: string) => {
-          this.unit = index === 1 ? 'G' : 'M';
-          DialogManager.cacheInputUnit = this.unit;
-        })
-    }
-    .width('100%')
-  }
-}
-
-
-/** 「均衡器增益」弹窗内容：数值输入框（限数字与负号）+ 自定义按钮（校验失败提示错误，弹窗保持打开） */
-@ComponentV2
-export struct EqGainDialogContent {
-  build() {
-    Column({ space: 12 }) {
-      TextInput({
-        text: DialogManager.eqGainValue,
-        placeholder: '请输入 ' + EQ_GAIN_MIN.toString() + ' 到 ' + EQ_GAIN_MAX.toString() + ' 之间的整数'
-      })
-        .width('100%')
-        .height(44)
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .borderRadius(10)
-        .inputFilter('[-0-9]')
-        .onChange((v: string): void => {
-          DialogManager.eqGainValue = v;
-        })
-      Row({ space: 10 }) {
-        Button('取消')
-          .layoutWeight(1)
-          .height(40)
-          .fontSize(15)
-          .fontColor(appState.accentColor)
-          .backgroundColor(Color.Transparent)
-          .borderRadius(100)
-          .onClick(() => {
-            DialogManager.CloseDialog();
-          })
-        Button('确定')
-          .layoutWeight(1)
-          .height(40)
-          .fontSize(15)
-          .fontColor(Color.White)
-          .backgroundColor(appState.accentColor)
-          .borderRadius(100)
-          .onClick(() => {
-            EqGainDialogContent.confirmGain();
-          })
-      }
-      .width('100%')
-      .margin({ top: 4 })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  /** 校验输入（-12 ~ 12 整数）：非法提示错误且不关闭弹窗，合法则执行回调并关闭 */
-  private static confirmGain(): void {
-    const n = parseInt(DialogManager.eqGainValue, 10);
-    if (isNaN(n) || n < EQ_GAIN_MIN || n > EQ_GAIN_MAX) {
-      DialogManager.Toast('填写错误，请输入 ' + EQ_GAIN_MIN.toString() + ' 到 ' + EQ_GAIN_MAX.toString() + ' 之间的整数');
-      return;
-    }
-    if (DialogManager.eqGainConfirm !== null) {
-      DialogManager.eqGainConfirm(n);
-    }
-    DialogManager.CloseDialog();
-  }
-}
-
-
-/** 「清除缓存」弹窗内容：确认文案 */
-@ComponentV2
-export struct ClearCacheDialogContent {
-  build() {
-    Text(DialogManager.clearCacheMessage)
-      .fontSize(14)
-      .fontColor($r('sys.color.font_primary'))
-      .width('100%')
-  }
-}
-
-
-/** 「确认删除」弹窗内容：确认文案 */
-@ComponentV2
-export struct ConfirmDeleteDialogContent {
-  build() {
-    Text(DialogManager.confirmDeleteMessage)
-      .fontSize(14)
-      .fontColor($r('sys.color.font_primary'))
-      .width('100%')
-  }
-}
-
-
-/** 「确认导入」弹窗内容：确认文案 */
-@ComponentV2
-export struct ConfirmImportDialogContent {
-  build() {
-    Text(DialogManager.confirmImportMessage)
-      .fontSize(14)
-      .fontColor($r('sys.color.font_primary'))
-      .width('100%')
-  }
-}
-
-
-/** 「发现新版本」弹窗内容：确认文案 */
-@ComponentV2
-export struct UpdateAvailableDialogContent {
-  build() {
-    Text(DialogManager.updateAvailableMessage)
-      .fontSize(14)
-      .fontColor($r('sys.color.font_primary'))
-      .width('100%')
-  }
-}
-
-
-/** 「转换简洁命名」弹窗内容：确认文案 + 自定义按钮（支持 loading 态，重命名完成后手动关闭弹窗） */
-@ComponentV2
-export struct SimpleRenameDialogContent {
-  build() {
-    Column({ space: 12 }) {
-      Text(DialogManager.simpleRenameMessage)
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-      Row({ space: 10 }) {
-        Button('取消')
-          .layoutWeight(1)
-          .height(40)
-          .fontSize(15)
-          .fontColor(appState.accentColor)
-          .backgroundColor(Color.Transparent)
-          .borderRadius(100)
-          .enabled(!appState.isDialogSaving)
-          .onClick(() => {
-            DialogManager.CloseDialog();
-          })
-        if (appState.isDialogSaving) {
-          Column() {
-            LoadingProgress()
-              .width(24)
-              .height(24)
-              .color(Color.White)
-          }
-          .layoutWeight(1)
-          .height(40)
-          .justifyContent(FlexAlign.Center)
-          .borderRadius(100)
-          .backgroundColor(appState.accentColor)
-        } else {
-          Button('转换')
-            .layoutWeight(1)
-            .height(40)
-            .fontSize(15)
-            .fontColor(Color.White)
-            .backgroundColor(appState.accentColor)
-            .borderRadius(100)
-            .onClick(() => {
-              if (DialogManager.simpleRenameConfirm !== null) {
-                DialogManager.simpleRenameConfirm();
-              }
-            })
-        }
-      }
-      .width('100%')
-      .margin({ top: 4 })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-}
-
-
-/** 「选择器」弹窗内容：TextPicker 滚轮选择 */
-@ComponentV2
-export struct TextPickerDialogContent {
-  build() {
-    TextPicker({ range: DialogManager.pickerOptions, selected: DialogManager.pickerIndex })
-      .onChange((value: string | string[], index: number | number[]) => {
-        if (typeof index === 'number') {
-          DialogManager.pickerIndex = index;
-        }
-      })
-      .divider({
-        strokeWidth: 0.5,
-        startMargin: 16,
-        endMargin: 16
-      })
-      .textStyle({ color: $r('sys.color.font_tertiary') })
-      .selectedTextStyle({ color: appState.accentColor })
-      .width('100%')
-  }
-}
-
-
-/** 「选择歌词音源」弹窗内容：Select 下拉选择音源插件 */
-@ComponentV2
-export struct LyricSourceDialogContent {
-  @Local options: Array<SelectOption> = [];
-  @Local selectedIndex: number = 0;
-  @Local selectedName: string = '';
-
-  aboutToAppear(): void {
-    const opts: Array<SelectOption> = [];
-    for (const name of DialogManager.lyricSourceOptions) {
-      opts.push({ value: name });
-    }
-    this.options = opts;
-    this.selectedIndex = DialogManager.lyricSourceIndex;
-    this.selectedName = DialogManager.lyricSourceOptions[DialogManager.lyricSourceIndex] ?? '';
-  }
-
-  build() {
-    Column({ space: 12 }) {
-      Text('选择用于搜索歌词的音源插件')
-        .fontSize(13)
-        .fontColor($r('sys.color.font_secondary'))
-      Select(this.options)
-        .selected(this.selectedIndex)
-        .value(this.selectedName)
-        .font({ size: 15 })
-        .fontColor($r('sys.color.font_primary'))
-        .selectedOptionFont({ size: 16, weight: FontWeight.Medium })
-        .optionFont({ size: 15 })
-        .onSelect((index: number, _text?: string) => {
-          this.selectedIndex = index;
-          this.selectedName = DialogManager.lyricSourceOptions[index] ?? '';
-          DialogManager.lyricSourceIndex = index;
-        })
-        .width('100%')
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-}
-
-
-/** 「更换音源」弹窗内容：打开即并发搜索可用音源（加载动画），完成后显示插件选择列表 */
-@ComponentV2
-export struct ChangeSourceDialogContent {
-  @Local loading: boolean = true;
-  @Local candidates: Array<MusicItem> = [];
-  @Local selectedIndex: number = 0;
-  private alive: boolean = true;
-
-  aboutToAppear(): void {
-    const item = DialogManager.changeSourceItem;
-    if (item === null) {
-      this.loading = false;
-      return;
-    }
-    trackPlayer.searchAlternateSources(item).then((results: Array<MusicItem>): void => {
-      if (!this.alive) {
-        return;
-      }
-      this.candidates = results;
-      this.loading = false;
-      DialogManager.changeSourceCandidates = results;
-    }).catch((_e: Object): void => {
-      if (!this.alive) {
-        return;
-      }
-      this.loading = false;
-    });
-  }
-
-  aboutToDisappear(): void {
-    this.alive = false;
-  }
-
-  build() {
-    if (this.loading) {
-      Column({ space: 12 }) {
-        LoadingProgress()
-          .width(36)
-          .height(36)
-          .color($r('sys.color.icon_primary'))
-        Text('正在搜索可用音源…')
-          .fontSize(14)
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-      .height(150)
-      .justifyContent(FlexAlign.Center)
-    } else if (this.candidates.length === 0) {
-      Column() {
-        Text('未找到其它可用音源')
-          .fontSize(14)
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-      .height(150)
-      .justifyContent(FlexAlign.Center)
-    } else {
-      Scroll() {
-        Column() {
-          ForEach(this.candidates, (candidate: MusicItem, index: number) => {
-            Row({ space: 10 }) {
-              SymbolGlyph(index === this.selectedIndex
-                ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
-                .fontSize(20)
-                .fontColor([index === this.selectedIndex
-                  ? $r('sys.color.icon_primary') : $r('sys.color.icon_tertiary')])
-              Column({ space: 2 }) {
-                Text(candidate.platform)
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(candidate.title + ' - ' + candidate.artist)
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-              }
-              .layoutWeight(1)
-              .alignItems(HorizontalAlign.Start)
-            }
-            .width('100%')
-            .height(48)
-            .onClick(() => {
-              this.selectedIndex = index;
-              DialogManager.changeSourceIndex = index;
-            })
-          }, (candidate: MusicItem, index: number) => candidate.platform + '_' + index.toString())
-        }
-        .width('100%')
-      }
-      .constraintSize({ maxHeight: 300 })
-      .scrollBar(BarState.Off)
-      .width('100%')
-    }
-  }
-}
-
-
-/** 「选择封面」弹窗内容：打开即并发搜索候选封面（加载动画），完成后展示封面网格点选 */
-@ComponentV2
-export struct CoverPickDialogContent {
-  @Local loading: boolean = true;
-  @Local candidates: Array<string> = [];
-  @Local selectedIndex: number = 0;
-  private alive: boolean = true;
-
-  aboutToAppear(): void {
-    const item = DialogManager.coverPickItem;
-    if (item === null) {
-      this.loading = false;
-      return;
-    }
-    CoverSearch.searchCandidates(item).then((artworks: Array<string>): void => {
-      if (!this.alive) {
-        return;
-      }
-      this.candidates = artworks;
-      this.loading = false;
-      DialogManager.coverPickCandidates = artworks;
-    }).catch((_e: Object): void => {
-      if (!this.alive) {
-        return;
-      }
-      this.loading = false;
-    });
-  }
-
-  aboutToDisappear(): void {
-    this.alive = false;
-  }
-
-  build() {
-    if (this.loading) {
-      Column({ space: 12 }) {
-        LoadingProgress()
-          .width(36)
-          .height(36)
-          .color(appState.accentColor)
-        Text('正在搜索封面…')
-          .fontSize(14)
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-      .height(160)
-      .justifyContent(FlexAlign.Center)
-    } else if (this.candidates.length === 0) {
-      Column() {
-        Text('未找到可用封面')
-          .fontSize(14)
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-      .height(160)
-      .justifyContent(FlexAlign.Center)
-    } else {
-      Scroll() {
-        Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
-          ForEach(this.candidates, (artwork: string, index: number) => {
-            Stack({ alignContent: Alignment.BottomEnd }) {
-              Image(ArtworkCache.resolve(artwork))
-                .width(84)
-                .height(84)
-                .borderRadius(12)
-                .border({
-                  width: index === this.selectedIndex ? 2 : 0,
-                  color: index === this.selectedIndex ? appState.accentColor : $r('sys.color.comp_divider')
-                })
-                .objectFit(ImageFit.Cover)
-                .alt($r('app.media.altImage'))
-              if (index === this.selectedIndex) {
-                Toggle({ type: ToggleType.Checkbox, isOn: true })
-                  .width(20)
-                  .height(20)
-                  .selectedColor(appState.accentColor)
-              }
-            }
-            .width(84)
-            .height(84)
-            .margin({ right: 8, bottom: 8 })
-            .onClick(() => {
-              this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
-                this.selectedIndex = index;
-                DialogManager.coverPickIndex = index;
-              });
-            })
-          }, (artwork: string, index: number) => artwork + '_' + index.toString())
-        }
-        .width('100%')
-      }
-      .constraintSize({ maxHeight: 340 })
-      .scrollBar(BarState.Off)
-      .width('100%')
-    }
-  }
-}
-
 
 /**
  * 公共弹窗管理：各页面通过 OpenDialog(key) 打开 Index 的公共弹窗，
@@ -959,22 +93,10 @@ export class DialogManager {
   public static editMetaFields: Array<MetaEditFieldDesc> = [];
   /** 「编辑信息」确认回调（fields 为弹窗内编辑后的字段；校验/写入/关闭弹窗由回调负责；取消/关闭不触发） */
   public static editMetaConfirm: ((fields: Array<MetaEditFieldDesc>) => void) | null = null;
-  /** 「清除缓存」正文（打开前由调用方赋值） */
-  public static clearCacheMessage: string = '';
-  /** 「清除缓存」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
-  public static clearCacheConfirm: (() => void) | null = null;
-  /** 「确认删除」正文（打开前由调用方赋值） */
-  public static confirmDeleteMessage: string = '';
-  /** 「确认删除」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
-  public static confirmDeleteConfirm: (() => void) | null = null;
-  /** 「确认导入」正文（打开前由调用方赋值） */
-  public static confirmImportMessage: string = '';
-  /** 「确认导入」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
-  public static confirmImportConfirm: (() => void) | null = null;
-  /** 「发现新版本」正文（打开前由调用方赋值） */
-  public static updateAvailableMessage: string = '';
-  /** 「发现新版本」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
-  public static updateAvailableConfirm: (() => void) | null = null;
+  /** 通用确认弹窗（清除缓存/确认删除/确认导入/发现新版本）正文（打开前由调用方赋值） */
+  public static confirmMessage: string = '';
+  /** 通用确认弹窗确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
+  public static confirmCallback: (() => void) | null = null;
   /** 「转换简洁命名」正文（打开前由调用方赋值） */
   public static simpleRenameMessage: string = '';
   /** 「转换简洁命名」确认回调（执行重命名耗时操作，完成后由回调自行关闭弹窗并提示） */
@@ -1020,24 +142,31 @@ export class DialogManager {
     }
   }
 
+  /** 通用清除缓存确认弹窗：message 提示文案，onConfirm 点击「确定」后才执行（取消不执行） */
+  public static ClearCache(message: string, onConfirm: () => void): void {
+    DialogManager.confirmMessage = message;
+    DialogManager.confirmCallback = onConfirm;
+    DialogManager.OpenDialog('清除缓存');
+  }
+
   /** 通用删除确认弹窗：message 提示文案，onConfirm 点击「删除」后才执行（取消不执行） */
   public static ConfirmDelete(message: string, onConfirm: () => void): void {
-    DialogManager.confirmDeleteMessage = message;
-    DialogManager.confirmDeleteConfirm = onConfirm;
+    DialogManager.confirmMessage = message;
+    DialogManager.confirmCallback = onConfirm;
     DialogManager.OpenDialog('确认删除');
   }
 
   /** 通用导入确认弹窗：message 提示文案，onConfirm 点击「导入」后才执行（取消不执行） */
   public static ConfirmImport(message: string, onConfirm: () => void): void {
-    DialogManager.confirmImportMessage = message;
-    DialogManager.confirmImportConfirm = onConfirm;
+    DialogManager.confirmMessage = message;
+    DialogManager.confirmCallback = onConfirm;
     DialogManager.OpenDialog('确认导入');
   }
 
   /** 版本更新确认弹窗：message 提示文案，onConfirm 点击「下载」后才执行（取消不执行） */
   public static ConfirmUpdate(message: string, onConfirm: () => void): void {
-    DialogManager.updateAvailableMessage = message;
-    DialogManager.updateAvailableConfirm = onConfirm;
+    DialogManager.confirmMessage = message;
+    DialogManager.confirmCallback = onConfirm;
     DialogManager.OpenDialog('发现新版本');
   }
 
@@ -1460,69 +589,9 @@ export class DialogManager {
         // 按钮在内容区域渲染（校验失败提示错误并保持弹窗打开，保存中显示 loading）
         break;
       }
-      case '清除缓存': {
-        const cancel: ButtonOptions = {
-          value: '取消',
-          fontColor: appState.accentColor,
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: (): void => {
-            DialogManager.CancelButtonDialog(key);
-          }
-        };
-        const confirm: ButtonOptions = {
-          value: '确定',
-          fontColor: Color.White,
-          background: appState.accentColor,
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: (): void => {
-            DialogManager.ConfirmButtonDialog(key);
-          }
-        };
-        buttons.push(cancel, confirm);
-        break;
-      }
-      case '确认删除': {
-        const cancel: ButtonOptions = {
-          value: '取消',
-          fontColor: appState.accentColor,
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: (): void => {
-            DialogManager.CancelButtonDialog(key);
-          }
-        };
-        const confirm: ButtonOptions = {
-          value: '删除',
-          fontColor: Color.White,
-          background: appState.accentColor,
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: (): void => {
-            DialogManager.ConfirmButtonDialog(key);
-          }
-        };
-        buttons.push(cancel, confirm);
-        break;
-      }
-      case '确认导入': {
-        const cancel: ButtonOptions = {
-          value: '取消',
-          fontColor: appState.accentColor,
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: (): void => {
-            DialogManager.CancelButtonDialog(key);
-          }
-        };
-        const confirm: ButtonOptions = {
-          value: '导入',
-          fontColor: Color.White,
-          background: appState.accentColor,
-          buttonStyle: ButtonStyleMode.TEXTUAL,
-          action: (): void => {
-            DialogManager.ConfirmButtonDialog(key);
-          }
-        };
-        buttons.push(cancel, confirm);
-        break;
-      }
+      case '清除缓存':
+      case '确认删除':
+      case '确认导入':
       case '发现新版本': {
         const cancel: ButtonOptions = {
           value: '取消',
@@ -1533,7 +602,7 @@ export class DialogManager {
           }
         };
         const confirm: ButtonOptions = {
-          value: '下载',
+          value: DialogManager.confirmLabelOf(key),
           fontColor: Color.White,
           background: appState.accentColor,
           buttonStyle: ButtonStyleMode.TEXTUAL,
@@ -1633,23 +702,11 @@ export class DialogManager {
         }
         break;
       case '清除缓存':
-        if (DialogManager.clearCacheConfirm !== null) {
-          DialogManager.clearCacheConfirm();
-        }
-        break;
       case '确认导入':
-        if (DialogManager.confirmImportConfirm !== null) {
-          DialogManager.confirmImportConfirm();
-        }
-        break;
       case '确认删除':
-        if (DialogManager.confirmDeleteConfirm !== null) {
-          DialogManager.confirmDeleteConfirm();
-        }
-        break;
       case '发现新版本':
-        if (DialogManager.updateAvailableConfirm !== null) {
-          DialogManager.updateAvailableConfirm();
+        if (DialogManager.confirmCallback !== null) {
+          DialogManager.confirmCallback();
         }
         break;
       case '编辑信息':
@@ -1750,25 +807,11 @@ export class DialogManager {
       DialogManager.cacheInputUnit = 'M';
       DialogManager.cacheInputConfirm = null;
     }
-    // 清除缓存同理（取消或关闭弹窗不触发确认回调）
-    if (key === '清除缓存') {
-      DialogManager.clearCacheMessage = '';
-      DialogManager.clearCacheConfirm = null;
-    }
-    // 确认导入同理（取消或关闭弹窗不触发导入）
-    if (key === '确认导入') {
-      DialogManager.confirmImportMessage = '';
-      DialogManager.confirmImportConfirm = null;
-    }
-    // 确认删除同理（取消或关闭弹窗不触发删除）
-    if (key === '确认删除') {
-      DialogManager.confirmDeleteMessage = '';
-      DialogManager.confirmDeleteConfirm = null;
-    }
-    // 发现新版本同理（取消或关闭弹窗不触发下载）
-    if (key === '发现新版本') {
-      DialogManager.updateAvailableMessage = '';
-      DialogManager.updateAvailableConfirm = null;
+    // 四个通用确认弹窗同理（取消或关闭弹窗不触发确认回调）
+    if (key === '清除缓存' || key === '确认删除' || key === '确认导入' ||
+      key === '发现新版本') {
+      DialogManager.confirmMessage = '';
+      DialogManager.confirmCallback = null;
     }
     // 转换简洁命名同理（取消或关闭弹窗不触发转换）
     if (key === '转换简洁命名') {
@@ -1792,6 +835,20 @@ export class DialogManager {
     }
   }
 
+  /** 通用确认弹窗（清除缓存/确认删除/确认导入/发现新版本）的确认按钮文案 */
+  private static confirmLabelOf(key: string): string {
+    if (key === '确认删除') {
+      return '删除';
+    }
+    if (key === '确认导入') {
+      return '导入';
+    }
+    if (key === '发现新版本') {
+      return '下载';
+    }
+    return '确定';
+  }
+
   /** 保存「配置变量」到插件 */
   private static savePluginVars(): void {
     const plugin = pluginManager.getByName(DialogManager.varPluginName);
@@ -1805,25 +862,5 @@ export class DialogManager {
     }
     pluginManager.setUserVariables(plugin, vars);
     DialogManager.Toast('配置已保存');
-  }
-}
-
-/** 「免责声明」弹窗内容 */
-@ComponentV2
-export struct DisclaimerDialogContent {
-  build() {
-    Column() {
-      Text('本软件仅供交流与学习使用，是一款开源、免费的本地音乐播放工具，请勿相信付费传播渠道。软件本身不内置、不提供任何音频资源。所有音源均来自第三方插件，插件由第三方开发者维护，其内容的合法性、准确性与版权状况由相应提供方负责，与本软件无关。')
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .lineHeight(22)
-      Text('请遵守您所在地区的法律法规，合理、适度地使用本软件。因下载或使用本软件而产生的任何直接或间接责任，均由使用者自行承担。')
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .lineHeight(22)
-        .margin({ top: 8 })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
   }
 }
