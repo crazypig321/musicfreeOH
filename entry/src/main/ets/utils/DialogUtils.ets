@@ -222,8 +222,8 @@ export class DialogManager {
    *  校验/异步写入/关闭弹窗由回调负责；取消/关闭不触发） */
   public static EditMeta(item: MusicItem, onConfirm: (fields: Array<MetaEditFieldDesc>) => void): void {
     const title = new MetaEditFieldDesc();
-    title.label = '标题';
-    title.placeholder = '请输入标题';
+    title.label = '歌曲名';
+    title.placeholder = '请输入歌曲名';
     title.value = item.title;
     const artist = new MetaEditFieldDesc();
     artist.label = '歌手';
