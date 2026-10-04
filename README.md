@@ -45,6 +45,7 @@
 | [@xiaoye/date](https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate) | 日期处理 |
 | [@keke/color-picker](https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker) | 颜色选择器（外观设置主题色取色，API 26 以下替代系统 `HdsColorPicker`） |
 | [@ospark/free-pcm](https://ohpm.openharmony.cn/#/cn/detail/@ospark%2Ffree-pcm) | Free PCM 是一个高性能音频解码库，专为 OpenHarmony/HarmonyOS 设计。支持多种主流音频格式解码为 PCM，内置流式解码引擎与 10 段均衡器。 |
+| [@dabing/taglib_harmony](https://ohpm.openharmony.cn/#/cn/detail/@dabing%2Ftaglib_harmony) | TagLib 的 HarmonyOS 移植版，支持读取与写入音频文件标签（标题 / 歌手 / 专辑）及内嵌封面 |
 
 ---
 
@@ -102,6 +103,8 @@ hvigorw assembleHap
 - 所有 MusicFree 插件开发者
 - 开源鸿蒙三方库[@xiaoye/date](https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate)
 - 开源鸿蒙三方库[@keke/color-picker](https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker)
+- 开源鸿蒙三方库[@ospark/free-pcm](https://ohpm.openharmony.cn/#/cn/detail/@ospark%2Ffree-pcm)
+- 开源鸿蒙三方库[@dabing/taglib_harmony](https://ohpm.openharmony.cn/#/cn/detail/@dabing%2Ftaglib_harmony)
 
 ---
 

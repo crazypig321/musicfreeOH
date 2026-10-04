@@ -12,6 +12,16 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v280: ChangelogEntry = new ChangelogEntry();
+  v280.version = '2.8.0';
+  v280.date = '2026-10-04';
+  v280.markdown = '- 本地音乐新增「编辑歌曲信息」：歌曲详情面板新增「编辑信息」入口，支持修改标题 / 歌手 / 专辑，保存后同步更新本地记录与列表显示，并写回音频文件内嵌标签\n' +
+    '- 新增「匹配封面后写入音频文件」设置（设置 → 缓存管理，默认关闭）：开启后，批量搜索封面与单曲「搜索封面 / 选择封面」命中的封面会写入音频文件内嵌标签（自动压缩，最长边不超过 800px）\n' +
+    '- 批量搜索封面完成后提示写入成功 / 失败 / 跳过数量；正在播放的歌曲不支持编辑信息与写入封面（自动跳过）\n' +
+    '- 关于页「三方库」列表补充 @dabing/taglib_harmony\n' +
+    '- 修复保存歌曲信息、更新封面后列表与面板信息不即时刷新的问题';
+  list.push(v280);
+
   const v270: ChangelogEntry = new ChangelogEntry();
   v270.version = '2.7.0';
   v270.date = '2026-10-03';

@@ -23,6 +23,7 @@ const DEV_HOME: string = 'https://github.com/crazypig321';
 const DEP_DATE_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate';
 const DEP_COLOR_PICKER_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker';
 const DEP_FREE_PCM_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@ospark%2Ffree-pcm';
+const DEP_TAGLIB_URL: string = 'https://ohpm.openharmony.cn/#/cn/detail/@dabing%2Ftaglib_harmony';
 
 /** 关于页条目行：头像/图标 + 标题 + 右侧说明/开关 + chevron，可选点击行为 */
 interface AboutRow {
@@ -314,6 +315,15 @@ export struct AboutPage {
             showChevron: true,
             action: (): void => {
               this.openWeb(DEP_FREE_PCM_URL);
+            }
+          },
+          {
+            icon: $r('sys.symbol.store'),
+            title: '@dabing/taglib_harmony',
+            trailing: '1.1.2',
+            showChevron: true,
+            action: (): void => {
+              this.openWeb(DEP_TAGLIB_URL);
             }
           }
         ]
