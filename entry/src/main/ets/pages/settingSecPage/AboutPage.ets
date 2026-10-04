@@ -38,6 +38,8 @@ interface AboutRow {
   trailing?: string;
   /** 右侧说明是否按长文本（地址）省略 */
   trailingEllipsis?: boolean;
+  /** 右侧显示新版本红点提示 */
+  redDot?: boolean;
   /** 右侧显示代理下载开关（代替 chevron/trailing） */
   trailingSwitch?: boolean;
   showChevron?: boolean;
@@ -255,7 +257,8 @@ export struct AboutPage {
           {
             icon: $r('sys.symbol.download'),
             title: '检查更新',
-            trailing: '当前 ' + AppMeta.appVersion,
+            trailing: this.latestVersion.length > 0 ? '新版本 ' + this.latestVersion : '当前 ' + AppMeta.appVersion,
+            redDot: this.latestVersion.length > 0,
             showChevron: true,
             action: (): void => {
               this.doCheckUpdate();
@@ -379,6 +382,15 @@ export struct AboutPage {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .constraintSize({ maxWidth: row.trailingEllipsis ? '50%' : '100%' })
       }
+      if (row.redDot) {
+        // 新版本红点（颜色同设置页「关于」条目）
+        Row()
+          .width(8)
+          .height(8)
+          .borderRadius(4)
+          .backgroundColor('#e5484d')
+          .transition(TransitionEffect.OPACITY)
+      }
       if (row.trailingSwitch) {
         Toggle({ type: ToggleType.Switch, isOn: this.proxyDownload })
           .selectedColor(appState.accentColor)
@@ -436,13 +448,11 @@ export struct AboutPage {
                   .fontSize(12)
                   .fontColor($r('sys.color.font_tertiary'))
                 if (this.latestVersion.length > 0) {
-                  Row({ space: 2 }){
+                  Row(){
                     Text('新版本 ' + this.latestVersion)
                       .fontSize(10)
                       .fontColor($r('sys.color.font_tertiary'))
                       .maxLines(1)
-
-                    Row().width(3).height(2).borderRadius(100).backgroundColor(Color.Red)
                   }.padding({ top: 3, bottom: 3, left: 5, right: 5 })
                   .borderRadius(3)
                   .backgroundColor($r('sys.color.comp_background_tertiary'))
@@ -480,7 +490,7 @@ export struct AboutPage {
                     }
                   }
                   .width('100%')
-                }, (row: AboutRow) => row.title)
+                }, (row: AboutRow) => row.title + '|' + (row.trailing ?? ''))
               }
               .width('100%')
             }
