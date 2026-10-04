@@ -426,16 +426,19 @@ export struct AboutPage {
                   .fontSize(12)
                   .fontColor($r('sys.color.font_tertiary'))
                 if (this.latestVersion.length > 0) {
-                  Text('新版本 ' + this.latestVersion)
-                    .fontSize(10)
-                    .fontColor($r('sys.color.font_tertiary'))
-                    .maxLines(1)
-                    .padding({ top: 3, bottom: 3, left: 5, right: 5 })
-                    .borderRadius(3)
-                    .backgroundColor($r('sys.color.comp_background_tertiary'))
-                    .onClick(() => {
-                      this.doCheckUpdate();
-                    })
+                  Row({ space: 2 }){
+                    Text('新版本 ' + this.latestVersion)
+                      .fontSize(10)
+                      .fontColor($r('sys.color.font_tertiary'))
+                      .maxLines(1)
+
+                    Row().width(3).height(2).borderRadius(100).backgroundColor(Color.Red)
+                  }.padding({ top: 3, bottom: 3, left: 5, right: 5 })
+                  .borderRadius(3)
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .onClick(() => {
+                    this.doCheckUpdate();
+                  })
                 }
               }
               Text('移植自猫头猫的开源项目 MusicFree')

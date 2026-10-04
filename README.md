@@ -44,6 +44,7 @@
 | **WebView**（`@ohos.web.webview`） | MusicFree 插件脚本执行引擎 |
 | [@xiaoye/date](https://ohpm.openharmony.cn/#/cn/detail/@xiaoye%2Fdate) | 日期处理 |
 | [@keke/color-picker](https://ohpm.openharmony.cn/#/cn/detail/@keke%2Fcolor-picker) | 颜色选择器（外观设置主题色取色，API 26 以下替代系统 `HdsColorPicker`） |
+| [@ospark/free-pcm](https://ohpm.openharmony.cn/#/cn/detail/@ospark%2Ffree-pcm) | Free PCM 是一个高性能音频解码库，专为 OpenHarmony/HarmonyOS 设计。支持多种主流音频格式解码为 PCM，内置流式解码引擎与 10 段均衡器。 |
 
 ---
 
