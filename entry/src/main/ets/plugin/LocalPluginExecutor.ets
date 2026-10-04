@@ -73,11 +73,15 @@ export class LocalPluginExecutor implements IPluginExecutor {
       return null;
     }
     const lastDot = localPath.lastIndexOf('.');
-    const lrcPath = lastDot === -1 ? localPath + '.lrc' : localPath.substring(0, lastDot) + '.lrc';
-    const raw = FileUtils.readFileText(lrcPath);
+    const basePath = lastDot === -1 ? localPath : localPath.substring(0, lastDot);
+    const raw = FileUtils.readFileText(basePath + '.lrc');
     if (raw !== null && raw.length > 0) {
       const lrc = new LyricSource();
       lrc.rawLrc = raw;
+      const trans = FileUtils.readFileText(basePath + '.tran.lrc');
+      if (trans !== null && trans.length > 0) {
+        lrc.translation = trans;
+      }
       return lrc;
     }
     return null;

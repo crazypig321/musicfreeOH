@@ -122,6 +122,8 @@ export struct PlayerPage {
   private commentsReqId: number = 0;
   /** 当前歌词原文（复制/编辑歌词用） */
   private lyricRawLrc: string = '';
+  /** 当前歌词翻译（下载歌词用） */
+  private lyricTranslation: string = '';
   /** 歌词「更多」半模态（复制/编辑歌词、悬浮歌词设置） */
   /** 编辑歌词文本 */
   @Local lyricEditText: string = '';
@@ -274,6 +276,7 @@ export struct PlayerPage {
     this.lyrics = state.lyrics;
     this.hasTranslation = state.hasTranslation;
     this.lyricRawLrc = state.rawLrc;
+    this.lyricTranslation = state.translation;
   }
 
   /** 进入歌词模式：定位到当前行 */
@@ -480,10 +483,17 @@ export struct PlayerPage {
       return;
     }
     const lastDot = localPath.lastIndexOf('.');
-    const lrcPath = lastDot === -1 ? localPath + '.lrc' : localPath.substring(0, lastDot) + '.lrc';
-    if (!FileUtils.writeFileText(lrcPath, raw)) {
+    const basePath = lastDot === -1 ? localPath : localPath.substring(0, lastDot);
+    if (!FileUtils.writeFileText(basePath + '.lrc', raw)) {
       this.showToast('歌词下载失败');
       return;
+    }
+    // 翻译保存为同名 .tran.lrc；无翻译时清除旧翻译文件避免残留
+    const trans = this.lyricTranslation;
+    if (trans.length > 0) {
+      FileUtils.writeFileText(basePath + '.tran.lrc', trans);
+    } else {
+      FileUtils.unlink(basePath + '.tran.lrc');
     }
     // 清除跨插件关联歌词，让本地歌词文件优先生效
     MediaExtra.removeMediaExtraProperty(current, 'associatedLrc');

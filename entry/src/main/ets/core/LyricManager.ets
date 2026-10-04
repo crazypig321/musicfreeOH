@@ -23,6 +23,8 @@ export class LyricState {
   meta: JsonRecord = {};
   /** 歌词原文（复制/编辑歌词用） */
   rawLrc: string = '';
+  /** 歌词翻译（下载歌词用） */
+  translation: string = '';
 }
 
 /** 歌词状态变化事件 */
@@ -259,6 +261,7 @@ export class LyricManager {
       state.hasTranslation = lrcSource.translation.length > 0;
       state.meta = this.lyricParser.getMeta();
       state.rawLrc = lrcSource.rawLrc;
+      state.translation = lrcSource.translation;
       this.setLyricState(state);
 
       const items = this.lyricParser.getLyricItems();
