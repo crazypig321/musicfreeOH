@@ -383,6 +383,36 @@ export class LocalMusicSheet {
     }
   }
 
+  /**
+   * 更新匹配条目的元信息（编辑标签写回文件成功后同步应用内记录）：
+   * 同曲目（platform@id 相同）或同一物理文件（本地路径相同）的记录均更新，
+   * 两域（本地音乐/已下载）由调用方各自触发；返回是否有命中修改
+   */
+  updateMusicMeta(musicItem: MusicItem, title: string, artist: string, album: string): boolean {
+    const srcPath = MediaUtils.getLocalPath(musicItem);
+    const srcKey = srcPath === null ? '' : FileUtils.normalizePath(srcPath);
+    let changed = false;
+    for (const it of this.localSheetItems) {
+      const lp = MediaUtils.getLocalPath(it);
+      const key = lp === null ? '' : FileUtils.normalizePath(lp);
+      const samePath = srcKey.length > 0 && key === srcKey;
+      if (!MediaUtils.isSameMediaItem(it, musicItem) && !samePath) {
+        continue;
+      }
+      if (it.title !== title || it.artist !== artist || it.album !== album) {
+        it.title = title;
+        it.artist = artist;
+        it.album = album;
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.saveLocalSheet();
+      this.notify();
+    }
+    return changed;
+  }
+
   getMusicList(): Array<MusicItem> {
     return this.localSheetItems;
   }

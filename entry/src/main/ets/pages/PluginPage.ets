@@ -1520,8 +1520,8 @@ export struct PluginPage {
           .fontSize(11)
           .fontColor($r('sys.color.font_tertiary'))
           .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .constraintSize({ maxWidth: '45%' })
+          .textOverflow({ overflow: TextOverflow.MARQUEE })
+          .constraintSize({ maxWidth: '50%' })
       }
     }
     .width('100%')

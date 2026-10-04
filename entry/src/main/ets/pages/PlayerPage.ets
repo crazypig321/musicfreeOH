@@ -37,6 +37,7 @@ import { EqualizerManager } from '../core/EqualizerManager';
 import { AudioEnhanceManager, AudioEnhanceState } from '../audioenhance/AudioEnhanceManager';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 import { CommonBlur } from '../view/CommonCom';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 /** 歌词字体大小档位标签与缩放（下标对应 appConfig lyric.fontSize） */
 const LYRIC_FONT_LABELS: Array<string> = ['小', '标准', '大', '特大'];
@@ -1032,7 +1033,7 @@ export struct PlayerPage {
           .objectFit(ImageFit.Cover)
           .shadow({
             radius: 80,
-            color: $r('sys.color.background_secondary'),
+            color: $r('sys.color.ohos_id_shadow_default_sm'),
             offsetX: 0,
             offsetY: 0
           })

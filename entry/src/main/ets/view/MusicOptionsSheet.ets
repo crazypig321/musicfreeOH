@@ -14,9 +14,11 @@ import { ScheduleClose } from '../utils/ScheduleClose';
 import { MediaUtils } from '../utils/MediaUtils';
 import { FileUtils } from '../utils/FileUtils';
 import { CoverSearch } from '../utils/CoverSearch';
+import { TagEditor } from '../utils/TagEditor';
+import { TagEditFields } from '../utils/TagEditor';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
-  import { DialogManager } from '../utils/DialogUtils';
+  import { DialogManager, MetaEditFieldDesc } from '../utils/DialogUtils';
   import { LyricSearch } from '../utils/LyricSearch';
   import { lyricManager } from '../core/LyricManager';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
@@ -482,6 +484,39 @@ export struct MusicOptionsSheet {
     });
   }
 
+  /** 打开标签编辑弹窗（仅本地音乐/已下载且文件可写时显示入口）：预填当前标题/歌手/专辑 */
+  private openMetaEditor(): void {
+    DialogManager.EditMeta(this.optionsItem, (fields: Array<MetaEditFieldDesc>): void => {
+      this.performMetaEdit(fields);
+    });
+  }
+
+  /** 保存标签编辑：写入音频文件并同步应用内记录；校验失败或写入失败保持弹窗打开便于重试 */
+  private async performMetaEdit(fields: Array<MetaEditFieldDesc>): Promise<void> {
+    const title = fields[0].value.trim();
+    if (title.length === 0) {
+      DialogManager.Toast('标题不能为空');
+      return;
+    }
+    appState.isDialogSaving = true;
+    // 让出主线程让 loading 先渲染，再执行文件写入
+    await new Promise<void>((resolve: () => void): void => {
+      setTimeout(resolve, 300);
+    });
+    const editFields = new TagEditFields();
+    editFields.title = title;
+    editFields.artist = fields[1].value.trim();
+    editFields.album = fields[2].value.trim();
+    const outcome = await TagEditor.editLocalMusic(this.optionsItem, editFields);
+    appState.isDialogSaving = false;
+    if (outcome.ok) {
+      DialogManager.CloseDialog();
+      this.showToast('已保存到音频文件');
+    } else {
+      DialogManager.Toast(outcome.message.length > 0 ? outcome.message : '保存失败');
+    }
+  }
+
   /** 从当前歌单删除本曲（仅歌单详情页本地歌单面板显示；弹窗确认，取消不删除）；
    * 列表随 onMusicListUpdated 自动刷新 */
   private removeFromCurrentSheet(): void {
@@ -691,6 +726,18 @@ export struct MusicOptionsSheet {
                 this.confirmSimpleRename();
               }
             })
+          }
+          // 文件可写（非媒体库条目）且未在播放：显示标签编辑入口，修改写回音频文件
+          if (TagEditor.canEdit(this.optionsItem)) {
+            ListItem() {
+              ActionRowItem({
+                icon: $r('sys.symbol.square_and_pencil'),
+                label: '编辑信息',
+                onTap: (): void => {
+                  this.openMetaEditor();
+                }
+              })
+            }
           }
         }
         // 本地/已下载音乐已在设备上，不提供下载入口（文件被外部删除时恢复入口）

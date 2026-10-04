@@ -314,6 +314,99 @@ export struct DownloadFolderDialogContent {
 }
 
 
+/** 「编辑信息」弹窗的单个标签输入字段 */
+export class MetaEditFieldDesc {
+  /** 输入框上方标签（标题/歌手/专辑） */
+  public label: string = '';
+  /** 输入框占位提示 */
+  public placeholder: string = '';
+  /** 输入框内容（弹窗内编辑，确认时读取） */
+  public value: string = '';
+}
+
+
+/** 「编辑信息」弹窗内容：标签输入框组（ForEach 循环渲染）+ 自定义按钮
+ *  （校验失败提示错误并保持弹窗打开，保存中显示 loading） */
+@ComponentV2
+export struct MetaEditDialogContent {
+  build() {
+    Column({ space: 12 }) {
+      Text('修改将写入音频文件标签，本地音乐与已下载列表同步更新')
+        .fontSize(12)
+        .fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
+      ForEach(DialogManager.editMetaFields, (field: MetaEditFieldDesc) => {
+        Column({ space: 6 }) {
+          Text(field.label)
+            .fontSize(13)
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
+          TextInput({ text: field.value, placeholder: field.placeholder })
+            .width('100%')
+            .height(44)
+            .fontSize(14)
+            .fontColor($r('sys.color.font_primary'))
+            .placeholderColor($r('sys.color.font_tertiary'))
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+            .borderRadius(10)
+            .enabled(!appState.isDialogSaving)
+            .onChange((v: string): void => {
+              field.value = v;
+            })
+            .onSubmit((_enterKey: EnterKeyType) => {
+              DialogManager.ConfirmButtonDialog('编辑信息');
+            })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }, (field: MetaEditFieldDesc) => field.label)
+      // 自定义按钮（支持 loading 态，异步写入完成后手动关闭弹窗）
+      Row({ space: 10 }) {
+        Button('取消')
+          .layoutWeight(1)
+          .height(40)
+          .fontSize(15)
+          .fontColor(appState.accentColor)
+          .backgroundColor(Color.Transparent)
+          .borderRadius(100)
+          .enabled(!appState.isDialogSaving)
+          .onClick(() => {
+            DialogManager.CloseDialog();
+          })
+        if (appState.isDialogSaving) {
+          Column() {
+            LoadingProgress()
+              .width(24)
+              .height(24)
+              .color(Color.White)
+          }
+          .layoutWeight(1)
+          .height(40)
+          .justifyContent(FlexAlign.Center)
+          .borderRadius(100)
+          .backgroundColor(appState.accentColor)
+        } else {
+          Button('保存')
+            .layoutWeight(1)
+            .height(40)
+            .fontSize(15)
+            .fontColor(Color.White)
+            .backgroundColor(appState.accentColor)
+            .borderRadius(100)
+            .onClick(() => {
+              DialogManager.ConfirmButtonDialog('编辑信息');
+            })
+        }
+      }
+      .width('100%')
+      .margin({ top: 4 })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+}
+
+
 /** 「设置缓存」弹窗内容：缓存上限输入框 + 单位选择（并排显示） */
 @ComponentV2
 export struct CacheInputDialogContent {
@@ -862,6 +955,10 @@ export class DialogManager {
   public static eqGainValue: string = '';
   /** 「均衡器增益」确认回调（gain 为 -12 ~ 12 整数，弹窗关闭后自动清空；取消/关闭不触发） */
   public static eqGainConfirm: ((gain: number) => void) | null = null;
+  /** 「编辑信息」标签输入字段（打开前由 EditMeta 赋初值，弹窗内编辑） */
+  public static editMetaFields: Array<MetaEditFieldDesc> = [];
+  /** 「编辑信息」确认回调（fields 为弹窗内编辑后的字段；校验/写入/关闭弹窗由回调负责；取消/关闭不触发） */
+  public static editMetaConfirm: ((fields: Array<MetaEditFieldDesc>) => void) | null = null;
   /** 「清除缓存」正文（打开前由调用方赋值） */
   public static clearCacheMessage: string = '';
   /** 「清除缓存」确认回调（弹窗关闭后自动清空；取消/关闭弹窗不触发） */
@@ -991,6 +1088,28 @@ export class DialogManager {
     DialogManager.OpenDialog('均衡器增益');
   }
 
+  /** 编辑信息弹窗（标题/歌手/专辑写回音频文件标签）：item 目标歌曲（预填当前元信息），
+   *  onConfirm(fields) 点击「保存」后执行（fields 顺序为标题/歌手/专辑；
+   *  校验/异步写入/关闭弹窗由回调负责；取消/关闭不触发） */
+  public static EditMeta(item: MusicItem, onConfirm: (fields: Array<MetaEditFieldDesc>) => void): void {
+    const title = new MetaEditFieldDesc();
+    title.label = '标题';
+    title.placeholder = '请输入标题';
+    title.value = item.title;
+    const artist = new MetaEditFieldDesc();
+    artist.label = '歌手';
+    artist.placeholder = '请输入歌手（留空清除）';
+    artist.value = item.artist;
+    const album = new MetaEditFieldDesc();
+    album.label = '专辑';
+    album.placeholder = '请输入专辑（留空清除）';
+    album.value = item.album;
+    const fields: Array<MetaEditFieldDesc> = [title, artist, album];
+    DialogManager.editMetaFields = fields;
+    DialogManager.editMetaConfirm = onConfirm;
+    DialogManager.OpenDialog('编辑信息');
+  }
+
   /** 获取弹窗标题文本 */
   public static DialogTitle(key: string): ResourceStr {
     switch (key) {
@@ -1038,6 +1157,8 @@ export class DialogManager {
         return '转换简洁命名';
       case '均衡器增益':
         return DialogManager.eqGainBandLabel + 'Hz 频段增益';
+      case '编辑信息':
+        return '编辑信息';
       case '捐赠':
         return '支持作者';
     }
@@ -1335,6 +1456,10 @@ export class DialogManager {
         // 按钮在内容区域渲染（校验失败提示错误并保持弹窗打开）
         break;
       }
+      case '编辑信息': {
+        // 按钮在内容区域渲染（校验失败提示错误并保持弹窗打开，保存中显示 loading）
+        break;
+      }
       case '清除缓存': {
         const cancel: ButtonOptions = {
           value: '取消',
@@ -1527,6 +1652,11 @@ export class DialogManager {
           DialogManager.updateAvailableConfirm();
         }
         break;
+      case '编辑信息':
+        if (DialogManager.editMetaConfirm !== null) {
+          DialogManager.editMetaConfirm(DialogManager.editMetaFields);
+        }
+        break;
     }
   }
 
@@ -1650,6 +1780,11 @@ export class DialogManager {
       DialogManager.eqGainBandLabel = '';
       DialogManager.eqGainValue = '';
       DialogManager.eqGainConfirm = null;
+    }
+    // 编辑信息同理（取消或关闭弹窗不触发写入）
+    if (key === '编辑信息') {
+      DialogManager.editMetaFields = [];
+      DialogManager.editMetaConfirm = null;
     }
     // 捐赠回调
     if (key === '捐赠') {
