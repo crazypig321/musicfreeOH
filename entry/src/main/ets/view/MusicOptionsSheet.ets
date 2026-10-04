@@ -153,12 +153,16 @@ export struct MusicOptionsSheet {
   @Local newSheetTitle: string = '';
   /** 来源行展示的插件名（换源成功后更新为新插件） */
   @Local sourcePlatform: string = '';
+  /** 头部/详情展示与后续操作共用的副本：面板打开时取自 optionsItem，
+   *  保存标签/更新封面后替换实例即时刷新（父页面克隆 optionsItem 不会被动更新，故内部一律用本副本） */
+  @Local displayItem: MusicItem = new MusicItem();
 
   @Monitor('show')
   onShowChange(): void {
     if (this.show) {
       this.isFavorited = this.checkFavorited(this.optionsItem);
       this.sourcePlatform = this.optionsItem.platform;
+      this.displayItem = this.optionsItem.clone();
     }
   }
 
@@ -189,7 +193,7 @@ export struct MusicOptionsSheet {
 
   /** 本地文件名（本地音乐/已下载条目详情行展示；无本地文件时为空） */
   private localFileNameText(): string {
-    const lp = MediaUtils.getLocalPath(this.optionsItem);
+    const lp = MediaUtils.getLocalPath(this.displayItem);
     if (lp === null || lp.length === 0 || lp.startsWith('content://')) {
       return '';
     }
@@ -198,11 +202,11 @@ export struct MusicOptionsSheet {
 
   /** 转换为简洁命名：先校验（正在播放/媒体库歌曲/已是简洁命名直接提示），再弹窗确认 */
   private confirmSimpleRename(): void {
-    if (trackPlayer.isCurrentMusic(this.optionsItem)) {
+    if (trackPlayer.isCurrentMusic(this.displayItem)) {
       this.showToast('正在播放的歌曲无法转换');
       return;
     }
-    const lp = MediaUtils.getLocalPath(this.optionsItem);
+    const lp = MediaUtils.getLocalPath(this.displayItem);
     if (lp === null || lp.length === 0) {
       this.showToast('未找到本地文件');
       return;
@@ -213,14 +217,14 @@ export struct MusicOptionsSheet {
     }
     const src = FileUtils.normalizePath(lp);
     // 已是简洁命名（无冲突后缀）则直接提示
-    if (FileUtils.getFileName(src, true) === Downloader.simpleFilename(this.optionsItem)) {
+    if (FileUtils.getFileName(src, true) === Downloader.simpleFilename(this.displayItem)) {
       this.showToast('当前已是简洁命名');
       return;
     }
     DialogManager.ConfirmSimpleRename(
       '是否将「' + FileUtils.getFileName(src) + '」转换为「歌曲名-歌手」简洁命名？',
       (): void => {
-        this.doSimpleRename(this.optionsItem);
+        this.doSimpleRename(this.displayItem);
       });
   }
 
@@ -254,7 +258,7 @@ export struct MusicOptionsSheet {
   }
 
   private toggleFavorite(): void {
-    const target = this.optionsItem;
+    const target = this.displayItem;
     if (this.isFavorited) {
       musicSheet.removeMusic(musicSheet.defaultSheet.id, [target]).then((): void => {
         this.isFavorited = false;
@@ -286,7 +290,7 @@ export struct MusicOptionsSheet {
   }
 
   private addToSheet(sheet: SheetItem): void {
-    const target = this.optionsItem;
+    const target = this.displayItem;
     const existing = musicSheet.getMusicList(sheet.id);
     for (const it of existing) {
       if (MediaUtils.isSameMediaItem(it, target)) {
@@ -310,7 +314,7 @@ export struct MusicOptionsSheet {
     musicSheet.addSheet(title).then((sheetId: string): Promise<void> => {
       this.newSheetTitle = '';
       this.pickerInCreateMode = false;
-      return musicSheet.addMusic(sheetId, this.optionsItem);
+      return musicSheet.addMusic(sheetId, this.displayItem);
     }).then((): void => {
       this.showSheetPicker = false;
       this.showToast('已创建歌单并添加');
@@ -318,13 +322,13 @@ export struct MusicOptionsSheet {
   }
 
   private playNext(): void {
-    trackPlayer.addNext(this.optionsItem);
+    trackPlayer.addNext(this.displayItem);
     this.showToast('将在下一首播放');
   }
 
   /** 更换音源：打开弹窗并发搜索可用音源（弹窗内加载动画→插件选择列表），确认后替换并保存（队列/我的歌单） */
   private changeSource(): void {
-    const item = this.optionsItem;
+    const item = this.displayItem;
     if (localMusicSheet.isLocalMusicExisting(item) !== null || downloadedSheet.isLocalMusicExisting(item) !== null ||
       item.platform === LOCAL_PLUGIN_PLATFORM) {
       this.showToast('本地音乐不支持更换音源');
@@ -367,20 +371,20 @@ export struct MusicOptionsSheet {
 
   private shareCurrent(): void {
     // 本地文件直接发文件；网络歌曲发带标记文本（接收端 MusicFreeOH 可导入/播放）
-    ShareUtils.shareMusic(this.optionsItem, (message: string): void => {
+    ShareUtils.shareMusic(this.displayItem, (message: string): void => {
       this.showToast(message);
     });
   }
 
   private downloadCurrent(): void {
-    if (downloader.getDownloadTask(this.optionsItem) !== null) {
+    if (downloader.getDownloadTask(this.displayItem) !== null) {
       this.showToast('已在下载列表中');
       return;
     }
     // 弹窗填写目标子文件夹（留空 = 默认下载目录）
     DialogManager.downloadFolderValue = '';
     DialogManager.downloadFolderConfirm = (folder: string): void => {
-      downloader.download(this.optionsItem, appConfig.getDefaultDownloadQuality(), folder);
+      downloader.download(this.displayItem, appConfig.getDefaultDownloadQuality(), folder);
       this.showToast('已加入下载队列');
     };
     DialogManager.OpenDialog('下载到文件夹');
@@ -430,7 +434,7 @@ export struct MusicOptionsSheet {
 
   /** 搜索歌词：弹窗选择歌词音源插件，从该插件匹配歌词；若目标正在播放则同步刷新歌词 */
   private searchLyric(): void {
-    const target = this.optionsItem;
+    const target = this.displayItem;
     const plugins = LyricSearch.lyricSourcePlugins();
     if (plugins.length === 0) {
       this.showToast('无可用插件');
@@ -458,35 +462,67 @@ export struct MusicOptionsSheet {
   }
 
   private addToPlayQueue(): void {
-    trackPlayer.add(this.optionsItem);
+    trackPlayer.add(this.displayItem);
     this.showToast('已加入播放队列');
   }
 
-  /** 搜索封面（仅本地音乐显示）：来源插件详情优先，其次全插件按 标题+歌手 搜索；命中后写回本地条目 */
+  /** 搜索封面（仅本地音乐显示）：来源插件详情优先，其次全插件按 标题+歌手 搜索；
+   *  命中后写回本地条目，文件可写时同步写入音频文件内嵌封面 */
   private searchCoverForCurrent(): void {
-    const target = this.optionsItem;
+    const target = this.displayItem;
     this.showToast('正在搜索封面...');
-    CoverSearch.searchAndApply(target).then((ok: boolean): void => {
-      this.showToast(ok ? '封面已更新' : '未找到封面');
+    CoverSearch.searchAndApply(target).then((artwork: string): void => {
+      if (artwork.length === 0) {
+        this.showToast('未找到封面');
+        return;
+      }
+      this.syncDisplayArtwork(artwork);
+      this.showToast('封面已更新');
+      this.writeCoverToFileIfPossible(target, artwork);
     }).catch((_e: Object): void => {
       this.showToast('封面获取失败');
     });
   }
 
-  /** 选择封面（仅本地音乐/已下载显示）：弹窗展示候选封面，点选后写回本地条目并刷新播放页 */
+  /** 选择封面（仅本地音乐/已下载显示）：弹窗展示候选封面，点选后写回本地条目并刷新播放页；
+   *  文件可写时同步写入音频文件内嵌封面 */
   private pickCoverForCurrent(): void {
-    const target = this.optionsItem;
+    const target = this.displayItem;
     DialogManager.PickCover(target, (artwork: string): void => {
       if (artwork.length > 0) {
         CoverSearch.applyArtwork(target, artwork);
+        this.syncDisplayArtwork(artwork);
         this.showToast('封面已更新');
+        this.writeCoverToFileIfPossible(target, artwork);
       }
     });
   }
 
+  /** 同步展示副本的封面（替换实例触发头部刷新） */
+  private syncDisplayArtwork(artwork: string): void {
+    const next = this.displayItem.clone();
+    next.artwork = artwork;
+    this.displayItem = next;
+  }
+
+  /** 封面写入音频文件（设置「匹配封面后写入音频文件」开启且文件可写时）：
+   *  解码为 PixelMap 后写入内嵌封面标签 */
+  private async writeCoverToFileIfPossible(target: MusicItem, artwork: string): Promise<void> {
+    if (!appConfig.getCoverWriteToFile() || !TagEditor.canEdit(target)) {
+      return;
+    }
+    const pixelMap = await ArtworkCache.loadPixelMap(artwork);
+    if (pixelMap === null) {
+      this.showToast('封面已更新，写入文件失败');
+      return;
+    }
+    const outcome = await TagEditor.writeCover(target, pixelMap);
+    this.showToast(outcome.ok ? '封面已写入音频文件' : '封面写入文件失败');
+  }
+
   /** 打开标签编辑弹窗（仅本地音乐/已下载且文件可写时显示入口）：预填当前标题/歌手/专辑 */
   private openMetaEditor(): void {
-    DialogManager.EditMeta(this.optionsItem, (fields: Array<MetaEditFieldDesc>): void => {
+    DialogManager.EditMeta(this.displayItem, (fields: Array<MetaEditFieldDesc>): void => {
       this.performMetaEdit(fields);
     });
   }
@@ -507,9 +543,15 @@ export struct MusicOptionsSheet {
     editFields.title = title;
     editFields.artist = fields[1].value.trim();
     editFields.album = fields[2].value.trim();
-    const outcome = await TagEditor.editLocalMusic(this.optionsItem, editFields);
+    const outcome = await TagEditor.editLocalMusic(this.displayItem, editFields);
     appState.isDialogSaving = false;
     if (outcome.ok) {
+      // 同步展示副本（替换实例触发头部/详情行刷新）
+      const next = this.displayItem.clone();
+      next.title = title;
+      next.artist = fields[1].value.trim();
+      next.album = fields[2].value.trim();
+      this.displayItem = next;
       DialogManager.CloseDialog();
       this.showToast('已保存到音频文件');
     } else {
@@ -520,7 +562,7 @@ export struct MusicOptionsSheet {
   /** 从当前歌单删除本曲（仅歌单详情页本地歌单面板显示；弹窗确认，取消不删除）；
    * 列表随 onMusicListUpdated 自动刷新 */
   private removeFromCurrentSheet(): void {
-    const target = this.optionsItem;
+    const target = this.displayItem;
     const sheetId = this.removeSheetId;
     this.onClose();
     DialogManager.ConfirmDelete('确定从当前歌单删除「' + target.title + '」吗？', (): void => {
@@ -532,7 +574,7 @@ export struct MusicOptionsSheet {
 
   /** 移出本地音乐列表（保留文件；写入排除名单防止扫描复活）；仅本地音乐列表面板显示 */
   private removeFromLocalMusic(): void {
-    const target = this.optionsItem;
+    const target = this.displayItem;
     this.onClose();
     LocalMusicExclusion.excludeItem(target);
     localMusicSheet.removeMusic(target, false).then((): void => {
@@ -542,7 +584,7 @@ export struct MusicOptionsSheet {
 
   /** 删除歌曲与本地文件（已下载列表同步移除记录；弹窗确认，取消不删除）；仅本地音乐列表面板显示 */
   private deleteLocalMusicFile(): void {
-    const target = this.optionsItem;
+    const target = this.displayItem;
     this.onClose();
     DialogManager.ConfirmDelete('确定删除「' + target.title + '」及其本地文件吗？', (): void => {
       localMusicSheet.removeMusic(target, true).then((): void => {
@@ -590,8 +632,8 @@ export struct MusicOptionsSheet {
   OptionsSheetBuilder() {
     Column() {
       Row({ space: 12 }) {
-        if (this.optionsItem.artwork.length > 0) {
-          Image(ArtworkCache.resolve(this.optionsItem.artwork))
+        if (this.displayItem.artwork.length > 0) {
+          Image(ArtworkCache.resolve(this.displayItem.artwork))
             .width(64)
             .height(64)
             .borderRadius(10)
@@ -610,19 +652,19 @@ export struct MusicOptionsSheet {
           .justifyContent(FlexAlign.Center)
         }
         Column({ space: 3 }) {
-          Text(this.optionsItem.title)
+          Text(this.displayItem.title)
             .fontSize(16)
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1)
             .width('70%')
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(this.optionsItem.artist)
+          Text(this.displayItem.artist)
             .fontSize(12)
             .fontColor($r('sys.color.font_tertiary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(this.optionsItem.album.length > 0 ? this.optionsItem.album : '未知专辑')
+          Text(this.displayItem.album.length > 0 ? this.displayItem.album : '未知专辑')
             .fontSize(12)
             .fontColor($r('sys.color.font_tertiary'))
             .maxLines(1)
@@ -688,9 +730,9 @@ export struct MusicOptionsSheet {
           DetailRowItem({
             icon: $r('sys.symbol.hash'),
             label: 'ID',
-            value: this.optionsItem.id,
+            value: this.displayItem.id,
             onTap: (): void => {
-              this.copyText(this.optionsItem.id, 'ID');
+              this.copyText(this.displayItem.id, 'ID');
             }
           })
         }
@@ -698,9 +740,9 @@ export struct MusicOptionsSheet {
           DetailRowItem({
             icon: $r('sys.symbol.person'),
             label: '歌手',
-            value: this.optionsItem.artist,
+            value: this.displayItem.artist,
             onTap: (): void => {
-              this.copyText(this.optionsItem.artist, '歌手');
+              this.copyText(this.displayItem.artist, '歌手');
             }
           })
         }
@@ -708,15 +750,15 @@ export struct MusicOptionsSheet {
           DetailRowItem({
             icon: $r('sys.symbol.opticaldisc'),
             label: '专辑',
-            value: this.optionsItem.album,
+            value: this.displayItem.album,
             onTap: (): void => {
-              this.copyText(this.optionsItem.album, '专辑');
+              this.copyText(this.displayItem.album, '专辑');
             }
           })
         }
         // 本地音乐/已下载条目：显示实际文件名，点击弹窗确认后转换为简洁命名
-        if (localMusicSheet.isLocalMusicExisting(this.optionsItem) !== null ||
-          downloadedSheet.isLocalMusicExisting(this.optionsItem) !== null) {
+        if (localMusicSheet.isLocalMusicExisting(this.displayItem) !== null ||
+          downloadedSheet.isLocalMusicExisting(this.displayItem) !== null) {
           ListItem() {
             ActionRowItem({
               icon: $r('sys.symbol.doc_plaintext'),
@@ -728,7 +770,7 @@ export struct MusicOptionsSheet {
             })
           }
           // 文件可写（非媒体库条目）且未在播放：显示标签编辑入口，修改写回音频文件
-          if (TagEditor.canEdit(this.optionsItem)) {
+          if (TagEditor.canEdit(this.displayItem)) {
             ListItem() {
               ActionRowItem({
                 icon: $r('sys.symbol.square_and_pencil'),
@@ -741,8 +783,8 @@ export struct MusicOptionsSheet {
           }
         }
         // 本地/已下载音乐已在设备上，不提供下载入口（文件被外部删除时恢复入口）
-        if (localMusicSheet.isLocalMusicExisting(this.optionsItem) === null &&
-          downloadedSheet.isLocalMusicExisting(this.optionsItem) === null) {
+        if (localMusicSheet.isLocalMusicExisting(this.displayItem) === null &&
+          downloadedSheet.isLocalMusicExisting(this.displayItem) === null) {
           ListItem() {
             ActionRowItem({
               icon: $r('sys.symbol.square_and_arrow_down'),

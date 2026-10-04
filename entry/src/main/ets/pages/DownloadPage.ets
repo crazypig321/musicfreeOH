@@ -18,6 +18,7 @@ import { MusicDataSource } from '../common/model/MusicDataSource';
 import { StringDataSource } from '../common/model/StringDataSource';
 import { MediaUtils } from '../utils/MediaUtils';
 import { CoverSearch } from '../utils/CoverSearch';
+import { TagEditor } from '../utils/TagEditor';
 import { pluginManager } from '../plugin/PluginManager';
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
@@ -1031,33 +1032,61 @@ export struct DownloadPage {
     searchNext(0);
   }
 
-  /** 批量搜索封面（仅本地模式）：逐首搜索并写回本地条目，来源插件详情优先、其次全插件搜索 */
+  /** 批量搜索封面（仅本地模式）：逐首搜索并写回本地条目，来源插件详情优先、其次全插件搜索；
+   *  设置「匹配封面后写入音频文件」开启时命中的封面额外写入音频文件内嵌标签（正在播放/不可写条目跳过） */
   private batchSearchCover(): void {
     const items = this.selectedItems();
     if (items.length === 0) {
       this.showToast('请先勾选歌曲');
       return;
     }
+    const writeToFile = appConfig.getCoverWriteToFile();
     this.showToast('开始搜索 ' + items.length.toString() + ' 首封面...');
     let ok = 0;
     let fail = 0;
+    let writeFail = 0;
+    let skip = 0;
     const searchNext = (index: number): Promise<void> => {
       if (index >= items.length) {
-        this.showToast('封面搜索完成：成功 ' + ok.toString() + ' 首' +
-          (fail > 0 ? '，失败 ' + fail.toString() + ' 首' : ''));
+        let msg = '封面搜索完成：成功 ' + ok.toString() + ' 首' +
+          (fail > 0 ? '，失败 ' + fail.toString() + ' 首' : '');
+        if (writeToFile) {
+          if (writeFail > 0) {
+            msg += '，' + writeFail.toString() + ' 首写入文件失败';
+          }
+          if (skip > 0) {
+            msg += '，' + skip.toString() + ' 首跳过写入';
+          }
+        }
+        this.showToast(msg);
         return Promise.resolve();
       }
-      return CoverSearch.searchAndApply(items[index]).then((found: boolean): Promise<void> => {
-        if (found) {
-          ok++;
-        } else {
+      const item = items[index];
+      return CoverSearch.searchAndApply(item).then(async (artwork: string): Promise<void> => {
+        if (artwork.length === 0) {
           fail++;
+          return;
         }
-        return searchNext(index + 1);
-      }).catch((_e: Object): Promise<void> => {
+        ok++;
+        if (!writeToFile) {
+          return;
+        }
+        if (!TagEditor.canEdit(item)) {
+          skip++;
+          return;
+        }
+        const pixelMap = await ArtworkCache.loadPixelMap(artwork);
+        if (pixelMap === null) {
+          writeFail++;
+          return;
+        }
+        const outcome = await TagEditor.writeCover(item, pixelMap);
+        if (!outcome.ok) {
+          writeFail++;
+        }
+      }).catch((_e: Object): void => {
         fail++;
-        return searchNext(index + 1);
-      });
+      }).then((): Promise<void> => searchNext(index + 1));
     };
     searchNext(0);
   }
@@ -1957,7 +1986,9 @@ export struct DownloadPage {
             ListItem() {
               this.DownloadedRowBuilder(item, index)
             }
+            // 键包含标题/歌手/专辑：编辑标签后列表刷新时同键行会被 LazyForEach 复用而不重渲染
           }, (item: MusicItem, _index: number) => item.platform + '_' + item.id + '_' + item.artwork +
+            item.title + '_' + item.artist + '_' + item.album +
             (appState.isBatchMode && this.isSelected(item) ? '_sel' : ''))
           // 搜索无命中空态
           if (this.searchKeyword.trim().length > 0 && this.dataSource.totalCount() === 0) {

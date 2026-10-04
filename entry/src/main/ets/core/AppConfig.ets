@@ -44,6 +44,7 @@ export class ConfigKeys {
   static readonly FLOAT_LYRIC_SHOW_TRANSLATION = 'floatLyric.showTranslation';
   static readonly FLOAT_LYRIC_WINDOW_SIZE = 'floatLyric.windowSize';
   static readonly LOCAL_MUSIC_AUTO_MATCH_COVER = 'localMusic.autoMatchCover';
+  static readonly COVER_WRITE_TO_FILE = 'cover.writeToFile';
   static readonly EQ_ENABLED = 'eq.enabled';
   static readonly EQ_PRESET = 'eq.preset';
   static readonly EQ_GAINS = 'eq.gains';
@@ -405,6 +406,11 @@ export class AppConfig {
   /** 本地音乐自动匹配音乐封面（导入时提取内嵌封面并回填网络封面） */
   getLocalMusicAutoMatchCover(): boolean {
     return this.getBoolean(ConfigKeys.LOCAL_MUSIC_AUTO_MATCH_COVER, true);
+  }
+
+  /** 匹配封面后写入音频文件内嵌标签（单曲手动/自动与批量搜索统一开关，默认关闭） */
+  getCoverWriteToFile(): boolean {
+    return this.getBoolean(ConfigKeys.COVER_WRITE_TO_FILE, false);
   }
 
   // ---------- 均衡器 ----------

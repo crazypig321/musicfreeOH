@@ -1,4 +1,5 @@
 import { writeAudioMetadata, AudioMetadataWriter } from '@dabing/taglib_harmony';
+import { image } from '@kit.ImageKit';
 import { MusicItem } from '../common/model/MediaTypes';
 import { MediaUtils } from './MediaUtils';
 import { FileUtils } from './FileUtils';
@@ -46,7 +47,24 @@ export class TagEditor {
    * 写入成功后条目内容与文件内标签一致，后续扫描 heal 不会回退。
    */
   static editLocalMusic(item: MusicItem, fields: TagEditFields): Promise<TagEditOutcome> {
-    const task = (): Promise<TagEditOutcome> => TagEditor.performEdit(item, fields);
+    const writer: AudioMetadataWriter = {
+      title: fields.title,
+      artist: fields.artist,
+      album: fields.album,
+    };
+    return TagEditor.enqueue((): Promise<TagEditOutcome> => TagEditor.performWrite(item, writer, fields));
+  }
+
+  /** 写入内嵌封面到本地音频文件（不影响文字标签）：应用内封面记录由调用方负责更新 */
+  static writeCover(item: MusicItem, cover: image.PixelMap): Promise<TagEditOutcome> {
+    const writer: AudioMetadataWriter = {
+      coverImage: cover,
+    };
+    return TagEditor.enqueue((): Promise<TagEditOutcome> => TagEditor.performWrite(item, writer, null));
+  }
+
+  /** 排队写入：TagLib 要求同一文件不并发写入，所有写操作统一在此排队 */
+  private static enqueue(task: () => Promise<TagEditOutcome>): Promise<TagEditOutcome> {
     const next = TagEditor.queueTail.then(task, task);
     // 队列尾巴吞掉结果与异常：不出未处理的 rejection，也不阻塞后续排队写入
     TagEditor.queueTail = next.then((_r: TagEditOutcome): void => {
@@ -55,7 +73,9 @@ export class TagEditor {
     return next;
   }
 
-  private static performEdit(item: MusicItem, fields: TagEditFields): Promise<TagEditOutcome> {
+  /** 执行写入：syncFields 非空表示文字标签编辑，写入成功后同步应用内两域记录 */
+  private static performWrite(item: MusicItem, writer: AudioMetadataWriter,
+    syncFields: TagEditFields | null): Promise<TagEditOutcome> {
     const outcome = new TagEditOutcome();
     const lp = MediaUtils.getLocalPath(item);
     if (lp === null || lp.length === 0 || lp.startsWith('content://')) {
@@ -67,19 +87,16 @@ export class TagEditor {
       outcome.message = '本地文件不存在';
       return Promise.resolve(outcome);
     }
-    const writer: AudioMetadataWriter = {
-      title: fields.title,
-      artist: fields.artist,
-      album: fields.album,
-    };
     return writeAudioMetadata(path, writer).then((ok: boolean): TagEditOutcome => {
       if (!ok) {
         outcome.message = '写入失败';
         return outcome;
       }
-      // 写入成功：同步应用内两域记录（两域可能持有同一文件的记录，均按路径/同曲目匹配）
-      localMusicSheet.updateMusicMeta(item, fields.title, fields.artist, fields.album);
-      downloadedSheet.updateMusicMeta(item, fields.title, fields.artist, fields.album);
+      if (syncFields !== null) {
+        // 写入成功：同步应用内两域记录（两域可能持有同一文件的记录，均按路径/同曲目匹配）
+        localMusicSheet.updateMusicMeta(item, syncFields.title, syncFields.artist, syncFields.album);
+        downloadedSheet.updateMusicMeta(item, syncFields.title, syncFields.artist, syncFields.album);
+      }
       outcome.ok = true;
       return outcome;
     }).catch((_e: Object): TagEditOutcome => {

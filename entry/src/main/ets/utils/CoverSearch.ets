@@ -14,14 +14,14 @@ import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
  * 若正在播放则同步刷新播放页与通知栏的当前歌曲封面
  */
 export class CoverSearch {
-  /** 搜索并写回单首本地音乐的封面；返回是否命中 */
-  static async searchAndApply(item: MusicItem): Promise<boolean> {
+  /** 搜索并写回单首本地音乐的封面；返回命中的封面 URL（未命中返回空串） */
+  static async searchAndApply(item: MusicItem): Promise<string> {
     const artwork = await CoverSearch.searchCover(item);
     if (artwork.length === 0) {
-      return false;
+      return '';
     }
     CoverSearch.applyArtwork(item, artwork);
-    return true;
+    return artwork;
   }
 
   /** 写回封面到本地音乐/已下载两域，并同步播放中的当前歌曲 */

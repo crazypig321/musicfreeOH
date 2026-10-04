@@ -22,11 +22,14 @@ export struct CachePage {
   @Local maxCacheLimitText: string = '';
   /** 本地音乐自动匹配音乐封面开关 */
   @Local autoMatchCover: boolean = true;
+  /** 匹配封面后写入音频文件开关 */
+  @Local writeCoverToFile: boolean = false;
 
   aboutToAppear(): void {
     this.refreshSizes();
     this.maxCacheLimitText = CachePage.formatLimit(appConfig.getMaxCacheSize());
     this.autoMatchCover = appConfig.getLocalMusicAutoMatchCover();
+    this.writeCoverToFile = appConfig.getCoverWriteToFile();
   }
 
   private showToast(message: string): void {
@@ -153,7 +156,7 @@ export struct CachePage {
 
               // 清除音乐缓存
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.trash'))
+                SymbolGlyph($r('sys.symbol.music_note_phone'))
                   .fontSize(20)
                   .fontColor([$r('sys.color.icon_secondary')])
                 Text('清除音乐缓存')
@@ -312,7 +315,53 @@ export struct CachePage {
                 }
               }
               .width('100%')
-              .height(60)
+              .margin({ top: 16, bottom: 16 })
+
+              Divider()
+                .DividerStyle()
+
+              // 匹配封面后写入音频文件（智感握姿左手：开关镜像到行首，文本右对齐，图标镜像到行尾）
+              Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.writeCoverToFile })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.writeCoverToFile = isOn;
+                      appConfig.setConfig(ConfigKeys.COVER_WRITE_TO_FILE, isOn);
+                    })
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.text_below_photo_rectangle_portrait'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                Column({ space: 2 }) {
+                  Text('匹配封面后写入本地音频文件元数据')
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                  Text('手动/自动/批量匹配封面时同步写入音频文件内嵌标签，正在播放与不可写文件跳过')
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(2)
+                }
+                .layoutWeight(1)
+                .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  Toggle({ type: ToggleType.Switch, isOn: this.writeCoverToFile })
+                    .selectedColor(appState.accentColor)
+                    .onChange((isOn: boolean) => {
+                      this.writeCoverToFile = isOn;
+                      appConfig.setConfig(ConfigKeys.COVER_WRITE_TO_FILE, isOn);
+                    })
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.text_below_photo_rectangle_portrait'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+              }
+              .width('100%')
+              .margin({ top: 16, bottom: 16 })
             }
             .width('100%')
           }

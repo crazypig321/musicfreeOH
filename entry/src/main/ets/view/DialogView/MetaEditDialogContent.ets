@@ -7,10 +7,6 @@ import { appState } from '../../entryability/AppState';
 export struct MetaEditDialogContent {
   build() {
     Column({ space: 12 }) {
-      Text('修改将写入音频文件标签，本地音乐与已下载列表同步更新')
-        .fontSize(12)
-        .fontColor($r('sys.color.font_tertiary'))
-        .width('100%')
       ForEach(DialogManager.editMetaFields, (field: MetaEditFieldDesc) => {
         Column({ space: 6 }) {
           Text(field.label)

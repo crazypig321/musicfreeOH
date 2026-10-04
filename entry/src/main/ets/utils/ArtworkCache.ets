@@ -1,4 +1,5 @@
 import fs from '@ohos.file.fs';
+import { image } from '@kit.ImageKit';
 import { HttpClient } from '../infra/HttpClient';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from './FileUtils';
@@ -97,6 +98,46 @@ export class ArtworkCache {
     ArtworkCache.fetchAndStore(url).finally((): void => {
       ArtworkCache.inflight.delete(url);
     });
+  }
+
+  /** 取封面图并解码为 PixelMap（用于写入音频文件内嵌封面）：
+   *  http 地址优先读本地缓存字节、缺失时网络下载；file:///绝对路径 直接读文件。
+   *  解码后最长边超过 800px 时等比缩小，控制写入内嵌封面的 PNG 体积 */
+  static async loadPixelMap(url: string): Promise<image.PixelMap | null> {
+    let buf: Uint8Array | null = null;
+    if (ArtworkCache.isHttpUrl(url)) {
+      ArtworkCache.ensureIndexLoaded();
+      const name = ArtworkCache.lookupName(url);
+      if (name !== null) {
+        buf = ArtworkCache.readFileBytes(PathConst.artworkCachePath + name);
+      }
+      if (buf === null) {
+        buf = await ArtworkCache.fetchAndStore(url);
+      }
+    } else if (url.startsWith('file://')) {
+      buf = ArtworkCache.readFileBytes(url.substring('file://'.length));
+    } else if (url.startsWith('/')) {
+      buf = ArtworkCache.readFileBytes(url);
+    }
+    if (buf === null || buf.byteLength === 0) {
+      return null;
+    }
+    const arrayBuf: ArrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    const source = image.createImageSource(arrayBuf);
+    try {
+      const pixelMap = await source.createPixelMap();
+      const info = await pixelMap.getImageInfo();
+      const maxSide = Math.max(info.size.width, info.size.height);
+      if (maxSide > 800) {
+        const ratio = 800 / maxSide;
+        pixelMap.scale(ratio, ratio);
+      }
+      return pixelMap;
+    } catch (_e) {
+      return null;
+    } finally {
+      source.release();
+    }
   }
 
   /** 下载字节 → 校验图片魔数 → 按内容 MD5 命名落盘（重复内容不重复写）→ 更新 URL 索引 */
