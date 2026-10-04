@@ -20,6 +20,8 @@ import { trackPlayer } from './TrackPlayer';
 import { pluginManager } from '../plugin/PluginManager';
 import { BackgroundTask } from '../utils/BackgroundTask';
 import { DownloadNotify } from '../utils/DownloadNotify';
+import { TagEditor } from '../utils/TagEditor';
+import { ArtworkCache } from '../utils/ArtworkCache';
 
 /** 下载状态 */
 export enum DownloadStatus {
@@ -726,6 +728,9 @@ export class Downloader {
         patch.localPath = targetDownloadPath;
         MediaExtra.patchMediaExtra(musicItem, patch);
 
+        // 「匹配封面后写入音频文件」开启时，把插件封面静默写入下载文件内嵌标签（后台执行不阻塞下载管线）
+        this.writeCoverAfterDownload(localItem);
+
         this.markTaskAsCompleted(musicItem);
       }
     } else {
@@ -747,6 +752,23 @@ export class Downloader {
       }
       this.downloadQueue = newQueue;
       this.saveQueueOrder();
+    }
+  }
+
+  /** 「匹配封面后写入音频文件」开启时，下载完成后把插件提供的封面静默写入音频文件内嵌标签：
+   *  后台异步执行，不阻塞下载管线；封面缺失/解码失败/正在播放/文件不可写等情况跳过，失败仅记日志 */
+  private async writeCoverAfterDownload(localItem: MusicItem): Promise<void> {
+    if (!appConfig.getCoverWriteToFile() || localItem.artwork.length === 0 || !TagEditor.canEdit(localItem)) {
+      return;
+    }
+    const pixelMap = await ArtworkCache.loadPixelMap(localItem.artwork);
+    if (pixelMap === null) {
+      Log.warn('下载后写入封面失败（封面解码失败）: ' + localItem.title);
+      return;
+    }
+    const outcome = await TagEditor.writeCover(localItem, pixelMap);
+    if (!outcome.ok) {
+      Log.warn('下载后写入封面失败: ' + localItem.title);
     }
   }
 

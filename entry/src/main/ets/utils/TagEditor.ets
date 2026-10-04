@@ -4,6 +4,7 @@ import { MusicItem } from '../common/model/MediaTypes';
 import { MediaUtils } from './MediaUtils';
 import { FileUtils } from './FileUtils';
 import { Log } from './Log';
+import { PathConst } from '../common/PathConst';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 
@@ -73,24 +74,52 @@ export class TagEditor {
     return next;
   }
 
-  /** 执行写入：syncFields 非空表示文字标签编辑，写入成功后同步应用内两域记录 */
-  private static performWrite(item: MusicItem, writer: AudioMetadataWriter,
+  /** 执行写入：syncFields 非空表示文字标签编辑，写入成功后同步应用内两域记录。
+   *  taglib native 层仅允许白名单路径（/data/storage/ 沙箱、/data/share/），
+   *  公共下载目录等白名单外路径先拷入沙箱写标签，再经同目录临时文件替换回原位置 */
+  private static async performWrite(item: MusicItem, writer: AudioMetadataWriter,
     syncFields: TagEditFields | null): Promise<TagEditOutcome> {
     const outcome = new TagEditOutcome();
     const lp = MediaUtils.getLocalPath(item);
     if (lp === null || lp.length === 0 || lp.startsWith('content://')) {
       outcome.message = '媒体库歌曲不支持编辑';
-      return Promise.resolve(outcome);
+      return outcome;
     }
     const path = FileUtils.normalizePath(lp);
     if (!FileUtils.exists(path)) {
       outcome.message = '本地文件不存在';
-      return Promise.resolve(outcome);
+      return outcome;
     }
-    return writeAudioMetadata(path, writer).then((ok: boolean): TagEditOutcome => {
-      if (!ok) {
+    const inWhitelist = path.startsWith('/data/storage/') || path.startsWith('/data/share/');
+    const staging = inWhitelist
+      ? path
+      : PathConst.cachePath + 'tag_stage_' + Date.now().toString() + '.audio';
+    try {
+      if (!inWhitelist && !FileUtils.copyFile(path, staging)) {
         outcome.message = '写入失败';
         return outcome;
+      }
+      let ok = false;
+      try {
+        ok = await writeAudioMetadata(staging, writer);
+      } catch (e) {
+        ok = false;
+      }
+      if (!ok) {
+        Log.warn('写入音频标签失败: ' + path);
+        outcome.message = '写入失败';
+        return outcome;
+      }
+      if (!inWhitelist) {
+        // 拷回原位置：先落同目录临时文件再替换，避免拷贝中断损坏原文件
+        const swap = path + '.tagswap';
+        const restored = FileUtils.copyFile(staging, swap) && FileUtils.moveFile(swap, path);
+        FileUtils.unlink(swap);
+        if (!restored) {
+          Log.warn('标签写回原文件失败: ' + path);
+          outcome.message = '写入失败';
+          return outcome;
+        }
       }
       if (syncFields !== null) {
         // 写入成功：同步应用内两域记录（两域可能持有同一文件的记录，均按路径/同曲目匹配）
@@ -99,10 +128,10 @@ export class TagEditor {
       }
       outcome.ok = true;
       return outcome;
-    }).catch((_e: Object): TagEditOutcome => {
-      Log.warn('写入音频标签失败: ' + path);
-      outcome.message = '写入失败';
-      return outcome;
-    });
+    } finally {
+      if (!inWhitelist) {
+        FileUtils.unlink(staging);
+      }
+    }
   }
 }

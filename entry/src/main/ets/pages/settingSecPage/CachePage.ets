@@ -339,7 +339,7 @@ export struct CachePage {
                   Text('匹配封面后写入本地音频文件元数据')
                     .fontSize(15)
                     .fontColor($r('sys.color.font_primary'))
-                  Text('手动/自动/批量匹配封面时同步写入音频文件内嵌标签，正在播放与不可写文件跳过')
+                  Text('下载歌曲与手动/自动/批量匹配封面时同步写入音频文件内嵌标签，正在播放与不可写文件跳过')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
                     .maxLines(2)
