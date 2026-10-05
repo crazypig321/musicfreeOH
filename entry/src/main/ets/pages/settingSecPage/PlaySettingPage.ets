@@ -8,6 +8,7 @@ import { EqualizerSheet } from '../../view/EqualizerSheet';
 import { EqualizerManager } from '../../core/EqualizerManager';
 import { AudioEnhancePanel } from '../../audioenhance/AudioEnhancePanel';
 import { AudioEnhanceManager } from '../../audioenhance/AudioEnhanceManager';
+import { thickImmersiveMaterial } from '../../utils/UiUtils';
 
 /**
  * 播放设置页面
@@ -225,6 +226,7 @@ export struct PlaySettingPage {
     })
     .bindMenu(showMenu, menu, {
       placement: this.menuPlacement(),
+      systemMaterial: thickImmersiveMaterial(),
       onDisappear: onMenuDisappear
     })
   }

@@ -37,7 +37,7 @@ import { EqualizerManager } from '../core/EqualizerManager';
 import { AudioEnhanceManager, AudioEnhanceState } from '../audioenhance/AudioEnhanceManager';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 import { CommonBlur } from '../view/CommonCom';
-import { showUiToast, formatDuration } from '../utils/UiUtils';
+import { showUiToast, formatDuration, sliderImmersiveModifier } from '../utils/UiUtils';
 import { hdsEffect } from '@kit.UIDesignKit';
 
 /** 歌词字体大小档位标签与缩放（下标对应 appConfig lyric.fontSize） */
@@ -1413,6 +1413,7 @@ export struct PlayerPage {
         .blockColor($r('sys.color.icon'))
         .trackThickness(this.isSeeking ? 8 : 5)
         .width('100%')
+        .attributeModifier(sliderImmersiveModifier)
         .onChange((value: number, mode: SliderChangeMode) => {
           this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, (): void => {
             // Slider 在 value/max 动画不同步时可能越界回调负数，统一钳位到 [0, sliderMax]

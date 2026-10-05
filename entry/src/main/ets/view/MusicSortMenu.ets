@@ -1,5 +1,6 @@
 import { MusicItem } from '../common/model/MediaTypes';
 import { LengthMetrics } from '@kit.ArkUI';
+import { thickImmersiveMaterial } from '../utils/UiUtils';
 
 /** 列表排序选项（键 + 菜单文案） */
 export class SortOption {
@@ -86,6 +87,8 @@ export struct MusicSortMenu {
     SymbolGlyph($r('sys.symbol.sort'))
       .fontSize(20)
       .fontColor([$r('sys.color.icon_secondary')])
-      .bindMenu(this.SortMenuBuilder())
+      .bindMenu(this.SortMenuBuilder(), {
+        systemMaterial: thickImmersiveMaterial()
+      })
   }
 }

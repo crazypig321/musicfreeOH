@@ -20,7 +20,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { JsonUtil } from '../utils/JsonUtil';
 import { DialogManager } from '../utils/DialogUtils';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
-import { showUiToast } from '../utils/UiUtils';
+import { showUiToast, rowImmersiveModifier, stackImmersiveModifier } from '../utils/UiUtils';
 
 /** 添加菜单锚点 id（openMenu 在锚点处弹出） */
 const ADD_ANCHOR_ID = 'mysheets_add_anchor';
@@ -1756,6 +1756,7 @@ export struct MySheetsPage {
           .backgroundColor($r('sys.color.background_secondary'))
           // 位移必须用绝对值：'50%' 与 0 之间无法插值，animateTo 会瞬移；81 = 滑轨内宽 162 的一半
           .offset({ x: this.showSubscribed ? 81 : 0 })
+          .attributeModifier(rowImmersiveModifier)
 
         Row() {
           Text('我的歌单')
@@ -1787,6 +1788,7 @@ export struct MySheetsPage {
       .backgroundColor($r('sys.color.comp_background_tertiary'))
       .padding(3)
       .margin({ top: 4, bottom: 10 })
+      .attributeModifier(stackImmersiveModifier)
 
       if (this.showSearchBox) {
         this.SearchBuilder()

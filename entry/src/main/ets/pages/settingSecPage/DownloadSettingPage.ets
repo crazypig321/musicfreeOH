@@ -6,7 +6,7 @@ import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
 import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 import { PathConst } from '../../common/PathConst';
 import { pasteboard } from '@kit.BasicServicesKit';
-import { showUiToast } from '../../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial } from '../../utils/UiUtils';
 
 /**
  * 下载设置页面
@@ -139,6 +139,7 @@ export struct DownloadSettingPage {
     })
     .bindMenu(showMenu, menu, {
       placement: this.menuPlacement(),
+      systemMaterial: thickImmersiveMaterial(),
       onDisappear: onMenuDisappear
     })
   }

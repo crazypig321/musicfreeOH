@@ -1,6 +1,7 @@
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { DialogManager } from '../utils/DialogUtils';
+import { sliderImmersiveModifier } from '../utils/UiUtils';
 import {
   EqualizerManager,
   EqPresetDef,
@@ -96,7 +97,8 @@ export struct EqualizerSheet {
         .height(150)
         .selectedColor(appState.accentColor)
         .trackColor($r('sys.color.comp_background_tertiary'))
-        .blockColor($r('sys.color.icon'))
+        .blockColor(Color.White)
+        .attributeModifier(sliderImmersiveModifier)
         .onChange((value: number, mode: SliderChangeMode): void => {
           const v = Math.round(value);
           this.applyGainToUi(index, v);

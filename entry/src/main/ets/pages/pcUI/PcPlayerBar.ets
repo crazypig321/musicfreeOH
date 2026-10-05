@@ -10,6 +10,7 @@ import { MusicRepeatMode } from '../../common/Consts';
 import { musicSheet } from '../../core/MusicSheet';
 import { MediaUtils } from '../../utils/MediaUtils';
 import { ControlButtonConfig } from '../../common/model/home/HomeModel';
+import { sliderImmersiveModifier } from '../../utils/UiUtils';
 
 /** 实例序号：组件测量 id 必须全局唯一 */
 export let pcPlayBarSeq: number = 0;
@@ -303,6 +304,7 @@ export struct PcPlayerBar {
             .selectedColor(appState.accentColor)
             .trackColor($r('sys.color.comp_divider'))
             .blockColor(appState.accentColor)
+            .attributeModifier(sliderImmersiveModifier)
             .onChange((value: number, mode: SliderChangeMode): void => {
               if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
                 this.isSeeking = true;

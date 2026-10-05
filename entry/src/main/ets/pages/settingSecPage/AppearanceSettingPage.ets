@@ -11,6 +11,7 @@ import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { HSBColorPicker } from '@keke/color-picker';
 import { sheetTopAvoidVp } from '../../utils/BreakpointUtils';
+import { thickImmersiveMaterial } from '../../utils/UiUtils';
 
 /**
  * 外观设置页面
@@ -471,6 +472,7 @@ export struct AppearanceSettingPage {
               })
               .bindMenu(this.showColorModeMenu, this.colorModeMenu, {
                 placement: this.menuPlacement(),
+                systemMaterial: thickImmersiveMaterial(),
                 onDisappear: (): void => {
                   this.showColorModeMenu = false;
                 }
@@ -520,6 +522,7 @@ export struct AppearanceSettingPage {
               })
               .bindMenu(this.showMaterialMenu, this.materialMenu, {
                 placement: this.menuPlacement(),
+                systemMaterial: thickImmersiveMaterial(),
                 onDisappear: (): void => {
                   this.showMaterialMenu = false;
                 }
@@ -569,6 +572,7 @@ export struct AppearanceSettingPage {
               })
               .bindMenu(this.showAnimMenu, this.animMenu, {
                 placement: this.menuPlacement(),
+                systemMaterial: thickImmersiveMaterial(),
                 onDisappear: (): void => {
                   this.showAnimMenu = false;
                 }
@@ -672,6 +676,7 @@ export struct AppearanceSettingPage {
               })
               .bindMenu(this.showOrientationMenu, this.orientationMenu, {
                 placement: this.menuPlacement(),
+                systemMaterial: thickImmersiveMaterial(),
                 onDisappear: (): void => {
                   this.showOrientationMenu = false;
                 }
