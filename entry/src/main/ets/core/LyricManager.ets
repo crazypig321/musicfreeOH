@@ -10,6 +10,7 @@ import { CryptoUtil } from '../utils/CryptoUtil';
 import { MinDistance } from '../utils/MinDistance';
 import { Log } from '../utils/Log';
 import { appConfig } from './AppConfig';
+import { MediaCache } from './MediaCache';
 import { MediaExtra, MediaExtraProperties } from './MediaExtra';
 import { trackPlayer } from './TrackPlayer';
 import { pluginManager } from '../plugin/PluginManager';
@@ -329,13 +330,46 @@ export class LyricManager {
 
     if (minDistanceMusicItem !== null && targetPlugin !== null) {
       try {
-        return await targetPlugin.methods.getLyric(minDistanceMusicItem);
+        const source = await targetPlugin.methods.getLyric(minDistanceMusicItem);
+        if (source !== null && !source.isEmpty()) {
+          LyricManager.cacheMatchedLyricForItem(musicItem, minDistanceMusicItem, source);
+        }
+        return source;
       } catch (e) {
         return null;
       }
     }
 
     return null;
+  }
+
+  private static cacheMatchedLyricForItem(currentItem: MusicItem, matchedItem: MusicItem,
+    source: LyricSource): void {
+    if (currentItem.platform.length === 0) {
+      return;
+    }
+    try {
+      const matchedInfo = MediaCache.getLyricCacheInfo(matchedItem);
+      if (matchedInfo !== null && (matchedInfo.rawLrcPath.length > 0 || matchedInfo.transPath.length > 0)) {
+        MediaCache.setLyricCachePaths(currentItem, matchedInfo.rawLrcPath, matchedInfo.transPath);
+        return;
+      }
+      let rawPath = '';
+      let transPath = '';
+      if (source.rawLrc.length > 0) {
+        rawPath = PathConst.lrcCachePath + CryptoUtil.nanoid() + '.lrc';
+        FileUtils.writeFileText(rawPath, source.rawLrc);
+      }
+      if (source.translation.length > 0) {
+        transPath = PathConst.lrcCachePath + CryptoUtil.nanoid() + '.lrc';
+        FileUtils.writeFileText(transPath, source.translation);
+      }
+      if (rawPath.length > 0 || transPath.length > 0) {
+        MediaCache.setLyricCachePaths(currentItem, rawPath, transPath);
+      }
+    } catch (e) {
+      Log.warn('缓存自动匹配歌词失败');
+    }
   }
 
   onLyricStateChanged(cb: (state: LyricState) => void): () => void {

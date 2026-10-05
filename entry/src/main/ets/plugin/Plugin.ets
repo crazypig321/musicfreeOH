@@ -351,7 +351,8 @@ class PluginMethods {
     }
 
     // 2.5 缓存歌词 / 对象上本身的歌词
-    if (musicItemCacheInfo !== null && musicItemCacheInfo.hasLyricField) {
+    if (musicItemCacheInfo !== null && (musicItemCacheInfo.hasLyricField ||
+      musicItemCacheInfo.rawLrcPath.length > 0 || musicItemCacheInfo.transPath.length > 0)) {
       // 优先用缓存的结果（远程）
       if (musicItemCacheInfo.cachedRawLrc.length > 0 || musicItemCacheInfo.cachedTrans.length > 0) {
         const cached = new LyricSource();
