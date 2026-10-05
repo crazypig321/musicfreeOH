@@ -418,7 +418,7 @@ export struct HomePage{
     MenuUtils.Open(this.getUIContext(), HOME_MENU_ANCHOR_ID, items, {
       placement: Placement.BottomRight,
       offset: { x: 0, y: -45 },
-      systemMaterial: thickImmersiveMaterial()
+      systemMaterial: thickImmersiveMaterial(),
     });
   }
 

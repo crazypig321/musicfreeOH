@@ -508,7 +508,7 @@ export struct MySheetsPage {
       const menu: HdsNavigationMenuItemOptions = {
         content: {
           icon: $r('sys.symbol.dot_grid_2x2'),
-          label: '批量操作',
+          label: '更多',
           action: (): void => {
             this.openSubscribedMenu();
           }
@@ -528,7 +528,7 @@ export struct MySheetsPage {
     const batch: HdsNavigationMenuItemOptions = {
       content: {
         icon: $r('sys.symbol.dot_grid_2x2'),
-        label: '批量操作',
+        label: '更多',
         action: (): void => {
           this.openMoreMenu()
         }

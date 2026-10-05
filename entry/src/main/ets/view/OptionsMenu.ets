@@ -34,14 +34,14 @@ export function OptionsMenuBuilder(entries: Array<MenuOptionEntry>, onPick: (val
         .onClick(() => {
           onPick(entry.value);
           if (reopen !== undefined) {
-            setTimeout(reopen, 50);
+            setTimeout(() => reopen, 50);
           }
         })
     }, (entry: MenuOptionEntry) => entry.value)
   }
   .menuItemDivider({
     color: $r('sys.color.comp_divider'),
-    strokeWidth: LengthMetrics.vp(1),
+    strokeWidth: LengthMetrics.vp(0.5),
     startMargin: LengthMetrics.vp(12),
     endMargin: LengthMetrics.vp(12)
   })

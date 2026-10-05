@@ -885,7 +885,7 @@ export struct PluginPage {
     const more: HdsNavigationMenuItemOptions = {
       content: {
         icon: $r('sys.symbol.dot_grid_2x2'),
-        label: '菜单',
+        label: '更多',
         action: (): void => {
           this.openMoreMenu();
         }
