@@ -1,11 +1,9 @@
 import { MenuItem, MENU_CONFIG } from '../../common/model/TabsModels';
 import { appState } from '../../entryability/AppState';
-import { NavPathUtils } from '../../utils/NavPathUtils';
-import { ROUTE_SEARCH } from '../../common/model/NavModels';
 
 /**
  * PC 侧边导航栏（参考 BiliMusic Sidebar 思路）：
- * - 顶部搜索入口 + 主页面导航项（复用 MENU_CONFIG，与手机底部 tab 同源）
+ * - 主页面导航项（复用 MENU_CONFIG，与手机底部 tab 同源）；搜索入口统一由顶部 PcTitleBar 承载
  * - 展开显示 图标+页面名（220vp），收起仅显示图标（72vp）
  * - 导航项支持 hover/选中态，选中项以主题色高亮
  * - 底部折叠开关切换展开/收起
@@ -15,42 +13,10 @@ export struct PcSideBar {
   @Param expanded: boolean = true;
   /** hover 导航项索引（-1 表示无） */
   @Local hoverIndex: number = -1;
-  /** 搜索入口 hover 态 */
-  @Local searchHover: boolean = false;
   @Event onSelect: (index: number) => void = (_index: number): void => {
   };
   @Event onToggle: () => void = (): void => {
   };
-
-  /** 搜索入口：进入搜索二级页（内容区展示） */
-  @Builder
-  SearchEntry() {
-    Row({ space: 12 }) {
-      SymbolGlyph($r('sys.symbol.magnifyingglass'))
-        .fontSize(22)
-        .fontColor([$r('sys.color.icon_primary')])
-      if (this.expanded) {
-        Text($r('app.string.search_title'))
-          .fontSize(15)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-    }
-    .width('100%')
-    .height(46)
-    .borderRadius(12)
-    .justifyContent(this.expanded ? FlexAlign.Start : FlexAlign.Center)
-    .padding({ left: this.expanded ? 13 : 0, right: this.expanded ? 13 : 0 })
-    .backgroundColor(this.searchHover ? $r('sys.color.interactive_hover') : Color.Transparent)
-    .onHover((hover: boolean): void => {
-      this.searchHover = hover;
-    })
-    .onClick((): void => {
-      NavPathUtils.clear()
-      NavPathUtils.push(ROUTE_SEARCH);
-    })
-  }
 
   /** 主页面导航项 */
   @Builder
@@ -88,9 +54,6 @@ export struct PcSideBar {
 
   build() {
     Column() {
-      // 搜索入口
-      this.SearchEntry()
-
       // 主页面导航项
       Column({ space: 4 }) {
         ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
@@ -98,7 +61,6 @@ export struct PcSideBar {
         }, (item: MenuItem, i: number) => 'pcside_' + i.toString())
       }
       .width('100%')
-      .margin({ top: 6 })
       .alignItems(HorizontalAlign.Center)
 
       Blank()

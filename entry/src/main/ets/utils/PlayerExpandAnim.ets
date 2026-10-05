@@ -78,6 +78,8 @@ export class PlayerExpandAnimState {
   anchorY: number = 0;
   anchorW: number = 0;
   anchorH: number = 52;
+  /** 锚点圆角（收起终态裁剪圆角；手机迷你条为胶囊 anchorH/2，PC 通栏播放条为 0） */
+  anchorR: number = 26;
   bigCoverX: number = 0;
   bigCoverY: number = 0;
   bigCoverSize: number = 280;
@@ -110,7 +112,7 @@ export class PlayerExpandAnimController {
     * getRectangleById 的 windowOffset 不含 translate，测到的是布局占位。
     * idPrefix：迷你条实例 id 前缀，供窗口尺寸变化后重测迷你条几何 */
   static expand(coverX: number, coverY: number, coverSize: number,
-    barX: number, barY: number, barW: number, barH: number, idPrefix: string): void {
+    barX: number, barY: number, barW: number, barH: number, barR: number, idPrefix: string): void {
     if (playerAnim.isAnimating || playerAnim.isExpand) {
       return;
     }
@@ -124,6 +126,7 @@ export class PlayerExpandAnimController {
     playerAnim.anchorY = barY;
     playerAnim.anchorW = barW;
     playerAnim.anchorH = barH;
+    playerAnim.anchorR = barR;
     // 关闭动画：直达展开态（裁剪窗口放开到全屏，迷你条隐藏）
     if (!appConfig.getPlayerExpandAnim()) {
       PlayerExpandAnimController.expandDirect();
@@ -284,7 +287,7 @@ export class PlayerExpandAnimController {
     playerAnim.clipY = playerAnim.anchorY * (1 - p);
     playerAnim.clipW = playerAnim.anchorW + (playerAnim.screenWidth - playerAnim.anchorW) * p;
     playerAnim.clipH = playerAnim.anchorH + (playerAnim.screenHeight - playerAnim.anchorH) * p;
-    playerAnim.clipR = playerAnim.anchorH / 2 * (1 - p);
+    playerAnim.clipR = playerAnim.anchorR * (1 - p);
     // 迷你条：前 30% 淡出
     playerAnim.miniBarOpacity = Math.max(0, 1 - p / PROGRESS_30);
     // 播放页：0~5% 淡至半透明，5~30% 淡至全透
@@ -450,7 +453,7 @@ export class PlayerExpandAnimController {
     playerAnim.clipY = playerAnim.anchorY;
     playerAnim.clipW = playerAnim.anchorW;
     playerAnim.clipH = playerAnim.anchorH;
-    playerAnim.clipR = playerAnim.anchorH / 2;
+    playerAnim.clipR = playerAnim.anchorR;
     if (playerAnim.onCollapsed !== null) {
       playerAnim.onCollapsed();
     }

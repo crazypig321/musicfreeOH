@@ -84,6 +84,9 @@ class AppState{
   @Trace topRect: number = 0;
   // 底部避让
   @Trace bottomRect: number = 0;
+  // PC 自由窗口右上角系统三键区（最小化/最大化/关闭）避让宽度（vp；0 = 非自由窗口/无三键）
+  // 标题栏经 setWindowDecorVisible(false) 隐藏后三键下沉到页面内，PcTitleBar 右侧需避让
+  @Trace decorButtonWidth: number = 0;
 
   // 横断点
   @Trace WidthBp: number = 0;

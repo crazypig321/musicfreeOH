@@ -1061,8 +1061,8 @@ export struct PlayerPage {
     .padding({
       left: 32,
       right: 32,
-      top: appState.topRect + 4,
-      bottom: appState.bottomRect
+      top: useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 6 : appState.topRect + 4,
+      bottom: useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 32 : appState.bottomRect
     })
   }
 
@@ -1166,6 +1166,7 @@ export struct PlayerPage {
       .layoutWeight(1)
       .justifyContent(FlexAlign.End)
       .alignItems(VerticalAlign.Center)
+      .padding({ right: useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? '11.5%' : 0 })
     }
     .width('100%')
     .height(32)

@@ -214,12 +214,12 @@ export struct PcPlayerBar {
       PlayerExpandAnimController.expand(
         ui.px2vp(cover.windowOffset.x), ui.px2vp(cover.windowOffset.y), ui.px2vp(cover.size.width),
         ui.px2vp(root.windowOffset.x), ui.px2vp(root.windowOffset.y),
-        ui.px2vp(root.size.width), ui.px2vp(root.size.height), this.myId);
+        ui.px2vp(root.size.width), ui.px2vp(root.size.height), 0, this.myId);
     } catch (error) {
       // 测量失败：用 onAreaChange 捕获的布局位置作兜底锚点
       PlayerExpandAnimController.expand(
         this.barX, this.barY + (this.barH - 44) / 2, 44,
-        this.barX, this.barY, this.barW, this.barH, this.myId);
+        this.barX, this.barY, this.barW, this.barH, 0, this.myId);
     }
   }
 

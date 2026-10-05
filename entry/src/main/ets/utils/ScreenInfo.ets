@@ -12,6 +12,26 @@ class ScreenInfo{
         const win = await windowStage.getMainWindow();
         const windowClass: window.Window = windowStage.getMainWindowSync();
         await windowClass.setWindowLayoutFullScreen(true);
+        // PC/平板自由窗口：隐藏系统标题栏，页面扩展至标题栏区域，右上角仅保留系统三键（下沉到页面内），
+        // 与 PcTitleBar 合并为一条横栏；读取三键区宽度供 PcTitleBar 右侧避让
+        try {
+          windowClass.setWindowDecorVisible(false);
+        } catch (e) {
+          // 手机/全屏等无标题栏形态不支持（801），忽略
+        }
+        try {
+          const buttonRect = windowClass.getTitleButtonRect();
+          appState.decorButtonWidth = buttonRect.right + buttonRect.width;
+        } catch (e) {
+          appState.decorButtonWidth = 0;
+        }
+        try {
+          windowClass.on('windowTitleButtonRectChange', (rect: window.TitleButtonRect) => {
+            appState.decorButtonWidth = rect.right + rect.width;
+          });
+        } catch (e) {
+          // 不支持窗口三键区的设备忽略
+        }
         if (win) {
           appState.topRect = ContextHolder.getUiContext().px2vp(win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height)
           appState.bottomRect = ContextHolder.getUiContext().px2vp(win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR).bottomRect.height)
