@@ -8,6 +8,7 @@
   <a href="https://www.gnu.org/licenses/agpl-3.0.html"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
   <a href="https://www.harmonyos.com/"><img src="https://img.shields.io/badge/Platform-HarmonyOS-green.svg" alt="Platform: HarmonyOS"></a>
   <a href="https://developer.huawei.com/consumer/cn/arkts/"><img src="https://img.shields.io/badge/Language-ArkTS-orange.svg" alt="Language: ArkTS"></a>
+  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/升级日志-Changelog-blue.svg" alt="Changelog"></a>
 </p>
 
 ---

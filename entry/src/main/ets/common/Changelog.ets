@@ -12,6 +12,17 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v290: ChangelogEntry = new ChangelogEntry();
+  v290.version = '2.9.0';
+  v290.date = '2026-10-05';
+  v290.markdown = '- 下载歌词时翻译一并保存为同名 .tran.lrc 文件，本地音乐重新扫描导入时自动恢复翻译显示；无翻译时自动清除旧翻译文件避免残留\n' +
+    '- 「匹配封面后写入音频文件」开启时，下载歌曲完成后自动把插件封面静默写入音频文件内嵌标签（后台执行，不拖慢下载）\n' +
+    '- 下载页 / 本地音乐的「移出列表」（单曲与批量）增加弹窗确认，明确提示文件保留规则，避免误触\n' +
+    '- 菜单、滑杆、搜索框等控件接入系统沉浸光感材质（API 26 及以上生效，低版本设备自动降级，不影响使用）\n' +
+    '- 关于页「检查更新」发现新版本时，条目右侧显示红点与「新版本」文案\n' +
+    '- 修复各页面双击标题栏滚回顶部时停位顶头的问题';
+  list.push(v290);
+
   const v280: ChangelogEntry = new ChangelogEntry();
   v280.version = '2.8.0';
   v280.date = '2026-10-04';
