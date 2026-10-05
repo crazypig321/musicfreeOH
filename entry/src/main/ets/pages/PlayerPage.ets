@@ -1186,8 +1186,8 @@ export struct PlayerPage {
         if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
           Image(ArtworkCache.resolve(this.currentMusic.artwork))
             .width(280)
-            .height(280)
-           // .sourceSize({ width: 280, height: 280 })
+            .aspectRatio(1)
+            .sourceSize({ width: 280, height: 280 })
             .borderRadius(24)
             .objectFit(ImageFit.Cover)
             .shadow({

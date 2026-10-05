@@ -1757,7 +1757,7 @@ export struct MySheetsPage {
           .width('50%')
           .height(26)
           .borderRadius(13)
-          .backgroundColor($r('sys.color.background_secondary'))
+          //.backgroundColor($r('sys.color.background_secondary'))
           // 位移必须用绝对值：'50%' 与 0 之间无法插值，animateTo 会瞬移；81 = 滑轨内宽 162 的一半
           .offset({ x: this.showSubscribed ? 81 : 0 })
           .attributeModifier(rowImmersiveModifier)
