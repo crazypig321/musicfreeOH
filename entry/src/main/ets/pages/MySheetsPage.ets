@@ -20,7 +20,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { JsonUtil } from '../utils/JsonUtil';
 import { DialogManager } from '../utils/DialogUtils';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
-import { showUiToast, rowImmersiveModifier, stackImmersiveModifier } from '../utils/UiUtils';
+import { showUiToast, rowImmersiveModifier, stackImmersiveModifier, thickImmersiveMaterial } from '../utils/UiUtils';
 
 /** 添加菜单锚点 id（openMenu 在锚点处弹出） */
 const ADD_ANCHOR_ID = 'mysheets_add_anchor';
@@ -563,7 +563,8 @@ export struct MySheetsPage {
       });
     };
     MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [sortItem, batchItem, introItem], {
-      placement: Placement.BottomRight
+      placement: Placement.BottomRight,
+      systemMaterial: thickImmersiveMaterial()
     });
   }
 
@@ -594,7 +595,8 @@ export struct MySheetsPage {
       });
     };
     MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [sortItem, batchItem, introItem], {
-      placement: Placement.BottomRight
+      placement: Placement.BottomRight,
+      systemMaterial: thickImmersiveMaterial()
     });
   }
 
@@ -642,7 +644,8 @@ export struct MySheetsPage {
       });
     };
     MenuUtils.Open(this.getUIContext(), ADD_ANCHOR_ID, [newItem, importSheetItem, importMusicItem], {
-      placement: Placement.BottomRight
+      placement: Placement.BottomRight,
+      systemMaterial: thickImmersiveMaterial()
     });
   }
 

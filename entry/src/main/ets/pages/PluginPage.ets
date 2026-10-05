@@ -25,7 +25,7 @@ import { DialogManager, PluginVarField } from '../utils/DialogUtils';
 import { PluginImport } from '../plugin/PluginImport';
 import { Subscriptions } from '../plugin/Subscriptions';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
-import { showUiToast } from '../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial } from '../utils/UiUtils';
 
 interface PluginRow {
   name: string;
@@ -918,7 +918,8 @@ export struct PluginPage {
       });
     };
     MenuUtils.Open(this.getUIContext(), ADD_ANCHOR_ID, [netItem, localItem], {
-      placement: Placement.BottomRight
+      placement: Placement.BottomRight,
+      systemMaterial: thickImmersiveMaterial()
     });
   }
 
@@ -956,7 +957,8 @@ export struct PluginPage {
       });
     };
     MenuUtils.Open(this.getUIContext(), MORE_ANCHOR_ID, [updateItem, sortItem, syncSubItem, batchItem], {
-      placement: Placement.BottomRight
+      placement: Placement.BottomRight,
+      systemMaterial: thickImmersiveMaterial()
     });
   }
 

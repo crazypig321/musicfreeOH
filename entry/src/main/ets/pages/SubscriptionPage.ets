@@ -16,7 +16,7 @@ import { Subscriptions } from '../plugin/Subscriptions';
 import { PluginImport } from '../plugin/PluginImport';
 import { DialogManager } from '../utils/DialogUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
-import { showUiToast } from '../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial } from '../utils/UiUtils';
 
 /** 导入菜单锚点（标题栏下方右上角） */
 const IMPORT_ANCHOR_ID = 'subscription_import_anchor';
@@ -279,7 +279,8 @@ export struct SubscriptionPage {
       this.pickLocalFiles();
     };
     MenuUtils.Open(this.getUIContext(), IMPORT_ANCHOR_ID, [netItem, localItem], {
-      placement: Placement.BottomRight
+      placement: Placement.BottomRight,
+      systemMaterial: thickImmersiveMaterial()
     });
   }
 

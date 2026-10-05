@@ -10,7 +10,7 @@ import { PluginAbility } from '../common/Consts';
 import { MenuItemParams, ListLoadingRow, ListEndRow } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { NavPathUtils } from '../utils/NavPathUtils';
-import { showUiToast } from '../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial } from '../utils/UiUtils';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
 import { sheetGridColumns } from '../utils/BreakpointUtils';
@@ -156,7 +156,8 @@ export struct RecommendSheetsPage {
     }
     MenuUtils.Open(this.getUIContext(), RECOMMEND_MENU_ANCHOR_ID, items, {
       placement: Placement.BottomRight,
-      offset: { x: 0, y: -45 }
+      offset: { x: 0, y: -45 },
+      systemMaterial: thickImmersiveMaterial()
     });
   }
 

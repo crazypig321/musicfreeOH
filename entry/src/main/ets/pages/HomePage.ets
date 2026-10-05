@@ -21,7 +21,7 @@ import { localMusicSheet } from '../core/LocalMusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 import { MenuUtils } from '../utils/MenuUtils';
 import { sheetGridColumns, useSidebarLayout } from '../utils/BreakpointUtils';
-import { showUiToast } from '../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial } from '../utils/UiUtils';
 
 // ---------- 常量 ----------
 const TOP_LIST_MAX_GROUPS = 3;                 // 榜单最多展示的分组数
@@ -417,7 +417,8 @@ export struct HomePage{
     }
     MenuUtils.Open(this.getUIContext(), HOME_MENU_ANCHOR_ID, items, {
       placement: Placement.BottomRight,
-      offset: { x: 0, y: -45 }
+      offset: { x: 0, y: -45 },
+      systemMaterial: thickImmersiveMaterial()
     });
   }
 
