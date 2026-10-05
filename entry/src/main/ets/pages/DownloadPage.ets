@@ -652,18 +652,23 @@ export struct DownloadPage {
     });
   }
 
-  /** 移出列表（仅移除记录，保留文件）；本地模式下文件保留但不再被扫描导入 */
+  /** 移出列表（仅移除记录，保留文件）；弹窗确认，取消不移出；
+   * 本地模式下文件保留但不再被扫描导入 */
   private removeFromSheet(): void {
     const target = this.optionsItem;
     this.showOptions = false;
     if (this.isLocalMode) {
-      LocalMusicExclusion.excludeItem(target);
-      localMusicSheet.removeMusic(target, false).then((): void => {
-        this.showToast('已移出本地音乐');
+      DialogManager.ConfirmRemove('确定将「' + target.title + '」移出本地音乐列表吗？文件将保留在设备上，且不再被自动导入', (): void => {
+        LocalMusicExclusion.excludeItem(target);
+        localMusicSheet.removeMusic(target, false).then((): void => {
+          this.showToast('已移出本地音乐');
+        });
       });
     } else {
-      downloadedSheet.removeMusic(target, false).then((): void => {
-        this.showToast('已移出下载列表');
+      DialogManager.ConfirmRemove('确定将「' + target.title + '」移出下载列表吗？仅移除记录，已下载文件保留', (): void => {
+        downloadedSheet.removeMusic(target, false).then((): void => {
+          this.showToast('已移出下载列表');
+        });
       });
     }
   }
@@ -1583,7 +1588,7 @@ export struct DownloadPage {
       });
   }
 
-  /** 批量移出列表 / 删除歌曲文件（按当前批量范围）；删除文件时弹窗确认（取消不删除）；
+  /** 批量移出列表 / 删除歌曲文件（按当前批量范围）；两者均弹窗确认（取消不执行）；
    * 本地模式移出时写入排除名单防止扫描复活 */
   private batchRemove(withFile: boolean): Promise<void> {
     // 任务区：勾选任务全部取消下载
@@ -1617,7 +1622,10 @@ export struct DownloadPage {
       });
       return Promise.resolve();
     }
-    this.doBatchRemove(items, false);
+    DialogManager.ConfirmRemove('确定移出选中的 ' + items.length.toString() + ' 首歌曲吗？' +
+      (this.isLocalMode ? '文件将保留在设备上，且不再被自动导入' : '仅移除记录，已下载文件保留'), (): void => {
+      this.doBatchRemove(items, false);
+    });
     return Promise.resolve();
   }
 

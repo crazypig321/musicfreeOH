@@ -236,7 +236,7 @@ export struct MusicOptionsSheet {
       (): void => { this.copyText(this.displayItem.album, '专辑'); }, this.displayItem.album, true));
     if (isLocalExisting) {
       // 本地音乐/已下载条目：显示实际文件名，点击弹窗确认后转换为简洁命名
-      items.push(new OptionEntry($r('sys.symbol.doc_plaintext'), '本地文件名',
+      items.push(new OptionEntry($r('sys.symbol.save'), '本地文件名',
         (): void => { this.confirmSimpleRename(); }, this.localFileNameText()));
       // 文件可写（非媒体库条目）且未在播放：显示标签编辑入口，修改写回音频文件
       if (TagEditor.canEdit(this.displayItem)) {
@@ -666,13 +666,16 @@ export struct MusicOptionsSheet {
     });
   }
 
-  /** 移出本地音乐列表（保留文件；写入排除名单防止扫描复活）；仅本地音乐列表面板显示 */
+  /** 移出本地音乐列表（保留文件；写入排除名单防止扫描复活）；弹窗确认，取消不移出；
+   *  仅本地音乐列表面板显示 */
   private removeFromLocalMusic(): void {
     const target = this.displayItem;
     this.onClose();
-    LocalMusicExclusion.excludeItem(target);
-    localMusicSheet.removeMusic(target, false).then((): void => {
-      this.showToast('已移出本地音乐');
+    DialogManager.ConfirmRemove('确定将「' + target.title + '」移出本地音乐列表吗？文件将保留在设备上，且不再被自动导入', (): void => {
+      LocalMusicExclusion.excludeItem(target);
+      localMusicSheet.removeMusic(target, false).then((): void => {
+        this.showToast('已移出本地音乐');
+      });
     });
   }
 

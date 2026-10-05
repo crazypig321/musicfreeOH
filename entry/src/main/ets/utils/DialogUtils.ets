@@ -156,6 +156,13 @@ export class DialogManager {
     DialogManager.OpenDialog('确认删除');
   }
 
+  /** 通用移出确认弹窗：message 提示文案，onConfirm 点击「移出」后才执行（取消不执行） */
+  public static ConfirmRemove(message: string, onConfirm: () => void): void {
+    DialogManager.confirmMessage = message;
+    DialogManager.confirmCallback = onConfirm;
+    DialogManager.OpenDialog('确认移出');
+  }
+
   /** 通用导入确认弹窗：message 提示文案，onConfirm 点击「导入」后才执行（取消不执行） */
   public static ConfirmImport(message: string, onConfirm: () => void): void {
     DialogManager.confirmMessage = message;
@@ -278,6 +285,8 @@ export class DialogManager {
         return '导入歌单';
       case '确认删除':
         return '删除';
+      case '确认移出':
+        return '移出';
       case '发现新版本':
         return '发现新版本';
       case '免责声明':
@@ -591,6 +600,7 @@ export class DialogManager {
       }
       case '清除缓存':
       case '确认删除':
+      case '确认移出':
       case '确认导入':
       case '发现新版本': {
         const cancel: ButtonOptions = {
@@ -704,6 +714,7 @@ export class DialogManager {
       case '清除缓存':
       case '确认导入':
       case '确认删除':
+      case '确认移出':
       case '发现新版本':
         if (DialogManager.confirmCallback !== null) {
           DialogManager.confirmCallback();
@@ -808,7 +819,7 @@ export class DialogManager {
       DialogManager.cacheInputConfirm = null;
     }
     // 四个通用确认弹窗同理（取消或关闭弹窗不触发确认回调）
-    if (key === '清除缓存' || key === '确认删除' || key === '确认导入' ||
+    if (key === '清除缓存' || key === '确认删除' || key === '确认移出' || key === '确认导入' ||
       key === '发现新版本') {
       DialogManager.confirmMessage = '';
       DialogManager.confirmCallback = null;
@@ -835,10 +846,13 @@ export class DialogManager {
     }
   }
 
-  /** 通用确认弹窗（清除缓存/确认删除/确认导入/发现新版本）的确认按钮文案 */
+  /** 通用确认弹窗（清除缓存/确认删除/确认移出/确认导入/发现新版本）的确认按钮文案 */
   private static confirmLabelOf(key: string): string {
     if (key === '确认删除') {
       return '删除';
+    }
+    if (key === '确认移出') {
+      return '移出';
     }
     if (key === '确认导入') {
       return '导入';
