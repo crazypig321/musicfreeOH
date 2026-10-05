@@ -139,12 +139,12 @@ export struct CommonNav{
         scrollEffectOpts: {
           enableScrollEffect: true,
           scrollEffectType: ScrollEffectType.IMMERSIVE_GRADIENT_BLUR, // 设置模糊类型
-         // blurEffectiveStartOffset: LengthMetrics.vp(0), // 动态样式线性过渡的起始位置
-         // blurEffectiveEndOffset: LengthMetrics.vp(80) // 动态样式线性过渡的终点位置
+          blurEffectiveStartOffset: LengthMetrics.vp(0), // 动态样式线性过渡的起始位置
+          blurEffectiveEndOffset: LengthMetrics.vp(80), // 动态样式线性过渡的终点位置
         },
         blurStrategy: BlurStrategy.ADAPTIVE,
         originalStyle: {
-          backgroundStyle: { backgroundColor: '#00ffffff', maskExtraHeight: 0, blurRadius: 50 },
+          backgroundStyle: { backgroundColor: '#00ffffff', maskExtraHeight: 0, blurRadius: 30 },
           contentStyle: {
             // 深浅模式切换时由 themeUtils 触发重渲染（HDS 不会自动刷新系统色）
             titleStyle: { mainTitleColor: themeUtils.textColor, subTitleColor: themeUtils.terTextColor },
@@ -157,7 +157,7 @@ export struct CommonNav{
             }
           },
         },
-        scrollEffectStyle: { backgroundStyle: { backgroundColor: '#19ffffff', maskExtraHeight: 0, blurRadius: 80 } },
+        scrollEffectStyle: { backgroundStyle: { backgroundColor: '#00ffffff', maskExtraHeight: 0, blurRadius: 30 } },
         systemMaterialEffect: {
           materialType: appState.materialType,
           materialLevel: appState.materialLevel
