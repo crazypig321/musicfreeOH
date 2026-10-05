@@ -3,7 +3,7 @@ import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
 import { ShareUtils } from '../utils/ShareUtils';
 import { CommonNav, titleBarOf } from '../view/CommonNav';
-import { CommonBlur, MenuItemParams } from '../view/CommonCom';
+import { CommonBlur, MenuItemParams, EmptyStateBlock } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
@@ -16,9 +16,19 @@ import { Subscriptions } from '../plugin/Subscriptions';
 import { PluginImport } from '../plugin/PluginImport';
 import { DialogManager } from '../utils/DialogUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
+import { showUiToast } from '../utils/UiUtils';
 
 /** 导入菜单锚点（标题栏下方右上角） */
 const IMPORT_ANCHOR_ID = 'subscription_import_anchor';
+
+/** 订阅源详情弹窗行项配置（结构同 PluginPage 的 DetailRow） */
+interface SubDetailRow {
+  icon: Resource
+  title: string
+  onClick: () => void
+  /** 尾部 URL/文件名文本（分享源行） */
+  trailingUrl?: string
+}
 
 /**
  * 订阅源页面：管理聚合插件地址（.json 为插件列表，.js 为单个插件）
@@ -73,11 +83,7 @@ export struct SubscriptionPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 订阅源标题：自定义名称优先，否则取 URL 最后一段文件名（去掉查询参数） */
@@ -636,22 +642,9 @@ export struct SubscriptionPage {
           } else {
             // 空态（UI 同本地音乐页空态：图标 + 标题 + 说明）
             ListItem() {
-              Column({ space: 8 }) {
-                SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
-                  .fontSize(44)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-                Text('暂无订阅源')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-                Text('订阅源是聚合插件地址：.json 为插件列表，.js 为单个插件。点击右上角「导入」添加。')
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .textAlign(TextAlign.Center)
-                  .padding({ left: 32, right: 32 })
-              }
-              .width('100%')
-              .margin({ top: 48 })
-              .alignItems(HorizontalAlign.Center)
+              EmptyStateBlock({ icon: $r('sys.symbol.dot_radiowaves_left_and_right'), message: '暂无订阅源',
+                hint: '订阅源是聚合插件地址：.json 为插件列表，.js 为单个插件。点击右上角「导入」添加。',
+                topMargin: 48 })
             }
           }
         }
@@ -896,6 +889,52 @@ export struct SubscriptionPage {
     .alignItems(HorizontalAlign.Start)
   }
 
+  /** 详情-操作分组行（数据驱动） */
+  private detailActionRows(): SubDetailRow[] {
+    return [
+      { icon: $r('sys.symbol.arrow_clockwise'), title: '更新订阅源',
+        onClick: (): void => { this.updateFromSheet(); } },
+      { icon: $r('sys.symbol.square_and_pencil'), title: '重命名',
+        onClick: (): void => { this.startRename(); } },
+      { icon: $r('sys.symbol.share'),
+        title: SubscriptionPage.isLocalSource(this.detailUrl) ? '分享源文件' : '分享源地址',
+        trailingUrl: SubscriptionPage.isLocalSource(this.detailUrl) ?
+          SubscriptionPage.sourceTitle(this.detailUrl) : this.detailUrl,
+        onClick: (): void => { this.shareDetailUrl(); } },
+      { icon: $r('sys.symbol.square_and_arrow_down'), title: '导出订阅源',
+        onClick: (): void => { this.exportDetailFile(); } },
+      { icon: $r('sys.symbol.trash'), title: '删除订阅源',
+        onClick: (): void => { this.removeDetailSource(); } }
+    ];
+  }
+
+  @Builder
+  DetailActionRowItem(row: SubDetailRow) {
+    Row({ space: 12 }) {
+      SymbolGlyph(row.icon)
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_secondary')])
+      Text(row.title)
+        .fontSize(15)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+      if (row.trailingUrl !== undefined && row.trailingUrl.length > 0) {
+        Text(row.trailingUrl)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .constraintSize({ maxWidth: '45%' })
+      }
+    }
+    .width('100%')
+    .height(48)
+    .padding({ left: 16, right: 16 })
+    .onClick(() => {
+      row.onClick();
+    })
+  }
+
   /** 订阅源详情半模态（UI 参考插件详情） */
   @Builder
   DetailSheetBuilder() {
@@ -925,100 +964,13 @@ export struct SubscriptionPage {
         .width('100%')
         .margin({ top: 8, bottom: 6 })
       Column() {
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('更新订阅源')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.updateFromSheet();
-        })
-
-        Divider()
-          .DividerStyle()
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.square_and_pencil'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('重命名')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.startRename();
-        })
-
-        Divider()
-          .DividerStyle()
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.share'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text(SubscriptionPage.isLocalSource(this.detailUrl) ? '分享源文件' : '分享源地址')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-          Text(SubscriptionPage.isLocalSource(this.detailUrl)
-            ? SubscriptionPage.sourceTitle(this.detailUrl) : this.detailUrl)
-            .fontSize(11)
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .constraintSize({ maxWidth: '45%' })
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.shareDetailUrl();
-        })
-
-        Divider()
-          .DividerStyle()
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.square_and_arrow_down'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('导出订阅源')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.exportDetailFile();
-        })
-
-        Divider()
-          .DividerStyle()
-        Row({ space: 12 }) {
-          SymbolGlyph($r('sys.symbol.trash'))
-            .fontSize(20)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('删除订阅源')
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .onClick(() => {
-          this.removeDetailSource();
-        })
+        ForEach(this.detailActionRows(), (row: SubDetailRow, index: number) => {
+          if (index > 0) {
+            Divider()
+              .DividerStyle()
+          }
+          this.DetailActionRowItem(row)
+        }, (row: SubDetailRow, index: number) => row.title + '_' + index.toString())
       }
       .width('100%')
       .borderRadius(16)

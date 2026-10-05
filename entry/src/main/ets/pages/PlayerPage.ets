@@ -37,6 +37,7 @@ import { EqualizerManager } from '../core/EqualizerManager';
 import { AudioEnhanceManager, AudioEnhanceState } from '../audioenhance/AudioEnhanceManager';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 import { CommonBlur } from '../view/CommonCom';
+import { showUiToast, formatDuration } from '../utils/UiUtils';
 import { hdsEffect } from '@kit.UIDesignKit';
 
 /** 歌词字体大小档位标签与缩放（下标对应 appConfig lyric.fontSize） */
@@ -55,6 +56,27 @@ class LyricAction {
     this.label = label;
     this.onTap = onTap;
     this.highlight = highlight;
+  }
+}
+
+/** 播放页底部功能按钮描述（图标/颜色随状态实时计算，ForEach 数据源） */
+class BottomAction {
+  icon: Resource;
+  label: string;
+  iconColor: ResourceColor;
+  textColor: ResourceColor;
+  /** 状态标记（拼入 ForEach key，状态翻转时强制重建节点以刷新配色） */
+  stateKey: string;
+  onTap: () => void;
+
+  constructor(icon: Resource, label: string, iconColor: ResourceColor, textColor: ResourceColor,
+    onTap: () => void, stateKey: string = '') {
+    this.icon = icon;
+    this.label = label;
+    this.iconColor = iconColor;
+    this.textColor = textColor;
+    this.onTap = onTap;
+    this.stateKey = stateKey;
   }
 }
 
@@ -318,9 +340,36 @@ export struct PlayerPage {
     return idx >= 0 && idx < LYRIC_FONT_SCALES.length ? LYRIC_FONT_SCALES[idx] : 1;
   }
 
+  /** 底部功能按钮列表（投播为系统 AVCastPicker，不在数据源内） */
+  private bottomActionItems(): Array<BottomAction> {
+    const items: Array<BottomAction> = [];
+    items.push(new BottomAction(
+      this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'), '收藏',
+      this.isFavorited ? '#E84026' : $r('sys.color.icon_secondary'),
+      this.isFavorited ? '#E84026' : $r('sys.color.font_secondary'),
+      (): void => { this.toggleFavorite(); },
+      this.isFavorited ? '_on' : '_off'));
+    items.push(new BottomAction($r('sys.symbol.square_and_arrow_down'), '下载',
+      $r('sys.color.icon_secondary'), $r('sys.color.font_secondary'),
+      (): void => { this.downloadCurrent(); }));
+    items.push(new BottomAction($r('sys.symbol.message'), '评论',
+      this.canComment() ? $r('sys.color.icon_secondary') : $r('sys.color.icon_tertiary'),
+      this.canComment() ? $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'),
+      (): void => { this.openComments(); },
+      this.canComment() ? '_on' : '_off'));
+    items.push(new BottomAction($r('sys.symbol.waveform_headphones'), 'EQ',
+      this.eqOn ? appState.accentColor : $r('sys.color.icon_secondary'),
+      this.eqOn ? appState.accentColor : $r('sys.color.font_secondary'),
+      (): void => { this.showEqSheet = true; },
+      this.eqOn ? '_on' : '_off'));
+    items.push(new BottomAction($r('sys.symbol.ellipsis_circle'), '更多',
+      $r('sys.color.icon_secondary'), $r('sys.color.font_secondary'),
+      (): void => { this.showMore = true; }));
+    return items;
+  }
+
   /** 歌词模式底部操作按钮列表 */
-  private lyricActionItems(): Array<LyricAction> {
-    const items: Array<LyricAction> = [];
+  private lyricActionItems(): Array<LyricAction> {    const items: Array<LyricAction> = [];
     items.push(new LyricAction($r('sys.symbol.clock'), '时间偏移', (): void => {
       this.showLyricOffsetMenu();
     }));
@@ -765,21 +814,8 @@ export struct PlayerPage {
       (day < 10 ? '0' + day.toString() : day.toString());
   }
 
-  private static formatDuration(sec: number): string {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    const mStr = m < 10 ? '0' + m.toString() : m.toString();
-    const rStr = r < 10 ? '0' + r.toString() : r.toString();
-    return mStr + ':' + rStr;
-  }
-
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 当前歌曲是否本地音乐/已下载（决定封面右下角是否显示「选择封面」入口） */
@@ -1393,7 +1429,7 @@ export struct PlayerPage {
           });
         })
       Row() {
-        Text(PlayerPage.formatDuration(this.currentPosition))
+        Text(formatDuration(this.currentPosition))
           .fontSize(11)
           .fontColor($r('sys.color.font_tertiary'))
         // 音质入口（时间行中间：纯文本，无图标、无下方文本；音质 + 音频格式）
@@ -1412,7 +1448,7 @@ export struct PlayerPage {
           .onClick(() => {
             this.showQualityMenu();
           })
-        Text(this.duration > 0 ? PlayerPage.formatDuration(this.duration) : '--:--')
+        Text(this.duration > 0 ? formatDuration(this.duration) : '--:--')
           .fontSize(11)
           .fontColor($r('sys.color.font_tertiary'))
       }
@@ -1504,76 +1540,20 @@ export struct PlayerPage {
       }
       .alignItems(HorizontalAlign.Center)
 
-      Column({ space: Math.max(3, Math.round(5 * s)) }) {
-        SymbolGlyph(this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
-          .fontSize(Math.max(20, Math.round(24 * s)))
-          .fontColor([this.isFavorited ?
-            '#E84026' : $r('sys.color.icon_secondary')])
-        Text('收藏')
-          .fontSize(Math.max(9, Math.round(10 * s)))
-          .fontColor(this.isFavorited ?
-            '#E84026' : $r('sys.color.font_secondary'))
-      }
-      .alignItems(HorizontalAlign.Center)
-      .onClick(() => {
-        this.toggleFavorite();
-      })
-
-      Column({ space: Math.max(3, Math.round(5 * s)) }) {
-        SymbolGlyph($r('sys.symbol.square_and_arrow_down'))
-          .fontSize(Math.max(20, Math.round(24 * s)))
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('下载')
-          .fontSize(Math.max(9, Math.round(10 * s)))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .alignItems(HorizontalAlign.Center)
-      .onClick(() => {
-        this.downloadCurrent();
-      })
-
-      Column({ space: Math.max(3, Math.round(5 * s)) }) {
-        SymbolGlyph($r('sys.symbol.message'))
-          .fontSize(Math.max(20, Math.round(24 * s)))
-          .fontColor([this.canComment() ?
-            $r('sys.color.icon_secondary') : $r('sys.color.icon_tertiary')])
-        Text('评论')
-          .fontSize(Math.max(9, Math.round(10 * s)))
-          .fontColor(this.canComment() ?
-            $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
-      }
-      .alignItems(HorizontalAlign.Center)
-      .onClick(() => {
-        this.openComments();
-      })
-
-      Column({ space: Math.max(3, Math.round(5 * s)) }) {
-        SymbolGlyph($r('sys.symbol.waveform_headphones'))
-          .fontSize(Math.max(20, Math.round(24 * s)))
-          .fontColor([this.eqOn ?
-            appState.accentColor : $r('sys.color.icon_secondary')])
-        Text('EQ')
-          .fontSize(Math.max(9, Math.round(10 * s)))
-          .fontColor(this.eqOn ?
-            appState.accentColor : $r('sys.color.font_secondary'))
-      }
-      .alignItems(HorizontalAlign.Center)
-      .onClick(() => {
-        this.showEqSheet = true;
-      })
-
-      Column({ space: Math.max(3, Math.round(5 * s)) }) {
-        SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-          .fontSize(Math.max(20, Math.round(24 * s)))
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('更多')
-          .fontSize(Math.max(9, Math.round(10 * s)))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .alignItems(HorizontalAlign.Center)
-      .onClick(() => {
-        this.showMore = true;
-      })
+      ForEach(this.bottomActionItems(), (item: BottomAction) => {
+        Column({ space: Math.max(3, Math.round(5 * s)) }) {
+          SymbolGlyph(item.icon)
+            .fontSize(Math.max(20, Math.round(24 * s)))
+            .fontColor([item.iconColor])
+          Text(item.label)
+            .fontSize(Math.max(9, Math.round(10 * s)))
+            .fontColor(item.textColor)
+        }
+        .alignItems(HorizontalAlign.Center)
+        .onClick(() => {
+          item.onTap();
+        })
+      }, (item: BottomAction) => item.label + item.stateKey)
     }
     .width('100%')
     .justifyContent(FlexAlign.SpaceBetween)

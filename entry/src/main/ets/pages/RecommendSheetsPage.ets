@@ -7,9 +7,10 @@ import { RecommendSheetNavParams, ROUTE_SHEET_DETAIL, SheetDetailNavParams } fro
 import { Plugin } from '../plugin/Plugin';
 import { pluginManager } from '../plugin/PluginManager';
 import { PluginAbility } from '../common/Consts';
-import { MenuItemParams } from '../view/CommonCom';
+import { MenuItemParams, ListLoadingRow, ListEndRow } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { NavPathUtils } from '../utils/NavPathUtils';
+import { showUiToast } from '../utils/UiUtils';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { appState } from '../entryability/AppState';
 import { sheetGridColumns } from '../utils/BreakpointUtils';
@@ -329,27 +330,11 @@ export struct RecommendSheetsPage {
         // 底部加载状态
         if (this.loading) {
           ListItem() {
-            Row({ space: 8 }) {
-              LoadingProgress()
-                .width(18)
-                .height(18)
-                .color(appState.accentColor)
-              Text('加载中...')
-                .fontSize(12)
-                .fontColor($r('sys.color.font_tertiary'))
-            }
-            .width('100%')
-            .height(48)
-            .justifyContent(FlexAlign.Center)
+            ListLoadingRow()
           }
         } else if (this.isEnd && this.sheets.length > 0) {
           ListItem() {
-            Text('没有更多了')
-              .fontSize(12)
-              .fontColor($r('sys.color.font_tertiary'))
-              .width('100%')
-              .textAlign(TextAlign.Center)
-              .padding({ top: 12, bottom: 12 })
+            ListEndRow()
           }
         }
       }
@@ -376,11 +361,7 @@ export struct RecommendSheetsPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 }
 

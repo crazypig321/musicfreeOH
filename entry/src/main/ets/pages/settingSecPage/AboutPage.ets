@@ -15,6 +15,7 @@ import { PathConst } from '../../common/PathConst';
 import { FileUtils } from '../../utils/FileUtils';
 import { ChangelogSheet } from '../../view/ChangelogSheet';
 import { UpdateChecker, ReleaseAsset } from '../../utils/UpdateChecker';
+import { showUiToast } from '../../utils/UiUtils';
 
 /** 仓库地址常量 */
 const REPO_OH: string = 'https://github.com/crazypig321/musicfreeOH.git';
@@ -188,11 +189,7 @@ export struct AboutPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 拉起系统浏览器打开网址 */

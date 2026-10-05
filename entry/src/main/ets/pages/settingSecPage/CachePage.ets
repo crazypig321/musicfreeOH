@@ -6,6 +6,7 @@ import { FileUtils } from '../../utils/FileUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { DialogManager } from '../../utils/DialogUtils';
 import { ArtworkCache } from '../../utils/ArtworkCache';
+import { showUiToast } from '../../utils/UiUtils';
 
 /**
  * 缓存页面：音乐缓存上限 / 清除音乐缓存 / 清除图片缓存 / 清除歌词缓存 / 清除全部缓存 /
@@ -33,11 +34,7 @@ export struct CachePage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 重新统计各缓存目录大小 */

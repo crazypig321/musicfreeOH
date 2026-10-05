@@ -17,7 +17,8 @@ import { AlbumDataSource } from '../common/model/AlbumDataSource';
 import { ArtistDataSource } from '../common/model/ArtistDataSource';
 import { SheetDataSource } from '../common/model/SheetDataSource';
 import { appState } from '../entryability/AppState';
-import { CommonSearch } from '../view/CommonCom';
+import { CommonSearch, ListLoadingRow, ListEndRow } from '../view/CommonCom';
+import { showUiToast, formatDuration, formatArtistStats } from '../utils/UiUtils';
 import { KVStore } from '../infra/KVStore';
 import { JsonUtil } from '../utils/JsonUtil';
 import { BottomBuilderShowType } from '@kit.UIDesignKit';
@@ -160,11 +161,7 @@ export struct SearchPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 当前选中插件（选源下标 0 为「全部」，返回 null） */
@@ -557,15 +554,6 @@ export struct SearchPage {
     this.showOptions = true;
   }
 
-  private static formatDuration(sec: number): string {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    const mStr = m < 10 ? '0' + m.toString() : m.toString();
-    const rStr = r < 10 ? '0' + r.toString() : r.toString();
-    return mStr + ':' + rStr;
-  }
-
   build() {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.search_title'), undefined, undefined,
@@ -629,27 +617,11 @@ export struct SearchPage {
         }
         if (this.loadingMore) {
           ListItem() {
-            Row({ space: 8 }) {
-              LoadingProgress()
-                .width(18)
-                .height(18)
-                .color(appState.accentColor)
-              Text('加载中...')
-                .fontSize(12)
-                .fontColor($r('sys.color.font_tertiary'))
-            }
-            .width('100%')
-            .height(48)
-            .justifyContent(FlexAlign.Center)
+            ListLoadingRow()
           }
         } else if (this.isEnd && this.resultCount > 0) {
           ListItem() {
-            Text('没有更多了')
-              .fontSize(12)
-              .fontColor($r('sys.color.font_tertiary'))
-              .width('100%')
-              .textAlign(TextAlign.Center)
-              .padding({ top: 12, bottom: 12 })
+            ListEndRow()
           }
         }
       }
@@ -787,15 +759,30 @@ export struct SearchPage {
     }
   }
 
+  /** 搜索结果行通用序号：前 3 名高亮 */
+  @Builder
+  RankIndex(index: number) {
+    Text((index + 1).toString())
+      .fontSize(14)
+      .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
+      .width(24)
+      .textAlign(TextAlign.Center)
+  }
+
+  /** 搜索结果行通用尾部分割线（条件由调用处以行内 if 控制，保证状态响应） */
+  @Builder
+  RowDivider(leftMargin: number) {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.comp_divider'))
+      .margin({ left: leftMargin })
+  }
+
   @Builder
   ResultRowBuilder(item: MusicItem, index: number) {
     Column() {
       Row({ space: 12 }) {
-        Text((index + 1).toString())
-          .fontSize(14)
-          .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
-          .width(24)
-          .textAlign(TextAlign.Center)
+        this.RankIndex(index)
         Column({ space: 2 }) {
           Text(item.title)
             .fontSize(15)
@@ -826,7 +813,7 @@ export struct SearchPage {
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
-        Text(SearchPage.formatDuration(item.duration))
+        Text(formatDuration(item.duration))
           .fontSize(12)
           .fontColor($r('sys.color.font_tertiary'))
         SymbolGlyph($r('sys.symbol.ellipsis_circle'))
@@ -843,10 +830,7 @@ export struct SearchPage {
         this.playResult(item);
       })
       if (index < this.resultCount - 1) {
-        Divider()
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-          .margin({ left: 33 })
+        this.RowDivider(33)
       }
     }
     .width('100%')
@@ -887,11 +871,7 @@ export struct SearchPage {
   AlbumRowBuilder(item: AlbumItem, index: number) {
     Column() {
       Row({ space: 12 }) {
-        Text((index + 1).toString())
-          .fontSize(14)
-          .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
-          .width(24)
-          .textAlign(TextAlign.Center)
+        this.RankIndex(index)
         Image(ArtworkCache.resolve(item.artwork))
           .width(48)
           .height(48)
@@ -922,10 +902,7 @@ export struct SearchPage {
         this.openAlbumDetail(item);
       })
       if (index < this.albumSource.totalCount() - 1) {
-        Divider()
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-          .margin({ left: 96 })
+        this.RowDivider(96)
       }
     }
     .width('100%')
@@ -939,11 +916,7 @@ export struct SearchPage {
   ArtistRowBuilder(item: ArtistItem, index: number) {
     Column() {
       Row({ space: 12 }) {
-        Text((index + 1).toString())
-          .fontSize(14)
-          .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
-          .width(24)
-          .textAlign(TextAlign.Center)
+        this.RankIndex(index)
         Image(ArtworkCache.resolve(item.avatar))
           .width(44)
           .height(44)
@@ -956,7 +929,7 @@ export struct SearchPage {
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(SearchPage.formatArtistSub(item))
+          Text(formatArtistStats(item))
             .fontSize(12)
             .fontColor($r('sys.color.font_tertiary'))
             .maxLines(1)
@@ -971,10 +944,7 @@ export struct SearchPage {
         this.openArtistDetail(item);
       })
       if (index < this.artistSource.totalCount() - 1) {
-        Divider()
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-          .margin({ left: 92 })
+        this.RowDivider(92)
       }
     }
     .width('100%')
@@ -988,11 +958,7 @@ export struct SearchPage {
   SheetRowBuilder(item: SheetItem, index: number) {
     Column() {
       Row({ space: 12 }) {
-        Text((index + 1).toString())
-          .fontSize(14)
-          .fontColor(index < 3 ? appState.accentColor : $r('sys.color.font_tertiary'))
-          .width(24)
-          .textAlign(TextAlign.Center)
+        this.RankIndex(index)
         Image(ArtworkCache.resolve(item.coverUrl()))
           .width(48)
           .height(48)
@@ -1023,28 +989,12 @@ export struct SearchPage {
         this.openSheetDetail(item);
       })
       if (index < this.sheetSource.totalCount() - 1) {
-        Divider()
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-          .margin({ left: 96 })
+        this.RowDivider(96)
       }
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
     // 标签切换时渐隐过渡
     .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Smooth }))
-  }
-
-  /** 歌手副文本：作品数 + 粉丝数 */
-  private static formatArtistSub(item: ArtistItem): string {
-    const parts: Array<string> = [];
-    if (item.worksNum > 0) {
-      parts.push(item.worksNum.toString() + '首歌曲');
-    }
-    if (item.fans > 0) {
-      parts.push(item.fans >= 10000 ?
-        (item.fans / 10000).toFixed(1) + '万粉丝' : item.fans.toString() + '粉丝');
-    }
-    return parts.join(' · ');
   }
 }

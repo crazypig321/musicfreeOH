@@ -25,6 +25,7 @@ import { DialogManager, PluginVarField } from '../utils/DialogUtils';
 import { PluginImport } from '../plugin/PluginImport';
 import { Subscriptions } from '../plugin/Subscriptions';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
+import { showUiToast } from '../utils/UiUtils';
 
 interface PluginRow {
   name: string;
@@ -771,11 +772,7 @@ export struct PluginPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 横滑操作（左滑呼出 分享/编辑/卸载）；批量模式与内置插件不提供 */

@@ -21,6 +21,7 @@ import { localMusicSheet } from '../core/LocalMusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 import { MenuUtils } from '../utils/MenuUtils';
 import { sheetGridColumns, useSidebarLayout } from '../utils/BreakpointUtils';
+import { showUiToast } from '../utils/UiUtils';
 
 // ---------- 常量 ----------
 const TOP_LIST_MAX_GROUPS = 3;                 // 榜单最多展示的分组数
@@ -322,11 +323,7 @@ export struct HomePage{
   // ==================== 交互 ====================
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 板块跳转：推荐歌单 → 推荐歌单页，本地音乐 → 本地音乐页 */

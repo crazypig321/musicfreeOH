@@ -31,6 +31,7 @@ import { ContextHolder } from '../common/ContextHolder';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortMenu, MusicSortUtil } from '../view/MusicSortMenu';
 import { BatchSheetPicker } from '../view/BatchSheetPicker';
+import { showUiToast, formatDuration } from '../utils/UiUtils';
 
 /**
  * 下载页面：上半部分为下载任务（等待/准备中/下载中/失败，带进度条），
@@ -128,11 +129,7 @@ export struct DownloadPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 刷新下载任务行（队列快照，键含进度以驱动重建；跳过已完成任务） */
@@ -1279,6 +1276,54 @@ export struct DownloadPage {
       })
   }
 
+  /** 列表分组标题行：标题 + 操作图标（智感握姿左手时图标镜像到行首，标题右靠） */
+  @Builder
+  GroupHeaderBuilder(title: string, isTask: boolean) {
+    Row({ space: 16 }) {
+      if (appState.holdingHand === 'left') {
+        if (isTask) {
+          this.TaskHeaderActionsBuilder()
+        } else {
+          this.DownloadedHeaderActionsBuilder()
+        }
+        Blank()
+        Text(title)
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+      } else {
+        Text(title)
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+        Blank()
+        if (isTask) {
+          this.TaskHeaderActionsBuilder()
+        } else {
+          this.DownloadedHeaderActionsBuilder()
+        }
+      }
+    }
+    .width('100%')
+    .margin({ top: 12, bottom: 4 })
+  }
+
+  /** 批量底栏第三行按钮（等宽铺满，与第一/二行按钮同款、字号 11） */
+  @Builder
+  BatchActionButton(label: string, onTap: () => void) {
+    Button(label)
+      .layoutWeight(1)
+      .height(36)
+      .fontSize(11)
+      .fontWeight(FontWeight.Medium)
+      .borderRadius(10)
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .fontColor($r('sys.color.font_primary'))
+      .onClick(() => {
+        onTap();
+      })
+  }
+
   /** 编辑标签：弹窗输入新名称（预填旧名），确认后重命名对应文件夹并同步两域记录 */
   private editTag(tag: string): void {
     DialogManager.downloadFolderValue = tag;
@@ -1745,15 +1790,6 @@ export struct DownloadPage {
     this.refreshTasks();
   }
 
-  private static formatDuration(sec: number): string {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    const mStr = m < 10 ? '0' + m.toString() : m.toString();
-    const rStr = r < 10 ? '0' + r.toString() : r.toString();
-    return mStr + ':' + rStr;
-  }
-
   // ---------- 滑动勾选（批量模式下横向滑动连续勾选划过的行，参考系统相册） ----------
 
   /** 任务行点击键 → 任务对象 */
@@ -1863,26 +1899,7 @@ export struct DownloadPage {
         // 下载任务分组（仅下载模式）
         if (!this.isLocalMode && this.taskRows.length > 0) {
           ListItem() {
-            // 智感握姿左手：操作图标镜像到行首（拇指可达），标题右对齐
-            Row({ space: 16 }) {
-              if (appState.holdingHand === 'left') {
-                this.TaskHeaderActionsBuilder()
-                Blank()
-                Text('下载中 · ' + this.taskRows.length.toString())
-                  .fontSize(14)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('sys.color.font_secondary'))
-              } else {
-                Text('下载中 · ' + this.taskRows.length.toString())
-                  .fontSize(14)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('sys.color.font_secondary'))
-                Blank()
-                this.TaskHeaderActionsBuilder()
-              }
-            }
-            .width('100%')
-            .margin({ top: 12, bottom: 4 })
+            this.GroupHeaderBuilder('下载中 · ' + this.taskRows.length.toString(), true)
           }
           ForEach(this.taskRows, (task: DownloadTaskInfo, index: number) => {
             ListItem() {
@@ -1897,26 +1914,7 @@ export struct DownloadPage {
         // 列表分组
         if (this.downloadedCount > 0) {
           ListItem() {
-            // 智感握姿左手：操作图标镜像到行首（拇指可达），标题右对齐
-            Row({ space: 16 }) {
-              if (appState.holdingHand === 'left') {
-                this.DownloadedHeaderActionsBuilder()
-                Blank()
-                Text((this.isLocalMode ? '本地音乐 · ' : '已下载 · ') + this.downloadedCount.toString())
-                  .fontSize(14)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('sys.color.font_secondary'))
-              } else {
-                Text((this.isLocalMode ? '本地音乐 · ' : '已下载 · ') + this.downloadedCount.toString())
-                  .fontSize(14)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('sys.color.font_secondary'))
-                Blank()
-                this.DownloadedHeaderActionsBuilder()
-              }
-            }
-            .width('100%')
-            .margin({ top: 12, bottom: 4 })
+            this.GroupHeaderBuilder((this.isLocalMode ? '本地音乐 · ' : '已下载 · ') + this.downloadedCount.toString(), false)
           }
           // 分组标签（已下载：全部 + 下载日期 + 来源歌单；本地音乐：全部 + 所在文件夹；
           // 样式同主页推荐歌单标签条）
@@ -1929,30 +1927,14 @@ export struct DownloadPage {
                       // 本地音乐文件夹标签：长按/右键呼出 编辑/删除 菜单
                       if (this.isLocalMode && tag !== '全部') {
                         Text(tag)
-                          .fontSize(13)
-                          .maxLines(1)
-                          .fontColor(this.selectedTag === tag ?
-                            $r('sys.color.font_on') : $r('sys.color.font_secondary'))
-                          .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-                          .borderRadius(16)
-                          .backgroundColor(this.selectedTag === tag ?
-                            $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
-                          .onClick(() => {
+                          .TagChipStyle(this.selectedTag === tag, () => {
                             this.selectTag(tag);
                           })
                           .bindContextMenu(this.TagContextMenuBuilder(tag), ResponseType.LongPress)
                           .bindContextMenu(this.TagContextMenuBuilder(tag), ResponseType.RightClick)
                       } else {
                         Text(tag)
-                          .fontSize(13)
-                          .maxLines(1)
-                          .fontColor(this.selectedTag === tag ?
-                            $r('sys.color.font_on') : $r('sys.color.font_secondary'))
-                          .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-                          .borderRadius(16)
-                          .backgroundColor(this.selectedTag === tag ?
-                            $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
-                          .onClick(() => {
+                          .TagChipStyle(this.selectedTag === tag, () => {
                             this.selectTag(tag);
                           })
                       }
@@ -1960,15 +1942,7 @@ export struct DownloadPage {
                   } else if (tagIndex === 8) {
                     ListItem() {
                       Text('更早')
-                        .fontSize(13)
-                        .maxLines(1)
-                        .fontColor(this.selectedTag === '更早' ?
-                          $r('sys.color.font_on') : $r('sys.color.font_secondary'))
-                        .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-                        .borderRadius(16)
-                        .backgroundColor(this.selectedTag === '更早' ?
-                          $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
-                        .onClick(() => {
+                        .TagChipStyle(this.selectedTag === '更早', () => {
                           this.selectTag('更早');
                         })
                     }
@@ -2169,28 +2143,12 @@ export struct DownloadPage {
             // 第三行：换源 / 重新下载（仅任务区批量模式）
             if (this.batchFailedRowVisible()) {
               Row({ space: 8 }) {
-                Button('换源')
-                  .layoutWeight(1)
-                  .height(36)
-                  .fontSize(11)
-                  .fontWeight(FontWeight.Medium)
-                  .borderRadius(10)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .fontColor($r('sys.color.font_primary'))
-                  .onClick(() => {
-                    this.batchChangeSource();
-                  })
-                Button('重新下载')
-                  .layoutWeight(1)
-                  .height(36)
-                  .fontSize(11)
-                  .fontWeight(FontWeight.Medium)
-                  .borderRadius(10)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .fontColor($r('sys.color.font_primary'))
-                  .onClick(() => {
-                    this.batchRedownload();
-                  })
+                this.BatchActionButton('换源', (): void => {
+                  this.batchChangeSource();
+                })
+                this.BatchActionButton('重新下载', (): void => {
+                  this.batchRedownload();
+                })
               }
               .width('100%')
             }
@@ -2198,17 +2156,9 @@ export struct DownloadPage {
             // 第三行：转换简洁命名（仅已下载区批量模式，下载页与本地音乐页通用）
             if (this.batchRenameRowVisible()) {
               Row({ space: 8 }) {
-                Button('转换简洁命名')
-                  .layoutWeight(1)
-                  .height(36)
-                  .fontSize(11)
-                  .fontWeight(FontWeight.Medium)
-                  .borderRadius(10)
-                  .backgroundColor($r('sys.color.comp_background_tertiary'))
-                  .fontColor($r('sys.color.font_primary'))
-                  .onClick(() => {
-                    this.confirmBatchRenameSimple();
-                  })
+                this.BatchActionButton('转换简洁命名', (): void => {
+                  this.confirmBatchRenameSimple();
+                })
               }
               .width('100%')
             }
@@ -2394,7 +2344,7 @@ export struct DownloadPage {
                 }
               })
           }
-          Text(DownloadPage.formatDuration(item.duration))
+          Text(formatDuration(item.duration))
             .fontSize(12)
             .fontColor($r('sys.color.font_tertiary'))
         }
@@ -2438,7 +2388,7 @@ export struct DownloadPage {
 
         // 右手：时长 + 更多按钮保持行尾原顺序
         if (appState.holdingHand !== 'left') {
-          Text(DownloadPage.formatDuration(item.duration))
+          Text(formatDuration(item.duration))
             .fontSize(12)
             .fontColor($r('sys.color.font_tertiary'))
           if (!appState.isBatchMode) {
@@ -2728,4 +2678,18 @@ function DividerStyle(){
   .strokeWidth(0.5)
   .color($r('sys.color.comp_divider'))
   .margin({ left: 48, right: 12 })
+}
+
+/** 分组标签 chip 通用样式（选中态反色），点击切换选中标签 */
+@Extend(Text)
+function TagChipStyle(isSelected: boolean, onTap: () => void) {
+  .fontSize(13)
+  .maxLines(1)
+  .fontColor(isSelected ? $r('sys.color.font_on') : $r('sys.color.font_secondary'))
+  .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+  .borderRadius(16)
+  .backgroundColor(isSelected ? $r('sys.color.font_secondary') : $r('sys.color.comp_background_tertiary'))
+  .onClick(() => {
+    onTap();
+  })
 }

@@ -6,6 +6,7 @@ import { QualityKey, QUALITY_KEYS } from '../../common/model/MediaTypes';
 import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 import { PathConst } from '../../common/PathConst';
 import { pasteboard } from '@kit.BasicServicesKit';
+import { showUiToast } from '../../utils/UiUtils';
 
 /**
  * 下载设置页面
@@ -54,9 +55,9 @@ export struct DownloadSettingPage {
   private copyDownloadPath(): void {
     const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, this.downloadPathText);
     pasteboard.getSystemPasteboard().setData(data).then((): void => {
-      this.getUIContext().getPromptAction().showToast({ message: '已复制下载路径', duration: 1500 });
+      showUiToast(this.getUIContext(), '已复制下载路径');
     }).catch((_e: Object): void => {
-      this.getUIContext().getPromptAction().showToast({ message: '复制失败', duration: 1500 });
+      showUiToast(this.getUIContext(), '复制失败');
     });
   }
 
@@ -92,6 +93,54 @@ export struct DownloadSettingPage {
   private menuPlacement(): Placement {
     return appConfig.getSmartReachEnabled() && appState.holdingHand === 'left'
       ? Placement.BottomLeft : Placement.BottomRight;
+  }
+
+  /** 菜单设置行：图标 + 文本 + 当前值 + 右箭头，点击弹出选项菜单；智感握姿左手时值与箭头镜像到行首 */
+  @Builder
+  MenuRowBuilder(icon: Resource, label: string, value: string, showMenu: boolean, menu: CustomBuilder,
+    onTap: () => void, onMenuDisappear: () => void) {
+    Row({ space: 12 }) {
+      if (appState.holdingHand === 'left') {
+        Text(value)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(14)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      if (appState.holdingHand !== 'left') {
+        SymbolGlyph(icon)
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      Text(label)
+        .fontSize(15)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+        .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+      if (appState.holdingHand !== 'left') {
+        Text(value)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(14)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      if (appState.holdingHand === 'left') {
+        SymbolGlyph(icon)
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+    }
+    .width('100%')
+    .height(52)
+    .onClick(() => {
+      onTap();
+    })
+    .bindMenu(showMenu, menu, {
+      placement: this.menuPlacement(),
+      onDisappear: onMenuDisappear
+    })
   }
 
   /** 下载音质菜单（UI 同外观设置页：勾选标记 + 分割线 + 圆角） */
@@ -263,197 +312,53 @@ export struct DownloadSettingPage {
                 .DividerStyle()
 
               // 下载音质
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Text(this.downloadQualityText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.hi_waveform_2'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('下载音质')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Text(this.downloadQualityText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.hi_waveform_2'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.showQualityMenu = true;
-              })
-              .bindMenu(this.showQualityMenu, this.qualityMenu, {
-                placement: this.menuPlacement(),
-                onDisappear: (): void => {
+              this.MenuRowBuilder($r('sys.symbol.hi_waveform_2'), '下载音质', this.downloadQualityText,
+                this.showQualityMenu, this.qualityMenu,
+                (): void => {
+                  this.showQualityMenu = true;
+                },
+                (): void => {
                   this.showQualityMenu = false;
-                }
-              })
+                })
 
               Divider()
                 .DividerStyle()
 
               // 首选音质不可用时
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Text(this.downloadQualityOrderText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.waveform_headphone_slash'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('首选音质不可用时')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Text(this.downloadQualityOrderText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.waveform_headphone_slash'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.showOrderMenu = true;
-              })
-              .bindMenu(this.showOrderMenu, this.orderMenu, {
-                placement: this.menuPlacement(),
-                onDisappear: (): void => {
+              this.MenuRowBuilder($r('sys.symbol.waveform_headphone_slash'), '首选音质不可用时', this.downloadQualityOrderText,
+                this.showOrderMenu, this.orderMenu,
+                (): void => {
+                  this.showOrderMenu = true;
+                },
+                (): void => {
                   this.showOrderMenu = false;
-                }
-              })
+                })
 
               Divider()
                 .DividerStyle()
 
               // 最大同时下载数
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Text(this.maxDownloadText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.square_stack_3d'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('最大同时下载数')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Text(this.maxDownloadText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.square_stack_3d'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.showMaxMenu = true;
-              })
-              .bindMenu(this.showMaxMenu, this.maxDownloadMenu, {
-                placement: this.menuPlacement(),
-                onDisappear: (): void => {
+              this.MenuRowBuilder($r('sys.symbol.square_stack_3d'), '最大同时下载数', this.maxDownloadText,
+                this.showMaxMenu, this.maxDownloadMenu,
+                (): void => {
+                  this.showMaxMenu = true;
+                },
+                (): void => {
                   this.showMaxMenu = false;
-                }
-              })
+                })
 
               Divider()
                 .DividerStyle()
 
               // 任务间隔
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Text(this.taskIntervalText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.timer'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('任务间隔')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Text(this.taskIntervalText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.timer'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.showIntervalMenu = true;
-              })
-              .bindMenu(this.showIntervalMenu, this.intervalMenu, {
-                placement: this.menuPlacement(),
-                onDisappear: (): void => {
+              this.MenuRowBuilder($r('sys.symbol.timer'), '任务间隔', this.taskIntervalText,
+                this.showIntervalMenu, this.intervalMenu,
+                (): void => {
+                  this.showIntervalMenu = true;
+                },
+                (): void => {
                   this.showIntervalMenu = false;
-                }
-              })
+                })
 
               Divider()
                 .DividerStyle()

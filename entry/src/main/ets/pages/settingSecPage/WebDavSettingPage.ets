@@ -5,6 +5,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { WebDav } from '../../core/WebDav';
 import { Backup } from '../../core/Backup';
 import { ResumeMode } from '../../common/Consts';
+import { showUiToast } from '../../utils/UiUtils';
 
 /**
  * WebDAV 备份与恢复页面
@@ -27,11 +28,7 @@ export struct WebDavSettingPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 备份到 WebDAV */

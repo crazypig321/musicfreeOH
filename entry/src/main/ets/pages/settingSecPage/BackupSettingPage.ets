@@ -10,6 +10,7 @@ import { NavPathUtils } from '../../utils/NavPathUtils';
 import { ROUTE_WEBDAV_SETTING } from '../../common/model/NavModels';
 import { Backup } from '../../core/Backup';
 import { ResumeMode } from '../../common/Consts';
+import { showUiToast } from '../../utils/UiUtils';
 
 /**
  * 备份与恢复设置页面
@@ -22,11 +23,7 @@ export struct BackupSettingPage {
   scroller: Scroller = new Scroller();
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 备份文件名时间戳（yyyyMMdd_HHmmss） */

@@ -18,6 +18,7 @@ import { trackPlayer } from './TrackPlayer';
 import { localMusicSheet } from './LocalMusicSheet';
 import { musicSheet, backupEntriesFromRecord } from './MusicSheet';
 import { LocalMusicExclusion } from './LocalMusicExclusion';
+import { showUiToast } from '../utils/UiUtils';
 import { MusicItem } from '../common/model/MediaTypes';
 import { ResumeMode, LOCAL_PLUGIN_PLATFORM, INTERNAL_SERIALIZE_KEY, SUPPORT_LOCAL_MEDIA_TYPE } from '../common/Consts';
 import { appState } from '../entryability/AppState';
@@ -435,10 +436,6 @@ export class ExternalOpen {
   }
 
   private static toast(message: string): void {
-    try {
-      ContextHolder.getUiContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (e) {
-      // UI 未就绪时静默
-    }
+    showUiToast(ContextHolder.getUiContext(), message);
   }
 }

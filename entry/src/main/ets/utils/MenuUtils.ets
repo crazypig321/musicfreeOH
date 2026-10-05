@@ -1,5 +1,6 @@
 import { ComponentContent, UIContext } from '@kit.ArkUI';
 import { MenuItemParams, MenuParams, commonMenuWrapped } from '../view/CommonCom';
+import { showUiToast } from './UiUtils';
 
 /**
  * openMenu 公共工具：封装下拉菜单的打开/关闭
@@ -38,11 +39,7 @@ export class MenuUtils {
           MenuUtils.content = null;
           MenuUtils.uiContext = null;
         }
-        try {
-          uiContext.getPromptAction().showToast({ message: '菜单弹出失败', duration: 1500 });
-        } catch (_err) {
-          // TODO: Implement error handling.
-        }
+        showUiToast(uiContext, '菜单弹出失败');
       });
   }
 

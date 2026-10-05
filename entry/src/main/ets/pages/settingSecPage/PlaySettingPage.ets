@@ -143,6 +143,92 @@ export struct PlaySettingPage {
     this.playQualityOrderText = PlaySettingPage.orderLabel(value);
   }
 
+  /** 开关设置行：图标 + 文本 + 开关；智感握姿左手时开关镜像到行首、文本右对齐、图标镜像到行尾 */
+  @Builder
+  ToggleRowBuilder(icon: Resource, label: string, isOn: boolean, onToggle: (isOn: boolean) => void) {
+    Row({ space: 12 }) {
+      if (appState.holdingHand === 'left') {
+        Toggle({ type: ToggleType.Switch, isOn: isOn })
+          .selectedColor(appState.accentColor)
+          .onChange((v: boolean) => {
+            onToggle(v);
+          })
+      }
+      if (appState.holdingHand !== 'left') {
+        SymbolGlyph(icon)
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      Text(label)
+        .fontSize(15)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+        .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+      if (appState.holdingHand !== 'left') {
+        Toggle({ type: ToggleType.Switch, isOn: isOn })
+          .selectedColor(appState.accentColor)
+          .onChange((v: boolean) => {
+            onToggle(v);
+          })
+      }
+      if (appState.holdingHand === 'left') {
+        SymbolGlyph(icon)
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+    }
+    .width('100%')
+    .height(52)
+  }
+
+  /** 菜单设置行：图标 + 文本 + 当前值 + 右箭头，点击弹出选项菜单；智感握姿左手时值与箭头镜像到行首 */
+  @Builder
+  MenuRowBuilder(icon: Resource, label: string, value: string, showMenu: boolean, menu: CustomBuilder,
+    onTap: () => void, onMenuDisappear: () => void) {
+    Row({ space: 12 }) {
+      if (appState.holdingHand === 'left') {
+        Text(value)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(14)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      if (appState.holdingHand !== 'left') {
+        SymbolGlyph(icon)
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      Text(label)
+        .fontSize(15)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+        .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+      if (appState.holdingHand !== 'left') {
+        Text(value)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(14)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      if (appState.holdingHand === 'left') {
+        SymbolGlyph(icon)
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+    }
+    .width('100%')
+    .height(52)
+    .onClick(() => {
+      onTap();
+    })
+    .bindMenu(showMenu, menu, {
+      placement: this.menuPlacement(),
+      onDisappear: onMenuDisappear
+    })
+  }
+
   build() {
     CommonNav({
       titleBarOp: titleBarOf('播放设置'),
@@ -163,259 +249,67 @@ export struct PlaySettingPage {
           ListItem() {
             Column() {
               // 使用移动网络播放
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Toggle({ type: ToggleType.Switch, isOn: this.useCellularPlay })
-                    .selectedColor(appState.accentColor)
-                    .onChange((isOn: boolean) => {
-                      this.useCellularPlay = isOn;
-                      appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_PLAY, isOn);
-                    })
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('使用移动网络播放')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Toggle({ type: ToggleType.Switch, isOn: this.useCellularPlay })
-                    .selectedColor(appState.accentColor)
-                    .onChange((isOn: boolean) => {
-                      this.useCellularPlay = isOn;
-                      appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_PLAY, isOn);
-                    })
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
+              this.ToggleRowBuilder($r('sys.symbol.dot_radiowaves_left_and_right'), '使用移动网络播放',
+                this.useCellularPlay, (isOn: boolean): void => {
+                  this.useCellularPlay = isOn;
+                  appConfig.setConfig(ConfigKeys.USE_CELLULAR_NETWORK_PLAY, isOn);
+                })
 
               Divider()
                 .DividerStyle()
 
               // 启动自动续播
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Toggle({ type: ToggleType.Switch, isOn: this.autoPlayWhenAppStart })
-                    .selectedColor(appState.accentColor)
-                    .onChange((isOn: boolean) => {
-                      this.autoPlayWhenAppStart = isOn;
-                      appConfig.setConfig(ConfigKeys.AUTO_PLAY_WHEN_APP_START, isOn);
-                    })
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.play_fill'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('启动自动续播')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Toggle({ type: ToggleType.Switch, isOn: this.autoPlayWhenAppStart })
-                    .selectedColor(appState.accentColor)
-                    .onChange((isOn: boolean) => {
-                      this.autoPlayWhenAppStart = isOn;
-                      appConfig.setConfig(ConfigKeys.AUTO_PLAY_WHEN_APP_START, isOn);
-                    })
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.play_fill'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
+              this.ToggleRowBuilder($r('sys.symbol.play_fill'), '启动自动续播',
+                this.autoPlayWhenAppStart, (isOn: boolean): void => {
+                  this.autoPlayWhenAppStart = isOn;
+                  appConfig.setConfig(ConfigKeys.AUTO_PLAY_WHEN_APP_START, isOn);
+                })
 
               Divider()
                 .DividerStyle()
 
               // 播放失败时停止播放
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Toggle({ type: ToggleType.Switch, isOn: this.autoStopWhenError })
-                    .selectedColor(appState.accentColor)
-                    .onChange((isOn: boolean) => {
-                      this.autoStopWhenError = isOn;
-                      appConfig.setConfig(ConfigKeys.AUTO_STOP_WHEN_ERROR, isOn);
-                    })
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.stop_circle'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('播放失败时停止播放')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Toggle({ type: ToggleType.Switch, isOn: this.autoStopWhenError })
-                    .selectedColor(appState.accentColor)
-                    .onChange((isOn: boolean) => {
-                      this.autoStopWhenError = isOn;
-                      appConfig.setConfig(ConfigKeys.AUTO_STOP_WHEN_ERROR, isOn);
-                    })
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.stop_circle'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
+              this.ToggleRowBuilder($r('sys.symbol.stop_circle'), '播放失败时停止播放',
+                this.autoStopWhenError, (isOn: boolean): void => {
+                  this.autoStopWhenError = isOn;
+                  appConfig.setConfig(ConfigKeys.AUTO_STOP_WHEN_ERROR, isOn);
+                })
 
               Divider()
                 .DividerStyle()
 
               // 播放失败时尝试更换音源
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Toggle({ type: ToggleType.Switch, isOn: this.tryChangeSource })
-                    .selectedColor(appState.accentColor)
-                    .onChange((isOn: boolean) => {
-                      this.tryChangeSource = isOn;
-                      appConfig.setConfig(ConfigKeys.TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL, isOn);
-                    })
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('播放失败时尝试更换音源')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Toggle({ type: ToggleType.Switch, isOn: this.tryChangeSource })
-                    .selectedColor(appState.accentColor)
-                    .onChange((isOn: boolean) => {
-                      this.tryChangeSource = isOn;
-                      appConfig.setConfig(ConfigKeys.TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL, isOn);
-                    })
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
+              this.ToggleRowBuilder($r('sys.symbol.arrow_2_circlepath'), '播放失败时尝试更换音源',
+                this.tryChangeSource, (isOn: boolean): void => {
+                  this.tryChangeSource = isOn;
+                  appConfig.setConfig(ConfigKeys.TRY_CHANGE_SOURCE_WHEN_PLAY_FAIL, isOn);
+                })
 
               Divider()
                 .DividerStyle()
 
               // 播放音质
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Text(this.playQualityText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.hi_waveform_2'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('播放音质')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Text(this.playQualityText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.hi_waveform_2'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.showQualityMenu = true;
-              })
-              .bindMenu(this.showQualityMenu, this.qualityMenu, {
-                placement: this.menuPlacement(),
-                onDisappear: (): void => {
+              this.MenuRowBuilder($r('sys.symbol.hi_waveform_2'), '播放音质', this.playQualityText,
+                this.showQualityMenu, this.qualityMenu,
+                (): void => {
+                  this.showQualityMenu = true;
+                },
+                (): void => {
                   this.showQualityMenu = false;
-                }
-              })
+                })
 
               Divider()
                 .DividerStyle()
 
               // 首选音质不可用时
-              Row({ space: 12 }) {
-                if (appState.holdingHand === 'left') {
-                  Text(this.playQualityOrderText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand !== 'left') {
-                  SymbolGlyph($r('sys.symbol.waveform_headphone_slash'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-                Text('首选音质不可用时')
-                  .fontSize(15)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
-                if (appState.holdingHand !== 'left') {
-                  Text(this.playQualityOrderText)
-                    .fontSize(11)
-                    .fontColor($r('sys.color.font_tertiary'))
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
-                }
-                if (appState.holdingHand === 'left') {
-                  SymbolGlyph($r('sys.symbol.waveform_headphone_slash'))
-                    .fontSize(20)
-                    .fontColor([$r('sys.color.icon_secondary')])
-                }
-              }
-              .width('100%')
-              .height(52)
-              .onClick(() => {
-                this.showOrderMenu = true;
-              })
-              .bindMenu(this.showOrderMenu, this.orderMenu, {
-                placement: this.menuPlacement(),
-                onDisappear: (): void => {
+              this.MenuRowBuilder($r('sys.symbol.waveform_headphone_slash'), '首选音质不可用时', this.playQualityOrderText,
+                this.showOrderMenu, this.orderMenu,
+                (): void => {
+                  this.showOrderMenu = true;
+                },
+                (): void => {
                   this.showOrderMenu = false;
-                }
-              })
+                })
             }
             .width('100%')
           }.ListItemStyle()

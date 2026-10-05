@@ -1,6 +1,6 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
-import { CommonBlur, CommonSearch, CommonLoading } from '../view/CommonCom';
+import { CommonBlur, CommonSearch, CommonLoading, ListLoadingRow, ListEndRow, EmptyStateBlock } from '../view/CommonCom';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -23,6 +23,7 @@ import { appState } from '../entryability/AppState';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortUtil } from '../view/MusicSortMenu';
+import { showUiToast } from '../utils/UiUtils';
 
 /**
  * 歌单详情页：主页榜单卡片 / 推荐歌单网格点击进入
@@ -928,20 +929,7 @@ export struct SheetDetailPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
-  }
-
-  private static formatDuration(sec: number): string {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    const mStr = m < 10 ? '0' + m.toString() : m.toString();
-    const rStr = r < 10 ? '0' + r.toString() : r.toString();
-    return mStr + ':' + rStr;
+    showUiToast(this.getUIContext(), message);
   }
 
   build() {
@@ -985,48 +973,17 @@ export struct SheetDetailPage {
           } else if (this.loading && this.musicCount === 0) {
             // 首次加载中
             ListItem() {
-              Row({ space: 8 }) {
-                LoadingProgress()
-                  .width(18)
-                  .height(18)
-                  .color(appState.accentColor)
-                Text('加载中...')
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .width('100%')
-              .height(48)
-              .justifyContent(FlexAlign.Center)
+              ListLoadingRow()
             }
           } else if (this.loadFailed && this.musicCount === 0) {
             // 首次加载失败
             ListItem() {
-              Column({ space: 8 }) {
-                SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
-                  .fontSize(44)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-                Text('加载失败，请返回重试')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-              }
-              .width('100%')
-              .margin({ top: 32 })
-              .alignItems(HorizontalAlign.Center)
+              EmptyStateBlock({ icon: $r('sys.symbol.exclamationmark_circle'), message: '加载失败，请返回重试' })
             }
           } else if (this.musicCount === 0) {
             // 空态
             ListItem() {
-              Column({ space: 8 }) {
-                SymbolGlyph($r('sys.symbol.music_note_list'))
-                  .fontSize(44)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-                Text('暂无歌曲')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-              }
-              .width('100%')
-              .margin({ top: 32 })
-              .alignItems(HorizontalAlign.Center)
+              EmptyStateBlock({ message: '暂无歌曲' })
             }
           } else if (this.isSearching()) {
             // 搜索结果列表（仅过滤已加载内容）
@@ -1058,27 +1015,11 @@ export struct SheetDetailPage {
             // 底部加载状态
             if (this.loadingMore) {
               ListItem() {
-                Row({ space: 8 }) {
-                  LoadingProgress()
-                    .width(18)
-                    .height(18)
-                    .color(appState.accentColor)
-                  Text('加载中...')
-                    .fontSize(12)
-                    .fontColor($r('sys.color.font_tertiary'))
-                }
-                .width('100%')
-                .height(48)
-                .justifyContent(FlexAlign.Center)
+                ListLoadingRow()
               }
             } else if (this.isEnd && this.musicCount > 0) {
               ListItem() {
-                Text('没有更多了')
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .width('100%')
-                  .textAlign(TextAlign.Center)
-                  .padding({ top: 12, bottom: 12 })
+                ListEndRow()
               }
             }
           }

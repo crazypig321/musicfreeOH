@@ -6,6 +6,7 @@ import { MusicDataSource } from '../common/model/MusicDataSource';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { showUiToast } from '../utils/UiUtils';
 
 /** 播放中指示器：5 根随机高度跳动的方柱（仅播放中跳动，暂停/停止时静止） */
 @ComponentV2
@@ -306,11 +307,28 @@ export struct QueueSheet {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
+    showUiToast(this.getUIContext(), message);
+  }
+
+  /** 头部「图标 + 文字」操作按钮（kind 0=循环模式 1=清空；状态读取留在 Builder 内保证响应） */
+  @Builder
+  HeaderActionButton(kind: number) {
+    Row({ space: 4 }) {
+      SymbolGlyph(kind === 0 ? this.repeatIcon() : $r('sys.symbol.trash'))
+        .fontSize(20)
+        .fontColor([$r('sys.color.icon_secondary')])
+      Text(kind === 0 ? this.repeatLabel() : '清空')
+        .fontSize(12)
+        .fontColor($r('sys.color.font_tertiary'))
     }
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      if (kind === 0) {
+        this.toggleRepeatMode();
+      } else {
+        this.clearQueue();
+      }
+    })
   }
 
   build() {
@@ -342,31 +360,8 @@ export struct QueueSheet {
               .padding({right: 10})
 
             Row({ space: 10 }) {
-              Row({ space: 4 }) {
-                SymbolGlyph(this.repeatIcon())
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text(this.repeatLabel())
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .alignItems(VerticalAlign.Center)
-              .onClick(() => {
-                this.toggleRepeatMode();
-              })
-
-              Row({ space: 4 }) {
-                SymbolGlyph($r('sys.symbol.trash'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                Text('清空')
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .alignItems(VerticalAlign.Center)
-              .onClick(() => {
-                this.clearQueue();
-              })
+              this.HeaderActionButton(0)
+              this.HeaderActionButton(1)
             }
             .alignItems(VerticalAlign.Center)
           }

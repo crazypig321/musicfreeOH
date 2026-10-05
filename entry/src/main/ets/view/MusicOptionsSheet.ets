@@ -22,6 +22,40 @@ import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
   import { LyricSearch } from '../utils/LyricSearch';
   import { lyricManager } from '../core/LyricManager';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
+import { showUiToast } from '../utils/UiUtils';
+
+/** 快捷操作按钮数据（ForEach 数据源） */
+class QuickActionSpec {
+  icon: Resource;
+  label: string;
+  isHighlight: boolean;
+  onTap: () => void;
+
+  constructor(icon: Resource, label: string, onTap: () => void, isHighlight: boolean = false) {
+    this.icon = icon;
+    this.label = label;
+    this.onTap = onTap;
+    this.isHighlight = isHighlight;
+  }
+}
+
+/** 操作/详情行数据（ForEach 数据源；isDetail 为 true 时用可复制的信息行样式） */
+class OptionEntry {
+  icon: Resource;
+  label: string;
+  value: string;
+  isDetail: boolean;
+  onTap: () => void;
+
+  constructor(icon: Resource, label: string, onTap: () => void,
+    value: string = '', isDetail: boolean = false) {
+    this.icon = icon;
+    this.label = label;
+    this.onTap = onTap;
+    this.value = value;
+    this.isDetail = isDetail;
+  }
+}
 
 /** 快捷操作按钮（横向） */
 @ComponentV2
@@ -167,11 +201,76 @@ export struct MusicOptionsSheet {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
+    showUiToast(this.getUIContext(), message);
+  }
+
+  /** 快捷操作按钮列表（收藏状态实时计算） */
+  private quickActionSpecs(): Array<QuickActionSpec> {
+    const items: Array<QuickActionSpec> = [];
+    items.push(new QuickActionSpec(
+      this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
+      this.isFavorited ? '取消收藏' : '收藏',
+      (): void => { this.toggleFavorite(); },
+      this.isFavorited));
+    items.push(new QuickActionSpec($r('sys.symbol.plus_square_on_square'), '添加到歌单',
+      (): void => { this.openSheetPicker(); }));
+    items.push(new QuickActionSpec($r('sys.symbol.forward_end_fill'), '下一首播放',
+      (): void => { this.playNext(); }));
+    items.push(new QuickActionSpec($r('sys.symbol.share'), '分享',
+      (): void => { this.shareCurrent(); }));
+    return items;
+  }
+
+  /** 操作/详情行列表（条件项按当前状态过滤；本地已有文件的条目不提供下载入口） */
+  private optionEntries(): Array<OptionEntry> {
+    const isLocalExisting = localMusicSheet.isLocalMusicExisting(this.displayItem) !== null ||
+      downloadedSheet.isLocalMusicExisting(this.displayItem) !== null;
+    const items: Array<OptionEntry> = [];
+    items.push(new OptionEntry($r('sys.symbol.link'), '来源',
+      (): void => { this.changeSource(); }, this.sourcePlatform));
+    items.push(new OptionEntry($r('sys.symbol.hash'), 'ID',
+      (): void => { this.copyText(this.displayItem.id, 'ID'); }, this.displayItem.id, true));
+    items.push(new OptionEntry($r('sys.symbol.person'), '歌手',
+      (): void => { this.copyText(this.displayItem.artist, '歌手'); }, this.displayItem.artist, true));
+    items.push(new OptionEntry($r('sys.symbol.opticaldisc'), '专辑',
+      (): void => { this.copyText(this.displayItem.album, '专辑'); }, this.displayItem.album, true));
+    if (isLocalExisting) {
+      // 本地音乐/已下载条目：显示实际文件名，点击弹窗确认后转换为简洁命名
+      items.push(new OptionEntry($r('sys.symbol.doc_plaintext'), '本地文件名',
+        (): void => { this.confirmSimpleRename(); }, this.localFileNameText()));
+      // 文件可写（非媒体库条目）且未在播放：显示标签编辑入口，修改写回音频文件
+      if (TagEditor.canEdit(this.displayItem)) {
+        items.push(new OptionEntry($r('sys.symbol.square_and_pencil'), '编辑音频文件元数据',
+          (): void => { this.openMetaEditor(); }));
+      }
+    } else {
+      // 本地/已下载音乐已在设备上，不提供下载入口（文件被外部删除时恢复入口）
+      items.push(new OptionEntry($r('sys.symbol.square_and_arrow_down'), '下载',
+        (): void => { this.downloadCurrent(); }));
     }
+    items.push(new OptionEntry($r('sys.symbol.moon_z'), '定时关闭',
+      (): void => { this.showSleepMenu(); }, this.sleepStatusText()));
+    items.push(new OptionEntry($r('sys.symbol.doc_plaintext'), '搜索歌词',
+      (): void => { this.searchLyric(); }));
+    items.push(new OptionEntry($r('sys.symbol.wand_and_stars'), '自动匹配封面',
+      (): void => { this.searchCoverForCurrent(); }));
+    items.push(new OptionEntry($r('sys.symbol.ohos_photo'), '手选匹配封面',
+      (): void => { this.pickCoverForCurrent(); }));
+    items.push(new OptionEntry($r('sys.symbol.list_bullet'), '加入播放队列',
+      (): void => { this.addToPlayQueue(); }));
+    // 我的歌单进入的歌单详情页：从当前歌单删除本曲
+    if (this.removeSheetId.length > 0) {
+      items.push(new OptionEntry($r('sys.symbol.trash'), '从当前歌单删除',
+        (): void => { this.removeFromCurrentSheet(); }));
+    }
+    // 仅本地音乐列表的详情面板：移出本地音乐列表 / 删除歌曲文件
+    if (this.localListMode) {
+      items.push(new OptionEntry($r('sys.symbol.trash'), '移出本地音乐列表',
+        (): void => { this.removeFromLocalMusic(); }));
+      items.push(new OptionEntry($r('sys.symbol.trash'), '删除歌曲文件',
+        (): void => { this.deleteLocalMusicFile(); }));
+    }
+    return items;
   }
 
   /** 复制文本到剪贴板（详情行 ID/歌手/专辑） */
@@ -402,6 +501,8 @@ export struct MusicOptionsSheet {
   }
 
   private applySleepChoice(index: number): void {
+    // 可选分钟数（对应选项「15分钟 / 30分钟 / 60分钟」）
+    const SLEEP_MINUTES: Array<number> = [15, 30, 60];
     if (index === 0) {
       ScheduleClose.setCloseAfterPlayEnd(false);
       ScheduleClose.setScheduleClose(null);
@@ -410,18 +511,11 @@ export struct MusicOptionsSheet {
       ScheduleClose.setCloseAfterPlayEnd(true);
       ScheduleClose.setScheduleClose(Date.now() + 1000);
       this.showToast('将在播完当前歌曲后关闭');
-    } else if (index === 2) {
+    } else if (index >= 2 && index <= 4) {
+      const minutes = SLEEP_MINUTES[index - 2];
       ScheduleClose.setCloseAfterPlayEnd(false);
-      ScheduleClose.setScheduleClose(Date.now() + 15 * 60 * 1000);
-      this.showToast('将在15分钟后关闭');
-    } else if (index === 3) {
-      ScheduleClose.setCloseAfterPlayEnd(false);
-      ScheduleClose.setScheduleClose(Date.now() + 30 * 60 * 1000);
-      this.showToast('将在30分钟后关闭');
-    } else if (index === 4) {
-      ScheduleClose.setCloseAfterPlayEnd(false);
-      ScheduleClose.setScheduleClose(Date.now() + 60 * 60 * 1000);
-      this.showToast('将在60分钟后关闭');
+      ScheduleClose.setScheduleClose(Date.now() + minutes * 60 * 1000);
+      this.showToast('将在' + minutes.toString() + '分钟后关闭');
     }
   }
 
@@ -677,35 +771,14 @@ export struct MusicOptionsSheet {
       .alignItems(VerticalAlign.Center)
 
       Row({ space: 4 }) {
-        QuickActionItem({
-          icon: this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
-          label: this.isFavorited ? '取消收藏' : '收藏',
-          isHighlight: this.isFavorited,
-          onTap: (): void => {
-            this.toggleFavorite();
-          }
-        })
-        QuickActionItem({
-          icon: $r('sys.symbol.plus_square_on_square'),
-          label: '添加到歌单',
-          onTap: (): void => {
-            this.openSheetPicker();
-          }
-        })
-        QuickActionItem({
-          icon: $r('sys.symbol.forward_end_fill'),
-          label: '下一首播放',
-          onTap: (): void => {
-            this.playNext();
-          }
-        })
-        QuickActionItem({
-          icon: $r('sys.symbol.share'),
-          label: '分享',
-          onTap: (): void => {
-            this.shareCurrent();
-          }
-        })
+        ForEach(this.quickActionSpecs(), (spec: QuickActionSpec) => {
+          QuickActionItem({
+            icon: spec.icon,
+            label: spec.label,
+            isHighlight: spec.isHighlight,
+            onTap: spec.onTap
+          })
+        }, (spec: QuickActionSpec) => spec.label + (spec.isHighlight ? '_on' : '_off'))
       }
       .width('100%')
       .margin({ top: 20 })
@@ -716,165 +789,25 @@ export struct MusicOptionsSheet {
         .margin({ top: 12, bottom: 4 })
 
       List() {
-        ListItem() {
-          ActionRowItem({
-            icon: $r('sys.symbol.link'),
-            label: '来源',
-            value: this.sourcePlatform,
-            onTap: (): void => {
-              this.changeSource();
-            }
-          })
-        }
-        ListItem() {
-          DetailRowItem({
-            icon: $r('sys.symbol.hash'),
-            label: 'ID',
-            value: this.displayItem.id,
-            onTap: (): void => {
-              this.copyText(this.displayItem.id, 'ID');
-            }
-          })
-        }
-        ListItem() {
-          DetailRowItem({
-            icon: $r('sys.symbol.person'),
-            label: '歌手',
-            value: this.displayItem.artist,
-            onTap: (): void => {
-              this.copyText(this.displayItem.artist, '歌手');
-            }
-          })
-        }
-        ListItem() {
-          DetailRowItem({
-            icon: $r('sys.symbol.opticaldisc'),
-            label: '专辑',
-            value: this.displayItem.album,
-            onTap: (): void => {
-              this.copyText(this.displayItem.album, '专辑');
-            }
-          })
-        }
-        // 本地音乐/已下载条目：显示实际文件名，点击弹窗确认后转换为简洁命名
-        if (localMusicSheet.isLocalMusicExisting(this.displayItem) !== null ||
-          downloadedSheet.isLocalMusicExisting(this.displayItem) !== null) {
+        ForEach(this.optionEntries(), (entry: OptionEntry) => {
           ListItem() {
-            ActionRowItem({
-              icon: $r('sys.symbol.doc_plaintext'),
-              label: '本地文件名',
-              value: this.localFileNameText(),
-              onTap: (): void => {
-                this.confirmSimpleRename();
-              }
-            })
-          }
-          // 文件可写（非媒体库条目）且未在播放：显示标签编辑入口，修改写回音频文件
-          if (TagEditor.canEdit(this.displayItem)) {
-            ListItem() {
+            if (entry.isDetail) {
+              DetailRowItem({
+                icon: entry.icon,
+                label: entry.label,
+                value: entry.value,
+                onTap: entry.onTap
+              })
+            } else {
               ActionRowItem({
-                icon: $r('sys.symbol.square_and_pencil'),
-                label: '编辑音频文件元数据',
-                onTap: (): void => {
-                  this.openMetaEditor();
-                }
+                icon: entry.icon,
+                label: entry.label,
+                value: entry.value,
+                onTap: entry.onTap
               })
             }
           }
-        }
-        // 本地/已下载音乐已在设备上，不提供下载入口（文件被外部删除时恢复入口）
-        if (localMusicSheet.isLocalMusicExisting(this.displayItem) === null &&
-          downloadedSheet.isLocalMusicExisting(this.displayItem) === null) {
-          ListItem() {
-            ActionRowItem({
-              icon: $r('sys.symbol.square_and_arrow_down'),
-              label: '下载',
-              onTap: (): void => {
-                this.downloadCurrent();
-              }
-            })
-          }
-        }
-        ListItem() {
-          ActionRowItem({
-            icon: $r('sys.symbol.moon_z'),
-            label: '定时关闭',
-            value: this.sleepStatusText(),
-            onTap: (): void => {
-              this.showSleepMenu();
-            }
-          })
-        }
-        ListItem() {
-          ActionRowItem({
-            icon: $r('sys.symbol.doc_plaintext'),
-            label: '搜索歌词',
-            onTap: (): void => {
-              this.searchLyric();
-            }
-          })
-        }
-        // 本地音乐/已下载条目：搜索封面
-        ListItem() {
-          ActionRowItem({
-            icon: $r('sys.symbol.wand_and_stars'),
-            label: '自动匹配封面',
-            onTap: (): void => {
-              this.searchCoverForCurrent();
-            }
-          })
-        }
-        ListItem() {
-          ActionRowItem({
-            icon: $r('sys.symbol.ohos_photo'),
-            label: '手选匹配封面',
-            onTap: (): void => {
-              this.pickCoverForCurrent();
-            }
-          })
-        }
-        ListItem() {
-          ActionRowItem({
-            icon: $r('sys.symbol.list_bullet'),
-            label: '加入播放队列',
-            onTap: (): void => {
-              this.addToPlayQueue();
-            }
-          })
-        }
-        // 我的歌单进入的歌单详情页：从当前歌单删除本曲
-        if (this.removeSheetId.length > 0) {
-          ListItem() {
-            ActionRowItem({
-              icon: $r('sys.symbol.trash'),
-              label: '从当前歌单删除',
-              onTap: (): void => {
-                this.removeFromCurrentSheet();
-              }
-            })
-          }
-        }
-        // 仅本地音乐列表的详情面板：移出本地音乐列表 / 删除歌曲文件
-        if (this.localListMode) {
-          ListItem() {
-            ActionRowItem({
-              icon: $r('sys.symbol.trash'),
-              label: '移出本地音乐列表',
-              onTap: (): void => {
-                this.removeFromLocalMusic();
-              }
-            })
-          }
-          ListItem() {
-            ActionRowItem({
-              icon: $r('sys.symbol.trash'),
-              label: '删除歌曲文件',
-              onTap: (): void => {
-                this.deleteLocalMusicFile();
-              }
-            })
-          }
-        }
+        }, (entry: OptionEntry) => entry.label + '_' + entry.value)
       }
       .width('100%')
       .nestedScroll({

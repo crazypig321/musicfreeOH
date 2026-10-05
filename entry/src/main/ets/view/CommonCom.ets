@@ -133,6 +133,74 @@ export struct CommonSearch{
 }
 
 /**
+ * 列表底部加载行：转圈 + 「加载中...」（列表内 ListItem 内容）
+ */
+@ComponentV2
+export struct ListLoadingRow{
+  build() {
+    Row({ space: 8 }) {
+      LoadingProgress()
+        .width(18)
+        .height(18)
+        .color(appState.accentColor)
+      Text('加载中...')
+        .fontSize(12)
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .width('100%')
+    .height(48)
+    .justifyContent(FlexAlign.Center)
+  }
+}
+
+/**
+ * 列表底部「没有更多了」结尾行（列表内 ListItem 内容）
+ */
+@ComponentV2
+export struct ListEndRow{
+  build() {
+    Text('没有更多了')
+      .fontSize(12)
+      .fontColor($r('sys.color.font_tertiary'))
+      .width('100%')
+      .textAlign(TextAlign.Center)
+      .padding({ top: 12, bottom: 12 })
+  }
+}
+
+/**
+ * 列表空态/失败态占位块：大图标 + 文案（可选补充说明行）
+ */
+@ComponentV2
+export struct EmptyStateBlock{
+  @Param icon: Resource = $r('sys.symbol.music_note_list')
+  @Param message: string = ''
+  @Param hint: string = ''
+  @Param topMargin: Length = 32
+
+  build() {
+    Column({ space: 8 }) {
+      SymbolGlyph(this.icon)
+        .fontSize(44)
+        .fontColor([$r('sys.color.icon_tertiary')])
+      Text(this.message)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_secondary'))
+      if (this.hint.length > 0) {
+        Text(this.hint)
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .textAlign(TextAlign.Center)
+          .padding({ left: 32, right: 32 })
+      }
+    }
+    .width('100%')
+    .margin({ top: this.topMargin })
+    .alignItems(HorizontalAlign.Center)
+  }
+}
+
+/**
  * 公共数据空组件
  */
 @ComponentV2

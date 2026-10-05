@@ -4,6 +4,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_APPEARANCE_SETTING } from '../common/model/NavModels';
 import { UpdateChecker } from '../utils/UpdateChecker';
+import { showUiToast } from '../utils/UiUtils';
 
 /** 设置条目 */
 interface SettingRow {
@@ -41,11 +42,7 @@ export struct SettingsPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   build() {

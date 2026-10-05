@@ -20,6 +20,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { JsonUtil } from '../utils/JsonUtil';
 import { DialogManager } from '../utils/DialogUtils';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
+import { showUiToast } from '../utils/UiUtils';
 
 /** 添加菜单锚点 id（openMenu 在锚点处弹出） */
 const ADD_ANCHOR_ID = 'mysheets_add_anchor';
@@ -480,11 +481,7 @@ export struct MySheetsPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** titleBar 菜单按钮（订阅 tab：同步+搜索；我的歌单 tab：添加菜单+搜索+批量操作） */
@@ -1496,7 +1493,7 @@ export struct MySheetsPage {
           BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
           return { offsetRemain: offset }
         })
-        .bindSheet(!!this.showCreateSheet, this.CreateSheetBuilder(), {
+        .bindSheet(!!this.showCreateSheet, this.SheetMetaFormBuilder(true), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true,
           onWillDisappear: () => {
@@ -1589,7 +1586,7 @@ export struct MySheetsPage {
         Column()
           .width('100%')
           .height(0)
-          .bindSheet(!!this.showEditSheet, this.EditSheetBuilder(), {
+          .bindSheet(!!this.showEditSheet, this.SheetMetaFormBuilder(false), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true,
             onWillDisappear: () => {
@@ -1605,7 +1602,7 @@ export struct MySheetsPage {
         Column()
           .width('100%')
           .height(0)
-          .bindSheet(!!this.showSortSheet, this.SortSheetBuilder(), {
+          .bindSheet(!!this.showSortSheet, this.SortListSheetBuilder(true), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true,
             onWillDisappear: () => {
@@ -1621,7 +1618,7 @@ export struct MySheetsPage {
         Column()
           .width('100%')
           .height(0)
-          .bindSheet(!!this.showSubscribedSortSheet, this.SubscribedSortSheetBuilder(), {
+          .bindSheet(!!this.showSubscribedSortSheet, this.SortListSheetBuilder(false), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true,
             onWillDisappear: () => {
@@ -1924,17 +1921,17 @@ export struct MySheetsPage {
       .transition(TransitionEffect.move(TransitionEdge.TOP))
   }
 
-  /** 新建歌单半模态：名称（必填）+ 简介（可选） */
+  /** 新建/编辑歌单半模态（共用表单）：名称（必填）+ 简介（可选），编辑模式预填当前值 */
   @Builder
-  CreateSheetBuilder() {
+  SheetMetaFormBuilder(isCreate: boolean) {
     Column() {
-      Text('新建歌单')
+      Text(isCreate ? '新建歌单' : '编辑歌单')
         .fontSize(17)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
         .margin({ top: 4, bottom: 16 })
-      TextInput({ text: this.newSheetTitle, placeholder: '歌单名称' })
+      TextInput({ text: isCreate ? this.newSheetTitle : this.editSheetTitle, placeholder: '歌单名称' })
         .width('100%')
         .height(44)
         .fontSize(14)
@@ -1943,165 +1940,59 @@ export struct MySheetsPage {
         .backgroundColor($r('sys.color.comp_background_tertiary'))
         .borderRadius(12)
         .onChange((v: string) => {
-          this.newSheetTitle = v;
-        })
-      TextArea({ text: this.newSheetDesc, placeholder: '简介（可选）' })
-        .width('100%')
-        .height(88)
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .borderRadius(12)
-        .margin({ top: 12 })
-        .onChange((v: string) => {
-          this.newSheetDesc = v;
-        })
-      Button(this.creating ? '创建中...' : '创建')
-        .width('100%')
-        .height(42)
-        .fontSize(15)
-        .margin({ top: 20 })
-        .backgroundColor(appState.accentColor)
-        .onClick(() => {
-          this.confirmCreateSheet();
-        })
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  /** 编辑歌单半模态：修改名称+简介（预填当前值） */
-  @Builder
-  EditSheetBuilder() {
-    Column() {
-      Text('编辑歌单')
-        .fontSize(17)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ top: 4, bottom: 16 })
-      TextInput({ text: this.editSheetTitle, placeholder: '歌单名称' })
-        .width('100%')
-        .height(44)
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .borderRadius(12)
-        .onChange((v: string) => {
-          this.editSheetTitle = v;
-        })
-      TextArea({ text: this.editSheetDesc, placeholder: '简介（可选）' })
-        .width('100%')
-        .height(88)
-        .fontSize(14)
-        .fontColor($r('sys.color.font_primary'))
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .borderRadius(12)
-        .margin({ top: 12 })
-        .onChange((v: string) => {
-          this.editSheetDesc = v;
-        })
-      Button('保存')
-        .width('100%')
-        .height(42)
-        .fontSize(15)
-        .margin({ top: 20 })
-        .backgroundColor(appState.accentColor)
-        .onClick(() => {
-          this.confirmEditSheet();
-        })
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  /** 歌单排序半模态：上移/下移/跳转，保存后生效（默认歌单固定首位，不参与排序） */
-  @Builder
-  SortSheetBuilder() {
-    Column() {
-      Text('歌单排序')
-        .fontSize(17)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ top: 4, bottom: 8 })
-      List() {
-        ForEach(this.sortSheetIds, (id: string, index: number) => {
-          ListItem() {
-            Row({ space: 12 }) {
-              Text((index + 1).toString())
-                .fontSize(13)
-                .fontColor($r('sys.color.font_tertiary'))
-                .width(20)
-                .textAlign(TextAlign.Center)
-              Text(this.sortSheetTitle(id))
-                .fontSize(15)
-                .fontColor($r('sys.color.font_primary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .layoutWeight(1)
-
-              ForEach([$r('sys.symbol.chevron_up'), $r('sys.symbol.chevron_down'), $r('sys.symbol.arrow_left_arrow_right')],(v: Resource, i: number)=>{
-                SymbolGlyph(v)
-                  .fontSize(18)
-                  .fontColor([$r('sys.color.icon_secondary')])
-                  .onClick(() => {
-                    if (i === 0) {// 上移
-                      this.moveSortItem(index, -1);
-                    }else if (i === 1) {// 下移
-                      this.moveSortItem(index, 1);
-                    }else{// 跳转
-                      this.openSortJump(index);
-                    }
-                  })
-              })
-            }
-            .width('100%')
-            .height(52)
+          if (isCreate) {
+            this.newSheetTitle = v;
+          } else {
+            this.editSheetTitle = v;
           }
-        }, (id: string, index: number) => id + '_' + index.toString())
-      }
-      .divider({
-        strokeWidth: 0.5,
-        color: $r('sys.color.comp_divider'),
-      })
-      .width('100%')
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
-      .margin({ top: 4 })
-      Button('保存排序')
+        })
+      TextArea({ text: isCreate ? this.newSheetDesc : this.editSheetDesc, placeholder: '简介（可选）' })
+        .width('100%')
+        .height(88)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_primary'))
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(12)
+        .margin({ top: 12 })
+        .onChange((v: string) => {
+          if (isCreate) {
+            this.newSheetDesc = v;
+          } else {
+            this.editSheetDesc = v;
+          }
+        })
+      Button(isCreate ? (this.creating ? '创建中...' : '创建') : '保存')
         .width('100%')
         .height(42)
         .fontSize(15)
-        .margin({ top: 12 })
+        .margin({ top: 20 })
         .backgroundColor(appState.accentColor)
         .onClick(() => {
-          this.saveSortOrder();
+          if (isCreate) {
+            this.confirmCreateSheet();
+          } else {
+            this.confirmEditSheet();
+          }
         })
     }
     .width('100%')
-    .height('100%')
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
-  /** 订阅排序半模态：上移/下移/跳转，保存后生效 */
+  /** 歌单/订阅排序半模态（共用表单）：上移/下移/跳转，保存后生效（默认歌单固定首位，不参与排序） */
   @Builder
-  SubscribedSortSheetBuilder() {
+  SortListSheetBuilder(isSheetSort: boolean) {
     Column() {
-      Text('订阅排序')
+      Text(isSheetSort ? '歌单排序' : '订阅排序')
         .fontSize(17)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
         .margin({ top: 4, bottom: 8 })
       List() {
-        ForEach(this.subscribedSortKeys, (key: string, index: number) => {
+        ForEach(isSheetSort ? this.sortSheetIds : this.subscribedSortKeys, (key: string, index: number) => {
           ListItem() {
             Row({ space: 12 }) {
               Text((index + 1).toString())
@@ -2109,7 +2000,7 @@ export struct MySheetsPage {
                 .fontColor($r('sys.color.font_tertiary'))
                 .width(20)
                 .textAlign(TextAlign.Center)
-              Text(this.subscribedSortTitle(key))
+              Text(isSheetSort ? this.sortSheetTitle(key) : this.subscribedSortTitle(key))
                 .fontSize(15)
                 .fontColor($r('sys.color.font_primary'))
                 .maxLines(1)
@@ -2122,14 +2013,26 @@ export struct MySheetsPage {
                   .fontColor([$r('sys.color.icon_secondary')])
                   .onClick(() => {
                     if (i === 0) {// 上移
-                      this.moveSubscribedSortItem(index, -1);
+                      if (isSheetSort) {
+                        this.moveSortItem(index, -1);
+                      } else {
+                        this.moveSubscribedSortItem(index, -1);
+                      }
                     }else if (i === 1) {// 下移
-                      this.moveSubscribedSortItem(index, 1);
+                      if (isSheetSort) {
+                        this.moveSortItem(index, 1);
+                      } else {
+                        this.moveSubscribedSortItem(index, 1);
+                      }
                     }else{// 跳转
-                      this.openSubscribedSortJump(index);
+                      if (isSheetSort) {
+                        this.openSortJump(index);
+                      } else {
+                        this.openSubscribedSortJump(index);
+                      }
                     }
                   })
-              })
+              }, (v: Resource, i: number) => i.toString())
             }
             .width('100%')
             .height(52)
@@ -2151,7 +2054,11 @@ export struct MySheetsPage {
         .margin({ top: 12 })
         .backgroundColor(appState.accentColor)
         .onClick(() => {
-          this.saveSubscribedSortOrder();
+          if (isSheetSort) {
+            this.saveSortOrder();
+          } else {
+            this.saveSubscribedSortOrder();
+          }
         })
     }
     .width('100%')

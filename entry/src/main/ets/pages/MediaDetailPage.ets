@@ -1,6 +1,6 @@
 ﻿import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
-import { CommonBlur, CommonSearch, CommonLoading } from '../view/CommonCom';
+import { CommonBlur, CommonSearch, CommonLoading, ListLoadingRow, ListEndRow, EmptyStateBlock } from '../view/CommonCom';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -24,6 +24,7 @@ import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortUtil } from '../view/MusicSortMenu';
+import { showUiToast, formatArtistStats } from '../utils/UiUtils';
 
 /** 一次分页加载结果（专辑/歌手统一封装） */
 class MediaDetailPageResult {
@@ -121,7 +122,7 @@ export struct MediaDetailPage {
       this.headerTitle = this.artist.name;
       this.coverUrl = this.artist.avatar;
       this.description = this.artist.description;
-      this.artistStats = MediaDetailPage.formatArtistStats(this.artist);
+      this.artistStats = formatArtistStats(this.artist);
     }
     const name = MediaDetailNavParams.pluginName;
     this.pluginName = name;
@@ -889,11 +890,7 @@ export struct MediaDetailPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1500 });
-    } catch (error) {
-      // TODO: Implement error handling.
-    }
+    showUiToast(this.getUIContext(), message);
   }
 
   /** 专辑模式副标题：歌手名 + 发行日期 */
@@ -903,28 +900,6 @@ export struct MediaDetailPage {
       return '';
     }
     return album.artist + (album.date.length > 0 ? ' · ' + album.date : '');
-  }
-
-  /** 歌手统计行：作品数 + 粉丝数 */
-  private static formatArtistStats(artist: ArtistItem): string {
-    const parts: Array<string> = [];
-    if (artist.worksNum > 0) {
-      parts.push(artist.worksNum.toString() + '首歌曲');
-    }
-    if (artist.fans > 0) {
-      parts.push(artist.fans >= 10000 ?
-        (artist.fans / 10000).toFixed(1) + '万粉丝' : artist.fans.toString() + '粉丝');
-    }
-    return parts.join(' · ');
-  }
-
-  private static formatDuration(sec: number): string {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    const mStr = m < 10 ? '0' + m.toString() : m.toString();
-    const rStr = r < 10 ? '0' + r.toString() : r.toString();
-    return mStr + ':' + rStr;
   }
 
   build() {
@@ -969,48 +944,17 @@ export struct MediaDetailPage {
           } else if (this.loading && this.musicCount === 0) {
             // 首次加载中
             ListItem() {
-              Row({ space: 8 }) {
-                LoadingProgress()
-                  .width(18)
-                  .height(18)
-                  .color(appState.accentColor)
-                Text('加载中...')
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .width('100%')
-              .height(48)
-              .justifyContent(FlexAlign.Center)
+              ListLoadingRow()
             }
           } else if (this.loadFailed && this.musicCount === 0) {
             // 首次加载失败
             ListItem() {
-              Column({ space: 8 }) {
-                SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
-                  .fontSize(44)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-                Text('加载失败，请返回重试')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-              }
-              .width('100%')
-              .margin({ top: 32 })
-              .alignItems(HorizontalAlign.Center)
+              EmptyStateBlock({ icon: $r('sys.symbol.exclamationmark_circle'), message: '加载失败，请返回重试' })
             }
           } else if (this.musicCount === 0) {
             // 空态
             ListItem() {
-              Column({ space: 8 }) {
-                SymbolGlyph($r('sys.symbol.music_note_list'))
-                  .fontSize(44)
-                  .fontColor([$r('sys.color.icon_tertiary')])
-                Text('暂无歌曲')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-              }
-              .width('100%')
-              .margin({ top: 32 })
-              .alignItems(HorizontalAlign.Center)
+              EmptyStateBlock({ message: '暂无歌曲' })
             }
           } else if (this.isSearching()) {
             // 搜索结果列表（仅过滤已加载内容）
@@ -1042,27 +986,11 @@ export struct MediaDetailPage {
             // 底部加载状态
             if (this.loadingMore) {
               ListItem() {
-                Row({ space: 8 }) {
-                  LoadingProgress()
-                    .width(18)
-                    .height(18)
-                    .color(appState.accentColor)
-                  Text('加载中...')
-                    .fontSize(12)
-                    .fontColor($r('sys.color.font_tertiary'))
-                }
-                .width('100%')
-                .height(48)
-                .justifyContent(FlexAlign.Center)
+                ListLoadingRow()
               }
             } else if (this.isEnd && this.musicCount > 0) {
               ListItem() {
-                Text('没有更多了')
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .width('100%')
-                  .textAlign(TextAlign.Center)
-                  .padding({ top: 12, bottom: 12 })
+                ListEndRow()
               }
             }
           }
