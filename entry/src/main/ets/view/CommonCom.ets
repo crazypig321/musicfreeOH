@@ -96,6 +96,7 @@ export struct CommonSearch{
       .attributeModifier(searchImmersiveModifier)
       .placeholderColor($r('sys.color.font_tertiary'))
       .placeholderFont({ size: 14, weight: 400 })
+      .backgroundColor(Color.Transparent)
       .textFont({ size: 14, weight: 400 })
       .onSubmit((searchContent: string, event: SubmitEvent) => {// 键盘回车或者搜索按钮触发回调
         this.submit(searchContent, event)
