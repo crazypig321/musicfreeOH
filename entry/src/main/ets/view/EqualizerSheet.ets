@@ -1,5 +1,5 @@
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { DialogManager } from '../utils/DialogUtils';
 import { sliderImmersiveModifier } from '../utils/UiUtils';
 import {
@@ -62,7 +62,7 @@ export struct EqualizerSheet {
         .bindSheet(!!this.show, this.EqPanelBuilder(), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS,
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           backgroundColor: $r('sys.color.background_secondary'),
           onWillDisappear: (): void => {
             this.onClose();

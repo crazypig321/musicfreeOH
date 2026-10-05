@@ -11,7 +11,7 @@ import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { CommonBlur, CommonSearch } from '../view/CommonCom';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { MusicItem, LyricSource } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
 import { MusicDataSource } from '../common/model/MusicDataSource';
@@ -2030,7 +2030,7 @@ export struct DownloadPage {
       .padding({ left: 16, right: 16 })
       .bindSheet(!this.isLocalMode && !!this.showOptions, this.OptionsSheetBuilder(), {
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
+        dragBar: true, preferType: sheetPreferType(),
         onWillDisappear: () => {
           this.showOptions = false;
           appState.isForegroundBlur = false
@@ -2184,7 +2184,7 @@ export struct DownloadPage {
           .height(0)
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-            dragBar: true,
+            dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
               this.showBatchSheetPicker = false;
               appState.isForegroundBlur = false;

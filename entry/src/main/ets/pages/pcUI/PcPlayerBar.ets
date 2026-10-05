@@ -1,4 +1,5 @@
 ﻿import { componentUtils } from '@kit.ArkUI';
+import { sheetPreferType } from '../../utils/BreakpointUtils';
 import { MusicItem } from '../../common/model/MediaTypes';
 import { ArtworkCache } from '../../utils/ArtworkCache';
 import { trackPlayer } from '../../core/TrackPlayer';
@@ -387,7 +388,7 @@ export struct PcPlayerBar {
     })
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-      dragBar: true,
+      dragBar: true, preferType: sheetPreferType(),
       backgroundColor: $r('sys.color.background_secondary'),
       onWillDisappear: (): void => {
         this.showQueue = false;

@@ -20,7 +20,7 @@ import { subscribedSheets, SubscribedMediaType } from '../core/SubscribedSheets'
 import { appConfig } from '../core/AppConfig';
 import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortUtil } from '../view/MusicSortMenu';
@@ -1109,7 +1109,7 @@ export struct MediaDetailPage {
           .height(0)
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-            dragBar: true,
+            dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
               this.showBatchSheetPicker = false;
               appState.isForegroundBlur = false;

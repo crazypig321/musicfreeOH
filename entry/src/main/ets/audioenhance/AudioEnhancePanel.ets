@@ -1,5 +1,5 @@
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { AudioEnhanceManager, AudioEnhanceState } from './AudioEnhanceManager';
 
 /**
@@ -56,7 +56,7 @@ export struct AudioEnhancePanel {
         .bindSheet(!!this.show, this.panelBuilder(), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS,
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           backgroundColor: $r('sys.color.background_secondary'),
           onWillDisappear: (): void => {
             this.offStateChange();

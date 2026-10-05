@@ -1,4 +1,5 @@
 import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../../view/CommonNav';
+import { sheetPreferType } from '../../utils/BreakpointUtils';
 import { appState } from '../../entryability/AppState';
 import { AppMeta } from '../../core/AppMeta';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
@@ -502,7 +503,7 @@ export struct AboutPage {
         })
         .bindSheet(!!this.showChangelog, this.ChangelogSheetBuilder(), {
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           backgroundColor: $r('sys.color.background_secondary'),
           onWillAppear: () => {
            appState.isForegroundBlur = true

@@ -10,7 +10,7 @@ import { hdsMaterial, HdsColorPicker, HdsColorPickerTabType } from '@kit.UIDesig
 import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { HSBColorPicker } from '@keke/color-picker';
-import { sheetTopAvoidVp } from '../../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../../utils/BreakpointUtils';
 import { thickImmersiveMaterial } from '../../utils/UiUtils';
 
 /**
@@ -375,7 +375,7 @@ export struct AppearanceSettingPage {
                           this.showColorSheet = true;
                         })
                         .bindSheet(!!this.showColorSheet, this.ColorSheetBuilder(), {
-                          dragBar: true,
+                          dragBar: true, preferType: sheetPreferType(),
                           onWillDisappear: () => {
                             this.showColorSheet = false;
                           }
@@ -412,7 +412,7 @@ export struct AppearanceSettingPage {
                           this.showColorSheet = true;
                         })
                         .bindSheet(!!this.showColorSheet, this.ColorSheetBuilder(), {
-                          dragBar: true,
+                          dragBar: true, preferType: sheetPreferType(),
                           onWillDisappear: () => {
                             this.showColorSheet = false;
                           }

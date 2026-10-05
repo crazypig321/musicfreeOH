@@ -6,7 +6,7 @@ import { CommonNav, titleBarOf } from '../view/CommonNav';
 import { CommonBlur, MenuItemParams, EmptyStateBlock } from '../view/CommonCom';
 import { MenuUtils } from '../utils/MenuUtils';
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { JsonUtil } from '../utils/JsonUtil';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
@@ -665,7 +665,7 @@ export struct SubscriptionPage {
         // 编辑订阅源半模态挂载点（独立锚点，避免与详情 bindSheet 冲突）
         .bindSheet(!!this.showEditSheet, this.EditSheetBuilder(), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
             this.showEditSheet = false;
             appState.isForegroundBlur = false
@@ -743,7 +743,7 @@ export struct SubscriptionPage {
         .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
             this.showImportSheet = false;
             appState.isForegroundBlur = false
@@ -757,7 +757,7 @@ export struct SubscriptionPage {
       .height('100%')
       .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
+        dragBar: true, preferType: sheetPreferType(),
         onWillDisappear: () => {
           this.showDetailSheet = false;
           appState.isForegroundBlur = false

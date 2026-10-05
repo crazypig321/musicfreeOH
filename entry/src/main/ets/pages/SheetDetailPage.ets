@@ -1,4 +1,5 @@
 import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { sheetPreferType } from '../utils/BreakpointUtils';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { CommonBlur, CommonSearch, CommonLoading, ListLoadingRow, ListEndRow, EmptyStateBlock } from '../view/CommonCom';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
@@ -1142,7 +1143,7 @@ export struct SheetDetailPage {
           .height(0)
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-            dragBar: true,
+            dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
               this.showBatchSheetPicker = false;
               appState.isForegroundBlur = false;

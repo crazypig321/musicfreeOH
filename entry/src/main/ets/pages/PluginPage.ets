@@ -9,7 +9,7 @@ import { SheetItem, SheetInfoResult } from '../common/model/SheetTypes';
 import { appConfig } from '../core/AppConfig';
 import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { CommonBlur, MenuItemParams, CommonSearch } from '../view/CommonCom';
@@ -1177,7 +1177,7 @@ export struct PluginPage {
         })
         .bindSheet(!!this.showSortSheet, this.SortSheetBuilder(), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
             this.showSortSheet = false;
             appState.isForegroundBlur = false
@@ -1255,7 +1255,7 @@ export struct PluginPage {
         .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
             this.showDetailSheet = false;
             appState.isForegroundBlur = false
@@ -1269,7 +1269,7 @@ export struct PluginPage {
       .height('100%')
       .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
+        dragBar: true, preferType: sheetPreferType(),
         onWillDisappear: () => {
           this.showImportSheet = false;
           appState.isForegroundBlur = false
@@ -1673,7 +1673,7 @@ export struct PluginPage {
     })
     .bindSheet(!!this.showPluginImportSheet, this.PluginImportSheetBuilder(), {
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-      dragBar: true,
+      dragBar: true, preferType: sheetPreferType(),
       onWillDisappear: () => {
         this.showPluginImportSheet = false;
       }

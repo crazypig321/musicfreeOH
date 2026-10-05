@@ -12,7 +12,7 @@ import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
-import { useSidebarLayout } from '../utils/BreakpointUtils';
+import { sheetPreferType, useSidebarLayout } from '../utils/BreakpointUtils';
 import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAnim';
 import { PcMainLayout } from './pcUI/PcMainLayout';
 import { CarModeView } from '../view/CarModeView';
@@ -226,7 +226,7 @@ struct Index {
     .height('100%')
     .bindSheet(!!this.showChangelogSheet, this.ChangelogSheetBuilder(), {
       detents: [SheetSize.LARGE],
-      dragBar: true,
+      dragBar: true, preferType: sheetPreferType(),
       backgroundColor: $r('sys.color.background_secondary'),
       onWillDisappear: () => {
         appState.isForegroundBlur = false

@@ -49,3 +49,12 @@ export function useSidebarLayout(widthBp: number, windowWidthVp: number, display
 export function sheetTopAvoidVp(): number {
   return useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 44 : 0;
 }
+
+/**
+ * 半模态弹出样式：
+ * PC/窗口模式下置中弹窗（SheetType.CENTER），手机等其余形态保持默认底部半模态（SheetType.BOTTOM）
+ */
+export function sheetPreferType(): SheetType {
+  return useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ?
+    SheetType.CENTER : SheetType.BOTTOM;
+}

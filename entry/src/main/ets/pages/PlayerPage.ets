@@ -35,7 +35,7 @@ import { LyricView } from '../view/LyricView';
 import { EqualizerSheet } from '../view/EqualizerSheet';
 import { EqualizerManager } from '../core/EqualizerManager';
 import { AudioEnhanceManager, AudioEnhanceState } from '../audioenhance/AudioEnhanceManager';
-import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
+import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetPreferType, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 import { CommonBlur } from '../view/CommonCom';
 import { showUiToast, formatDuration, sliderImmersiveModifier } from '../utils/UiUtils';
 import { hdsEffect } from '@kit.UIDesignKit';
@@ -954,7 +954,7 @@ export struct PlayerPage {
     )
     .bindSheet(this.isSheetVisible, this.ActiveSheetBuilder(), {
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-      dragBar: true,
+      dragBar: true, preferType: sheetPreferType(),
       backgroundColor: $r('sys.color.background_secondary'),
       onWillDisappear: () => {
         this.isSheetVisible = false;

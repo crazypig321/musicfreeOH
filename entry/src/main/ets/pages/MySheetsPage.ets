@@ -11,7 +11,7 @@ import { PluginState } from '../plugin/PluginTypes';
 import { MusicItem } from '../common/model/MediaTypes';
 import { SheetItem, SheetInfoResult } from '../common/model/SheetTypes';
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { SheetDetailNavParams, ROUTE_SHEET_DETAIL, MediaDetailNavParams, ROUTE_ALBUM_DETAIL, ROUTE_ARTIST_DETAIL } from '../common/model/NavModels';
@@ -1499,7 +1499,7 @@ export struct MySheetsPage {
         })
         .bindSheet(!!this.showCreateSheet, this.SheetMetaFormBuilder(true), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
             this.showCreateSheet = false;
             appState.isForegroundBlur = false
@@ -1592,7 +1592,7 @@ export struct MySheetsPage {
           .height(0)
           .bindSheet(!!this.showEditSheet, this.SheetMetaFormBuilder(false), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-            dragBar: true,
+            dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
               this.showEditSheet = false;
               appState.isForegroundBlur = false
@@ -1608,7 +1608,7 @@ export struct MySheetsPage {
           .height(0)
           .bindSheet(!!this.showSortSheet, this.SortListSheetBuilder(true), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-            dragBar: true,
+            dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
               this.showSortSheet = false;
               appState.isForegroundBlur = false
@@ -1624,7 +1624,7 @@ export struct MySheetsPage {
           .height(0)
           .bindSheet(!!this.showSubscribedSortSheet, this.SortListSheetBuilder(false), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-            dragBar: true,
+            dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
               this.showSubscribedSortSheet = false;
               appState.isForegroundBlur = false
@@ -1651,7 +1651,7 @@ export struct MySheetsPage {
         .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
             this.showImportSheet = false;
             appState.isForegroundBlur = false

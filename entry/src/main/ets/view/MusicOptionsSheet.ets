@@ -17,7 +17,7 @@ import { CoverSearch } from '../utils/CoverSearch';
 import { TagEditor } from '../utils/TagEditor';
 import { TagEditFields } from '../utils/TagEditor';
 import { appState } from '../entryability/AppState';
-import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
   import { DialogManager, MetaEditFieldDesc } from '../utils/DialogUtils';
   import { LyricSearch } from '../utils/LyricSearch';
   import { lyricManager } from '../core/LyricManager';
@@ -696,7 +696,7 @@ export struct MusicOptionsSheet {
       Column()
         .bindSheet(!!this.showSheetPicker, this.SheetPickerBuilder(), {
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true,
+          dragBar: true, preferType: sheetPreferType(),
           onDisappear: () => {
             this.showSheetPicker = false;
             this.pickerInCreateMode = false;

@@ -7,6 +7,7 @@ import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAni
 import { QueueSheet } from './QueueSheet';
 import { HdsBarStyle } from '@kit.UIDesignKit';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
+import { sheetPreferType } from '../utils/BreakpointUtils';
 
 /**
  * 迷你播放条（参考 ting_read TabsPlayBar）：
@@ -207,7 +208,7 @@ export struct PlayBar {
     .opacity(playerAnim.miniBarOpacity)
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-      dragBar: true,
+      dragBar: true, preferType: sheetPreferType(),
       backgroundColor: $r('sys.color.background_secondary'),
       onWillDisappear: () => {
         this.showQueue = false;
