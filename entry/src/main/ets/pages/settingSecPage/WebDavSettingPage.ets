@@ -1,4 +1,4 @@
-import { CommonNav, titleBarOf } from '../../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../../view/CommonNav';
 import { appState } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
@@ -84,7 +84,8 @@ export struct WebDavSettingPage {
     CommonNav({
       titleBarOp: titleBarOf('WebDAV 备份与恢复'),
       scroller: this.scroller,
-      doubleTapToTop: true
+      doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset()
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

@@ -49,6 +49,7 @@ export struct CommonNav{
   @Param isSearchBarScroller: boolean = true
   /** 双击标题栏区域时列表回滚到顶部 */
   @Param doubleTapToTop: boolean = false
+  @Param scrollToTopYOffset: number = 0
   @Event backPressed: () => boolean = (): boolean => false
 
   @BuilderParam content: () => void;
@@ -95,7 +96,7 @@ export struct CommonNav{
     const now = Date.now();
     if (this.lastTitleTapTime > 0 && now - this.lastTitleTapTime <= 300) {
       this.lastTitleTapTime = 0;
-      this.scroller.scrollTo({ xOffset: 0, yOffset: 0, animation: { duration: 250, curve: Curve.EaseOut } });
+      this.scroller.scrollTo({ xOffset: 0, yOffset: this.scrollToTopYOffset, animation: { duration: 250, curve: Curve.EaseOut } });
     } else {
       this.lastTitleTapTime = now;
     }
@@ -236,5 +237,18 @@ export struct CommonNav{
         this.tabBarSlotH = newArea.height;
       }
     })
+  }
+}
+
+/**
+ * 双击回顶部y轴偏移值
+ * @param yOffset
+ * @returns
+ */
+export function ScrollToTopYOffset(yOffset?: number){
+  if (yOffset) {
+    return -(appState.topRect + 66 + yOffset)
+  }else{
+    return -(appState.topRect + 66)
   }
 }

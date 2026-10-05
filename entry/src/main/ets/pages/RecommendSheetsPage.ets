@@ -1,4 +1,4 @@
-import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { SheetGridItem } from '../view/SheetGridItem';
 import { SheetRowDataSource } from '../common/model/SheetRowDataSource';
 import { MediaTagDataSource } from '../common/model/MediaTagDataSource';
@@ -248,7 +248,8 @@ export struct RecommendSheetsPage {
       titleBarOp: titleBarOf('推荐歌单', undefined, this.titleMenus()),
       scroller: this.scroller,
       isShowPlayBar: true,
-      doubleTapToTop: true
+      doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset()
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

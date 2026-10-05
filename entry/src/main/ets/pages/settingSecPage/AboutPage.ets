@@ -1,4 +1,4 @@
-import { CommonNav, titleBarOf } from '../../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../../view/CommonNav';
 import { appState } from '../../entryability/AppState';
 import { AppMeta } from '../../core/AppMeta';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
@@ -416,7 +416,8 @@ export struct AboutPage {
     CommonNav({
       titleBarOp: titleBarOf('关于'),
       scroller: this.scroller,
-      doubleTapToTop: true
+      doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset()
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

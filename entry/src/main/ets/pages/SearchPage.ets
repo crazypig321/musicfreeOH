@@ -9,7 +9,7 @@ import { ArtworkCache } from '../utils/ArtworkCache';
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { trackPlayer } from '../core/TrackPlayer';
-import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { StringDataSource } from '../common/model/StringDataSource';
@@ -561,6 +561,7 @@ export struct SearchPage {
       isShowPlayBar: true,
       scroller: this.scroller,
       doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset(),
       isSearchBarScroller: false,
       backPressed: (): boolean => false
     }) {

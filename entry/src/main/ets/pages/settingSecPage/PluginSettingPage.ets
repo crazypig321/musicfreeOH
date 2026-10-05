@@ -1,4 +1,4 @@
-import { CommonNav, titleBarOf } from '../../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../../view/CommonNav';
 import { appState } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
@@ -19,7 +19,8 @@ export struct PluginSettingPage {
     CommonNav({
       titleBarOp: titleBarOf('插件设置'),
       scroller: this.scroller,
-      doubleTapToTop: true
+      doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset()
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

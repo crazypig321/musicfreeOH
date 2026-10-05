@@ -1,4 +1,4 @@
-import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { ShareUtils } from '../utils/ShareUtils';
 import { CommonBlur, CommonLoading, CommonSearch, MenuItemParams } from '../view/CommonCom';
@@ -1440,6 +1440,7 @@ export struct MySheetsPage {
       isSearchBarScroller: false,
       scroller: this.scroller,
       doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset(44 + (this.showSearchBox ? 56 : 0))
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 16 }) {

@@ -7,7 +7,7 @@ import { musicSheet } from '../core/MusicSheet';
 import { MusicItem } from '../common/model/MediaTypes';
 import { SheetItem, SheetInfoResult } from '../common/model/SheetTypes';
 import { appConfig } from '../core/AppConfig';
-import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
@@ -1143,6 +1143,7 @@ export struct PluginPage {
       embedded: true,
       scroller: this.scroller,
       doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset(),
       isSearchBarScroller: false
     }) {
       Stack({ alignContent: Alignment.Top }) {

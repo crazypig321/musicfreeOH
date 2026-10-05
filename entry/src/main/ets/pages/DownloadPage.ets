@@ -7,7 +7,7 @@ import { musicSheet } from '../core/MusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
 import { appConfig } from '../core/AppConfig';
 import { Network } from '../infra/Network';
-import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { CommonBlur, CommonSearch } from '../view/CommonCom';
 import { MusicOptionsSheet } from '../view/MusicOptionsSheet';
 import { appState } from '../entryability/AppState';
@@ -1887,6 +1887,7 @@ export struct DownloadPage {
           { builder: (): void => { this.SearchBuilder() } } : undefined),
       isShowPlayBar: true,
       doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset(),
       scroller: this.isLocalMode ? this.scrollerLocal : this.scroller,
       backPressed: (): boolean => {
         // 批量操作模式下返回键先退出批量模式

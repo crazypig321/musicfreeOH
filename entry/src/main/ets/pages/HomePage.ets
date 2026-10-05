@@ -114,6 +114,7 @@ export struct HomePage{
       isHideBackButton: true,
       embedded: true,
       doubleTapToTop: true,
+      scrollToTopYOffset: -(useSidebarLayout(appState.WidthBp, appState.screenWidth, appState.displayWidth) ? 64 : appState.topRect + 120),
       scroller: this.scroller
     }) {
       Stack({ alignContent: Alignment.Top }) {

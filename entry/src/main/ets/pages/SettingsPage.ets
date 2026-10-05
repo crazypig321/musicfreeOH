@@ -1,4 +1,4 @@
-import { CommonNav, titleBarOf } from '../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { NavPathUtils } from '../utils/NavPathUtils';
@@ -51,7 +51,8 @@ export struct SettingsPage {
       isHideBackButton: true,
       embedded: true,
       scroller: this.scroller,
-      doubleTapToTop: true
+      doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset()
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 16 }) {

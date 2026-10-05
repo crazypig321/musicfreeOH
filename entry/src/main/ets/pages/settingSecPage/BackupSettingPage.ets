@@ -1,6 +1,6 @@
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import util from '@ohos.util';
-import { CommonNav, titleBarOf } from '../../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../../view/CommonNav';
 import { appState } from '../../entryability/AppState';
 import { ContextHolder } from '../../common/ContextHolder';
 import { PathConst } from '../../common/PathConst';
@@ -125,7 +125,8 @@ export struct BackupSettingPage {
     CommonNav({
       titleBarOp: titleBarOf('备份与恢复'),
       scroller: this.scroller,
-      doubleTapToTop: true
+      doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset()
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

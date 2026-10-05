@@ -1,4 +1,4 @@
-import { CommonNav, titleBarOf } from '../../view/CommonNav';
+import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../../view/CommonNav';
 import { appState, themeColorOf } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
@@ -336,7 +336,8 @@ export struct AppearanceSettingPage {
     CommonNav({
       titleBarOp: titleBarOf('外观设置'),
       scroller: this.scroller,
-      doubleTapToTop: true
+      doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset()
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {

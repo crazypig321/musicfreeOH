@@ -1,4 +1,4 @@
-﻿import { CommonNav, titleBarOf } from '../view/CommonNav';
+﻿import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { CommonBlur, CommonSearch, CommonLoading, ListLoadingRow, ListEndRow, EmptyStateBlock } from '../view/CommonCom';
 import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
@@ -910,6 +910,7 @@ export struct MediaDetailPage {
         this.showSearchBox ? { builder: (): void => { this.SearchBuilder() } } : undefined),
       scroller: this.scroller,
       doubleTapToTop: true,
+      scrollToTopYOffset: ScrollToTopYOffset(),
       isShowPlayBar: true,
       backPressed: (): boolean => {
         // 批量操作模式下返回键先退出批量模式
