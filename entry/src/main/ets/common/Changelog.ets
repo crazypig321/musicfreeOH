@@ -12,6 +12,16 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v300: ChangelogEntry = new ChangelogEntry();
+  v300.version = '3.0.0';
+  v300.date = '2026-10-06';
+  v300.markdown = '- 播放页歌词新增逐字扫光动画：按词级时间轴逐字点亮，长句按显示行切分依次点亮，逐帧渲染平滑推进，切行弹簧滚动\n' +
+    '- PC / 平板自由窗口 UI 优化：隐藏系统标题栏与应用标题栏合一，空白区可拖拽移动窗口；系统最小化 / 最大化 / 关闭按钮下沉页面内并自动避让；侧边栏搜索入口移至顶部标题栏\n' +
+    '- 所有弹层在 PC 模式下居中显示\n' +
+    '- 修复未下载的歌词每次播放都要重新联网匹配的问题：自动匹配成功后即缓存歌词与翻译，再次播放直接命中\n' +
+    '- 完善播放页面底部功能按钮的转场动画，使其更符合视觉逻辑'
+  list.push(v300);
+
   const v290: ChangelogEntry = new ChangelogEntry();
   v290.version = '2.9.0';
   v290.date = '2026-10-05';

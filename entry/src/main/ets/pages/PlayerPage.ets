@@ -987,9 +987,13 @@ export struct PlayerPage {
       this.ControlsRow(1)
       // 封面模式：歌曲功能按钮；歌词模式：歌词操作按钮
       if (!this.showLyric) {
-        this.BottomActions(1)
+        Row(){
+          this.BottomActions(1)
+        }.transition(TransitionEffect.move(TransitionEdge.START).animation({ duration: 300., curve: Curve.EaseOut }))
       } else {
-        this.LyricActions(1)
+        Row(){
+          this.LyricActions(1)
+        }.transition(TransitionEffect.move(TransitionEdge.END).animation({ duration: 300., curve: Curve.EaseOut }))
       }
     }
     .width('100%')
@@ -1053,7 +1057,7 @@ export struct PlayerPage {
             Row(){
               this.LyricActions(this.uiScale())
             }.layoutWeight(1).width('50%')
-          }.width('100%')
+          }.width('100%').transition(TransitionEffect.move(TransitionEdge.BOTTOM).animation({ duration: 300., curve: Curve.EaseOut }))
       }
     }
     .width('100%')
@@ -1562,7 +1566,6 @@ export struct PlayerPage {
     .alignItems(VerticalAlign.Center)
     .padding({ left: 4, right: 4 })
     .margin({ top: this.compactGap(25) })
-    .transition(TransitionEffect.SLIDE)
   }
 
   /** 歌词模式底部操作：时间偏移 / 字体大小 / 搜索歌词 / 翻译 / 悬浮歌词 / 更多（s：分栏缩放系数，样式同 BottomActions） */
@@ -1591,7 +1594,6 @@ export struct PlayerPage {
     .alignItems(VerticalAlign.Center)
     .padding({ left: 4, right: 4 })
     .margin({ top: this.compactGap(25) })
-    .transition(TransitionEffect.SLIDE)
   }
 
   /** 歌词「更多」半模态：复制歌词 / 编辑歌词 / 悬浮歌词设置 */
