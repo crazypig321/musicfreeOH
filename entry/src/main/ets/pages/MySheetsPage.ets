@@ -1836,23 +1836,12 @@ export struct MySheetsPage {
         }
 
         Column({ space: 2 }) {
-          Row({ space: 6 }) {
-            Text(rec.title)
-              .fontSize(15)
-              .fontColor($r('sys.color.font_primary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-            if (rec.hasUpdate) {
-              Text('有更新')
-                .fontSize(10)
-                .fontColor(Color.White)
-                .backgroundColor('#e5484d')
-                .borderRadius(8)
-                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-            }
-          }
-          .width('100%')
+          Text(rec.title)
+            .fontSize(15)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
 
           Text(this.subscribedRowSubtitle(rec))
             .fontSize(12)
@@ -1864,10 +1853,21 @@ export struct MySheetsPage {
         .alignItems(HorizontalAlign.Start)
 
         if (!appState.isBatchMode) {
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(16)
-            .fontColor([$r('sys.color.icon_tertiary')])
-            .transition(TransitionEffect.OPACITY)
+          Row({ space: 10}){
+            if (rec.hasUpdate) {
+              Text('有更新')
+                .fontSize(10)
+                .fontColor(Color.White)
+                .backgroundColor('#e5484d')
+                .borderRadius(3)
+                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            }
+
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(16)
+              .fontColor([$r('sys.color.icon_tertiary')])
+              .transition(TransitionEffect.OPACITY)
+          }
         }
       }
       .width('100%')
