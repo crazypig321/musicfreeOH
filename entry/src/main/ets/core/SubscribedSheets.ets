@@ -351,7 +351,13 @@ export class SubscribedSheets {
       changed = true;
     }
     if (countChanged || titleChanged || coverChanged) {
-      record.itemRecord = JsonUtil.cloneRecord(latestRecord);
+      // 快照回写保留原 id/platform（订阅按 platform+id 索引）：
+      // 部分插件的详情接口返回的条目 id 与请求 id 不一致（如 QQ 歌单的内部 dissid），
+      // 直接覆盖会破坏重启后的还原
+      const snap = JsonUtil.cloneRecord(latestRecord);
+      snap['id'] = record.id;
+      snap['platform'] = record.platform;
+      record.itemRecord = snap;
       changed = true;
     }
     if (markSeen && record.hasUpdate) {
