@@ -1841,7 +1841,6 @@ export struct MySheetsPage {
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .layoutWeight(1)
 
           Text(this.subscribedRowSubtitle(rec))
             .fontSize(12)
