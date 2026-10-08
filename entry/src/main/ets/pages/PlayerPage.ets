@@ -1078,7 +1078,7 @@ export struct PlayerPage {
         Image(ArtworkCache.resolve(this.currentMusic.artwork))
           .height('100%')
           .aspectRatio(1)
-          .constraintSize({ maxWidth: 340, maxHeight: 340 })
+          .constraintSize({ maxWidth: 340 })
           .borderRadius(24)
           .objectFit(ImageFit.Cover)
           .shadow({
@@ -1097,7 +1097,7 @@ export struct PlayerPage {
         }
         .height('100%')
         .aspectRatio(1)
-        .constraintSize({ maxWidth: 340, maxHeight: 340 })
+        .constraintSize({ maxHeight: 340 })
         .borderRadius(24)
         .backgroundColor($r('sys.color.comp_background_tertiary'))
         .justifyContent(FlexAlign.Center)
@@ -1191,7 +1191,7 @@ export struct PlayerPage {
           Image(ArtworkCache.resolve(this.currentMusic.artwork))
             .width(280)
             .aspectRatio(1)
-            .sourceSize({ width: 280, height: 280 })
+            //.sourceSize({ width: 280, height: 280 })会造成封面变形
             .borderRadius(24)
             .objectFit(ImageFit.Cover)
             .shadow({
