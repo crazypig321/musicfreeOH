@@ -17,6 +17,7 @@ export struct SheetGridItem {
         .borderRadius(12)
         .objectFit(ImageFit.Cover)
         .alt($r('app.media.altImage'))
+        .draggable(false)
       Text(this.sheet.title)
         .fontSize(12)
         .fontColor($r('sys.color.font_secondary'))

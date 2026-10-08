@@ -878,6 +878,7 @@ export struct PlayerPage {
           .height('100%')
           .objectFit(ImageFit.Cover)
           .blur(80)
+          .draggable(false)
         Column()
           .width('100%')
           .height('100%')
@@ -1087,6 +1088,7 @@ export struct PlayerPage {
             offsetX: 0,
             offsetY: 0
           })
+          .draggable(false)
           .id('player_page_cover')
           .opacity(playerAnim.bigCoverHidden ? 0 : 1)
       } else {
@@ -1202,6 +1204,7 @@ export struct PlayerPage {
             })
             .id('player_page_cover')
             .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+            .draggable(false)
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music'))
@@ -1825,6 +1828,7 @@ export struct PlayerPage {
                       .borderRadius(18)
                       .objectFit(ImageFit.Cover)
                       .alt($r('app.media.altImage'))
+                      .draggable(false)
                   } else {
                     Column() {
                       SymbolGlyph($r('sys.symbol.person'))

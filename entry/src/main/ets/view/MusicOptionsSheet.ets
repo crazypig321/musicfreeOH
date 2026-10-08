@@ -736,6 +736,7 @@ export struct MusicOptionsSheet {
             .borderRadius(10)
             .objectFit(ImageFit.Cover)
             .alt($r('app.media.altImage'))
+            .draggable(false)
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music_note_list'))

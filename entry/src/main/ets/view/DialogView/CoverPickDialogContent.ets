@@ -74,6 +74,7 @@ export struct CoverPickDialogContent {
                 })
                 .objectFit(ImageFit.Cover)
                 .alt($r('app.media.altImage'))
+                .draggable(false)
               if (index === this.selectedIndex) {
                 Toggle({ type: ToggleType.Checkbox, isOn: true })
                   .width(20)

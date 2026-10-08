@@ -1686,6 +1686,7 @@ export struct MySheetsPage {
             .borderRadius(10)
             .objectFit(ImageFit.Cover)
             .alt($r('app.media.altImage'))
+            .draggable(false)
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music_note_list'))
@@ -1822,6 +1823,7 @@ export struct MySheetsPage {
             .borderRadius(10)
             .objectFit(ImageFit.Cover)
             .alt($r('app.media.altImage'))
+            .draggable(false)
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music_note_list'))

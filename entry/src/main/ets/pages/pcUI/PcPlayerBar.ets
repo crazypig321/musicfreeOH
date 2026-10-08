@@ -236,6 +236,7 @@ export struct PcPlayerBar {
             .objectFit(ImageFit.Cover)
             .id(this.myId + '_cover')
             .opacity(playerAnim.miniCoverOpacity)
+            .draggable(false)
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music'))

@@ -879,6 +879,7 @@ export struct SearchPage {
           .borderRadius(8)
           .objectFit(ImageFit.Cover)
           .alt($r('app.media.altImage'))
+          .draggable(false)
         Column({ space: 2 }) {
           Text(item.title)
             .fontSize(15)
@@ -924,6 +925,7 @@ export struct SearchPage {
           .borderRadius(22)
           .objectFit(ImageFit.Cover)
           .alt($r('app.media.altImage'))
+          .draggable(false)
         Column({ space: 2 }) {
           Text(item.name)
             .fontSize(15)
@@ -966,6 +968,7 @@ export struct SearchPage {
           .borderRadius(8)
           .objectFit(ImageFit.Cover)
           .alt($r('app.media.altImage'))
+          .draggable(false)
         Column({ space: 2 }) {
           Text(item.title)
             .fontSize(15)

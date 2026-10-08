@@ -257,11 +257,13 @@ export struct CommonCover{
           .borderRadius(this.radius)
           .objectFit(ImageFit.Cover)
           .alt($r('app.media.altImage'))
+          .draggable(false)
       } else {
         Image(this.src)
           .width(this.widthValue)
           .borderRadius(this.radius)
           .alt($r('app.media.altImage'))
+          .draggable(false)
       }
     } else {
       Column() {

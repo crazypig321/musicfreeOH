@@ -19,6 +19,7 @@ export struct PaySupport{
           Image(item.icon)
             .width(140)
             .height(140).borderRadius(10)
+            .draggable(false)
 
           Text(item.text)
             .textAlign(TextAlign.Center)

@@ -120,6 +120,7 @@ export struct PlayBar {
             .animation({ duration: 500, curve: Curve.Smooth })
             .id(this.myId + '_cover')
             .opacity(playerAnim.miniCoverOpacity)
+            .draggable(false)
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music'))

@@ -221,6 +221,7 @@ struct Index {
         .objectFit(ImageFit.Cover)
         .opacity(playerAnim.coverOpacity)
         .hitTestBehavior(HitTestMode.None)
+        .draggable(false)
     }
     .width('100%')
     .height('100%')

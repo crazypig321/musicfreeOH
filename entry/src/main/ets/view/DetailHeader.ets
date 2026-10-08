@@ -31,6 +31,7 @@ export struct DetailHeader {
           .height(240)
           .objectFit(ImageFit.Cover)
           .alt($r('app.media.altImage'))
+          .draggable(false)
         Column()
           .width('100%')
           .height(240)

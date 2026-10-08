@@ -354,6 +354,7 @@ export struct AboutPage {
           .width(44)
           .height(44)
           .borderRadius(22)
+          .draggable(false)
       } else {
         SymbolGlyph(row.icon)
           .fontSize(20)
@@ -429,9 +430,11 @@ export struct AboutPage {
                 Image($r('app.media.background'))
                   .width(76)
                   .height(76)
+                  .draggable(false)
                 Image($r('app.media.foreground'))
                   .width(76)
                   .height(76)
+                  .draggable(false)
               }
               .width(76)
               .height(76)
