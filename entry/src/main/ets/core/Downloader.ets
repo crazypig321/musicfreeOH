@@ -6,6 +6,7 @@ import { MusicItem, MediaSource, QualityKey, qualityFromStr } from '../common/mo
 import { MediaUtils } from '../utils/MediaUtils';
 import { FileUtils } from '../utils/FileUtils';
 import { Qualities } from '../utils/Qualities';
+import { GetUrlExt } from '../utils/GetUrlExt';
 import { Network, NetworkState } from '../infra/Network';
 import { HttpClient } from '../infra/HttpClient';
 import { KVStore } from '../infra/KVStore';
@@ -519,19 +520,11 @@ export class Downloader {
     this.ee.emit(DownloaderEvent.DOWNLOAD_TASK_ERROR, ev);
   }
 
-  /** 匹配文件后缀 */
+  /** 匹配文件后缀（用纯字符串解析，避免 ArkTS 正则引擎对无锚点分支匹配失败导致 flac 误判为 mp3） */
   private getExtensionName(url: string): string {
-    const regResult = url.match(/^https?\:\/\/.+\.([^\?\.]+?$)|(?:([^\.]+?)\?.+$)/);
-    if (regResult !== null) {
-      const g1 = regResult[1];
-      if (typeof g1 === 'string' && g1.length > 0) {
-        return g1;
-      }
-      const g2 = regResult[2];
-      if (typeof g2 === 'string' && g2.length > 0) {
-        return g2;
-      }
-      return 'mp3';
+    const ext = GetUrlExt.get(url);
+    if (ext.length > 1) {
+      return ext.substring(1);
     }
     return 'mp3';
   }
