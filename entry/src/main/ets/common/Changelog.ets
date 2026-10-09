@@ -12,6 +12,13 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v303: ChangelogEntry = new ChangelogEntry();
+  v303.version = '3.0.3';
+  v303.date = '2026-10-10';
+  v303.markdown = '- 均衡器新增保存自定义预设：调节好参数后可保存为命名预设，列表懒加载展示，点击应用、编辑名称、删除；当前激活预设主题色高亮\n' +
+    '- 修复下载高品质格式音频时文件扩展名被误判为 mp3 的问题（实际音频流正确但文件名后缀错误）';
+  list.push(v303);
+
   const v300: ChangelogEntry = new ChangelogEntry();
   v300.version = '3.0.0';
   v300.date = '2026-10-06';
