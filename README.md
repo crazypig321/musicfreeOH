@@ -21,6 +21,23 @@
 
 ---
 
+## 📥 安装与使用
+
+### 🚀 快速开始
+
+1. **下载安装**
+    - 从 [Releases](https://github.com/crazypig321/MusicFreeOH/releases) 下载最新版 `.hap` 包，使用[小白调试助手](https://github.com/likuai2010/auto-installer)安装到 HarmonyOS 设备
+    - 或者使用命令行构建： `hvigorw assembleHap`，然后安装生成的 `.hap` 包
+    - 安装后，首次启动Download文件夹里会自动创建 `MusicFreeOH` 文件夹，用于存储插件、缓存、下载等数据
+
+2. **添加插件**
+    - **推荐插件**：[MusicFreePlugins](https://github.com/maotoumao/MusicFreePlugins)（包含多个主流音乐平台插件）
+    - **手动添加**：下载 `.js` 插件脚本，放入 `MusicFreeOH/Plugins` 目录
+    - **订阅源**：支持 `.json` 插件列表订阅，可批量导入插件
+
+---
+
+
 ## ✨ 功能特性
 
 | 功能                 | 说明                                                                 |
