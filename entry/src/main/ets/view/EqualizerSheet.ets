@@ -5,10 +5,46 @@ import { sliderImmersiveModifier } from '../utils/UiUtils';
 import {
   EqualizerManager,
   EqPresetDef,
+  EqUserPreset,
   EQ_BAND_LABELS,
   EQ_GAIN_MIN,
   EQ_GAIN_MAX
 } from '../core/EqualizerManager';
+
+/** 用户预设懒加载数据源（整体替换并通知刷新） */
+class EqUserPresetDataSource implements IDataSource {
+  private items: Array<EqUserPreset> = [];
+  private listeners: Array<DataChangeListener> = [];
+
+  totalCount(): number {
+    return this.items.length;
+  }
+
+  getData(index: number): EqUserPreset {
+    return this.items[index];
+  }
+
+  registerDataChangeListener(listener: DataChangeListener): void {
+    if (this.listeners.indexOf(listener) === -1) {
+      this.listeners.push(listener);
+    }
+  }
+
+  unregisterDataChangeListener(listener: DataChangeListener): void {
+    const i = this.listeners.indexOf(listener);
+    if (i >= 0) {
+      this.listeners.splice(i, 1);
+    }
+  }
+
+  /** 整体替换数据并通知刷新 */
+  reload(items: Array<EqUserPreset>): void {
+    this.items = items;
+    for (const listener of this.listeners) {
+      listener.onDataReloaded();
+    }
+  }
+}
 
 /**
  * 均衡器半模态面板（@ospark/free-pcm 10 段均衡器）
@@ -27,11 +63,17 @@ export struct EqualizerSheet {
   /** 10 段增益副本 */
   @Local eqGains: Array<number> = EqualizerManager.getInstance().getGains();
   @Local presetKey: string = EqualizerManager.getInstance().presetKey;
+  /** 用户保存的预设列表 */
+  @Local userPresets: Array<EqUserPreset> = EqualizerManager.getInstance().getUserPresets();
+  /** 用户预设懒加载数据源 */
+  private presetSource: EqUserPresetDataSource = new EqUserPresetDataSource();
 
   private syncFromManager(): void {
     this.eqEnabled = EqualizerManager.getInstance().enabled;
     this.eqGains = EqualizerManager.getInstance().getGains();
     this.presetKey = EqualizerManager.getInstance().presetKey;
+    this.userPresets = EqualizerManager.getInstance().getUserPresets();
+    this.presetSource.reload(this.userPresets);
   }
 
   private static formatGain(g: number): string {
@@ -54,6 +96,71 @@ export struct EqualizerSheet {
       next.push(i === index ? v : this.eqGains[i]);
     }
     this.eqGains = next;
+  }
+
+  /** 格式化增益摘要（10 段数值空格分隔，正数带 + 号） */
+  private static formatGainsSummary(gains: Array<number>): string {
+    const parts: Array<string> = [];
+    for (let i = 0; i < gains.length; i++) {
+      const g = gains[i];
+      parts.push(g >= 0 ? '+' + g.toString() : g.toString());
+    }
+    return parts.join('  ');
+  }
+
+  /** 弹出输入框保存当前均衡器参数为用户预设 */
+  private showSavePresetDialog(): void {
+    DialogManager.renameValue = '';
+    DialogManager.renameConfirm = (name: string): void => {
+      const trimmed = name.trim();
+      if (trimmed.length === 0) {
+        return;
+      }
+      EqualizerManager.getInstance().saveUserPreset(trimmed, EqualizerManager.getInstance().getGains());
+      this.syncFromManager();
+    };
+    DialogManager.OpenDialog('重命名');
+  }
+
+  /** 确认删除用户预设 */
+  private confirmDeletePreset(name: string): void {
+    DialogManager.ConfirmDelete('确定删除预设「' + name + '」？', (): void => {
+      EqualizerManager.getInstance().deleteUserPreset(name);
+      this.syncFromManager();
+    });
+  }
+
+  /** 应用用户预设 */
+  private applyUserPresetItem(name: string): void {
+    EqualizerManager.getInstance().applyUserPreset(name);
+    this.syncFromManager();
+  }
+
+  /** 判断预设是否为当前激活（增益完全一致） */
+  private isPresetActive(gains: Array<number>): boolean {
+    if (this.eqGains.length !== gains.length) {
+      return false;
+    }
+    for (let i = 0; i < gains.length; i++) {
+      if (this.eqGains[i] !== gains[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** 弹出输入框编辑预设名称 */
+  private showEditPresetDialog(currentName: string): void {
+    DialogManager.renameValue = currentName;
+    DialogManager.renameConfirm = (name: string): void => {
+      const trimmed = name.trim();
+      if (trimmed.length === 0 || trimmed === currentName) {
+        return;
+      }
+      EqualizerManager.getInstance().renameUserPreset(currentName, trimmed);
+      this.syncFromManager();
+    };
+    DialogManager.OpenDialog('重命名');
   }
 
   build() {
@@ -219,19 +326,86 @@ export struct EqualizerSheet {
       .opacity(this.eqEnabled ? 1 : 0.4)
       .enabled(this.eqEnabled)
 
-      // 重置
-      Text('恢复默认')
-        .fontSize(13)
-        .fontColor($r('sys.color.font_secondary'))
-        .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-        .borderRadius(16)
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .margin({ top: 18 })
+      // 恢复默认 + 保存
+      Row({ space: 10 }) {
+        Text('恢复默认')
+          .fontSize(13)
+          .fontColor($r('sys.color.font_secondary'))
+          .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+          .borderRadius(16)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .enabled(this.eqEnabled)
+          .onClick(() => {
+            EqualizerManager.getInstance().resetToDefault();
+            this.syncFromManager();
+          })
+        Text('保存')
+          .fontSize(13)
+          .fontColor($r('sys.color.font_secondary'))
+          .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+          .borderRadius(16)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .enabled(this.eqEnabled)
+          .onClick(() => {
+            this.showSavePresetDialog();
+          })
+      }
+      .margin({ top: 18 })
+
+      Text('我的调音').fontSize(14) .fontColor($r('sys.color.font_tertiary')).fontWeight(FontWeight.Medium)
+        .margin({ top: 14, bottom: 10 })
+      // 用户保存的预设列表（懒加载）
+      if (this.userPresets.length > 0) {
+        List({ space: 8 }) {
+          LazyForEach(this.presetSource, (preset: EqUserPreset) => {
+            ListItem() {
+              Row({ space: 10 }) {
+                Text(preset.name)
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(this.isPresetActive(preset.gains) ?
+                    Color.White : $r('sys.color.font_primary'))
+
+                Blank()
+                Text('编辑')
+                  .fontSize(12)
+                  .fontColor(this.isPresetActive(preset.gains) ?
+                    Color.White : $r('sys.color.font_secondary'))
+                  .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+                  .borderRadius(6)
+                  .backgroundColor(this.isPresetActive(preset.gains) ?
+                    $r('sys.color.comp_background_list_card') : $r('sys.color.comp_background_tertiary'))
+                  .onClick(() => {
+                    this.showEditPresetDialog(preset.name);
+                  })
+                Text('删除')
+                  .fontSize(12)
+                  .fontColor(Color.White)
+                  .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+                  .borderRadius(6)
+                  .backgroundColor(this.isPresetActive(preset.gains) ?
+                    $r('sys.color.comp_background_list_card') : $r('sys.color.comp_background_tertiary'))
+                  .onClick(() => {
+                    this.confirmDeletePreset(preset.name);
+                  })
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceBetween)
+              .alignItems(VerticalAlign.Center)
+              .borderRadius(16)
+              .padding(12)
+              .backgroundColor(this.isPresetActive(preset.gains) ?
+                appState.accentColor : $r('sys.color.comp_background_list_card'))
+              .onClick(() => {
+                this.applyUserPresetItem(preset.name);
+              })
+            }
+          }, (preset: EqUserPreset) => preset.name + '_' + preset.gains.join(','))
+        }
+        .width('100%')
+        .height(Math.min(this.userPresets.length, 6) * 68)
         .enabled(this.eqEnabled)
-        .onClick(() => {
-          EqualizerManager.getInstance().resetToDefault();
-          this.syncFromManager();
-        })
+      }
     }
     .width('100%')
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })

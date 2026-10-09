@@ -1,4 +1,5 @@
 import { appConfig } from './AppConfig';
+import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
 
 /** 均衡器预设定义 */
 export class EqPresetDef {
@@ -9,6 +10,16 @@ export class EqPresetDef {
   constructor(key: string, label: string, gains: Array<number>) {
     this.key = key;
     this.label = label;
+    this.gains = gains;
+  }
+}
+
+/** 用户保存的均衡器预设 */
+export class EqUserPreset {
+  readonly name: string;
+  readonly gains: Array<number>;
+  constructor(name: string, gains: Array<number>) {
+    this.name = name;
     this.gains = gains;
   }
 }
@@ -157,6 +168,111 @@ export class EqualizerManager {
   /** 重置为默认（全 0） */
   resetToDefault(): void {
     this.applyPreset('default');
+  }
+
+  /** 读取用户保存的预设列表 */
+  getUserPresets(): Array<EqUserPreset> {
+    const raw = appConfig.getEqUserPresets();
+    const arr = JsonUtil.parseRecordArray(raw);
+    if (arr === null) {
+      return [];
+    }
+    const out: Array<EqUserPreset> = [];
+    for (const rec of arr) {
+      const name = JsonUtil.recStr(rec, 'name');
+      if (name.length === 0) {
+        continue;
+      }
+      const gainsRaw = JsonUtil.recArray(rec, 'gains');
+      if (gainsRaw === null) {
+        continue;
+      }
+      const gains: Array<number> = [];
+      for (const g of gainsRaw) {
+        if (typeof g === 'number') {
+          gains.push(g);
+        } else {
+          gains.push(0);
+        }
+      }
+      if (gains.length !== 10) {
+        continue;
+      }
+      out.push(new EqUserPreset(name, gains));
+    }
+    return out;
+  }
+
+  /** 保存增益为用户预设（同名覆盖） */
+  saveUserPreset(name: string, gains: Array<number>): void {
+    const presets = this.getUserPresets();
+    const records: Array<JsonRecord> = [];
+    let replaced = false;
+    for (const p of presets) {
+      if (p.name === name) {
+        records.push(EqualizerManager.userPresetToRecord(name, gains));
+        replaced = true;
+      } else {
+        records.push(EqualizerManager.userPresetToRecord(p.name, p.gains));
+      }
+    }
+    if (!replaced) {
+      records.push(EqualizerManager.userPresetToRecord(name, gains));
+    }
+    appConfig.setEqUserPresets(JsonUtil.safeStringify(records));
+  }
+
+  /** 删除用户预设 */
+  deleteUserPreset(name: string): void {
+    const presets = this.getUserPresets();
+    const records: Array<JsonRecord> = [];
+    for (const p of presets) {
+      if (p.name !== name) {
+        records.push(EqualizerManager.userPresetToRecord(p.name, p.gains));
+      }
+    }
+    appConfig.setEqUserPresets(JsonUtil.safeStringify(records));
+  }
+
+  /** 重命名用户预设（新名称与其他已有预设同名则不执行，返回是否成功） */
+  renameUserPreset(oldName: string, newName: string): boolean {
+    const presets = this.getUserPresets();
+    for (const p of presets) {
+      if (p.name === newName && p.name !== oldName) {
+        return false;
+      }
+    }
+    const records: Array<JsonRecord> = [];
+    for (const p of presets) {
+      if (p.name === oldName) {
+        records.push(EqualizerManager.userPresetToRecord(newName, p.gains));
+      } else {
+        records.push(EqualizerManager.userPresetToRecord(p.name, p.gains));
+      }
+    }
+    appConfig.setEqUserPresets(JsonUtil.safeStringify(records));
+    return true;
+  }
+
+  /** 应用用户预设（设置增益并落盘，预设名置为自定义） */
+  applyUserPreset(name: string): boolean {
+    const presets = this.getUserPresets();
+    for (const p of presets) {
+      if (p.name === name) {
+        this.presetKeyInternal = EqualizerManager.PRESET_CUSTOM;
+        appConfig.setEqPreset(EqualizerManager.PRESET_CUSTOM);
+        this.updateGains(p.gains);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static userPresetToRecord(name: string, gains: Array<number>): JsonRecord {
+    const rec: JsonRecord = {};
+    rec['name'] = name;
+    rec['gains'] = gains;
+    return rec;
   }
 
   /** 增益是否与预设完全一致（一致时预设高亮，否则为自定义） */

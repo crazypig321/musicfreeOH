@@ -48,6 +48,7 @@ export class ConfigKeys {
   static readonly EQ_ENABLED = 'eq.enabled';
   static readonly EQ_PRESET = 'eq.preset';
   static readonly EQ_GAINS = 'eq.gains';
+  static readonly EQ_USER_PRESETS = 'eq.userPresets';
   static readonly BACKUP_RESUME_MODE = 'backup.resumeMode';
   static readonly APPEARANCE_THEME_COLOR = 'appearance.themeColor';
   static readonly APPEARANCE_COLOR_MODE = 'appearance.colorMode';
@@ -458,6 +459,15 @@ export class AppConfig {
       parts.push(g.toString());
     }
     this.setConfig(ConfigKeys.EQ_GAINS, parts.join(','));
+  }
+
+  /** 用户保存的均衡器预设（JSON 字符串，形如 [{"name":"我的预设","gains":[1,2,...]}]） */
+  getEqUserPresets(): string {
+    return this.getString(ConfigKeys.EQ_USER_PRESETS, '');
+  }
+
+  setEqUserPresets(json: string): void {
+    this.setConfig(ConfigKeys.EQ_USER_PRESETS, json);
   }
 
   /** 沉浸光感材质等级：exquisite 精致 / gentle 轻柔 / smooth 顺滑 / adaptive 跟随系统 */
