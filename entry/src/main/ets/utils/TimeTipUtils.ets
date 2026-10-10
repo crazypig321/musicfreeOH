@@ -11,7 +11,7 @@ return '下午好'
 }else if (time >= 18 && time < 24) {
 return '晚上好'
 }else if (time >= 0 && time < 6) {
-return '凌晨了，该休息了!'
+return '凌晨，该睡了！'
 }
 return 'MusicFree'
 }
