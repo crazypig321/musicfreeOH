@@ -352,7 +352,7 @@ export struct EqualizerSheet {
       }
       .margin({ top: 18 })
 
-      Text('我的调音').fontSize(14) .fontColor($r('sys.color.font_tertiary')).fontWeight(FontWeight.Medium)
+      Text('我的预设').fontSize(14) .fontColor($r('sys.color.font_tertiary')).fontWeight(FontWeight.Medium)
         .margin({ top: 14, bottom: 10 })
       // 用户保存的预设列表（懒加载）
       if (this.userPresets.length > 0) {
@@ -369,22 +369,21 @@ export struct EqualizerSheet {
                 Blank()
                 Text('编辑')
                   .fontSize(12)
-                  .fontColor(this.isPresetActive(preset.gains) ?
-                    Color.White : $r('sys.color.font_secondary'))
+                  .fontColor(this.isPresetActive(preset.gains) ? Color.White : $r('sys.color.font_secondary'))
                   .padding({ left: 10, right: 10, top: 5, bottom: 5 })
                   .borderRadius(6)
                   .backgroundColor(this.isPresetActive(preset.gains) ?
-                    $r('sys.color.comp_background_list_card') : $r('sys.color.comp_background_tertiary'))
+                    '#33ffffff' : $r('sys.color.comp_background_tertiary'))
                   .onClick(() => {
                     this.showEditPresetDialog(preset.name);
                   })
                 Text('删除')
                   .fontSize(12)
-                  .fontColor(Color.White)
+                  .fontColor(this.isPresetActive(preset.gains) ? Color.White : $r('sys.color.font_secondary'))
                   .padding({ left: 10, right: 10, top: 5, bottom: 5 })
                   .borderRadius(6)
                   .backgroundColor(this.isPresetActive(preset.gains) ?
-                    $r('sys.color.comp_background_list_card') : $r('sys.color.comp_background_tertiary'))
+                    '#33ffffff' : $r('sys.color.comp_background_tertiary'))
                   .onClick(() => {
                     this.confirmDeletePreset(preset.name);
                   })
@@ -405,6 +404,9 @@ export struct EqualizerSheet {
         .width('100%')
         .height(Math.min(this.userPresets.length, 6) * 68)
         .enabled(this.eqEnabled)
+      }else{
+        Text('暂无自定义预设,请调整参数后点击保存').fontSize(12) .fontColor($r('sys.color.font_tertiary')).fontWeight(FontWeight.Medium)
+          .width('100%').textAlign(TextAlign.Center)
       }
     }
     .width('100%')
