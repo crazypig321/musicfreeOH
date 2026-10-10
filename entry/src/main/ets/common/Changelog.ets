@@ -12,6 +12,17 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v310: ChangelogEntry = new ChangelogEntry();
+  v310.version = '3.1.0';
+  v310.date = '2026-10-10';
+  v310.markdown = '- 备份恢复全面支持原版 MusicFree 备份：本地「恢复」与 WebDAV 恢复自动识别原版备份并转换，歌单、插件、设置、订阅源合并迁移，原版默认歌单自动映射「我的收藏」\n' +
+    '- 本地导入插件的源码随备份内嵌导出，换设备恢复时自动重新安装（同哈希去重）；禁用插件一并备份，单个插件安装失败不影响其余数据恢复\n' +
+    '- WebDAV 备份改为多文件管理：每次生成独立文件（文件名带时间戳与设备名），不再覆盖旧备份；恢复时弹窗列出远端全部备份（时间 / 设备 / 大小），单选后确认恢复\n' +
+    '- WebDAV 新增「备份保留数量」设置（默认 10，范围 1-50），备份后自动删除超出数量的最老备份；退出时自动备份同样生效\n' +
+    '- 缓存页新增「清空所有数据」：弹窗确认后清空歌单、插件、设置、订阅源、播放历史与全部缓存并自动重启应用，已下载的音乐文件保留\n' +
+    '- 修复恢复备份后订阅源列表不显示、需重启应用才能看到的问题';
+  list.push(v310);
+
   const v303: ChangelogEntry = new ChangelogEntry();
   v303.version = '3.0.3';
   v303.date = '2026-10-10';

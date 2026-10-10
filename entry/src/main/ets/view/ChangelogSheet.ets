@@ -50,7 +50,7 @@ export struct ChangelogSheet {
     .onClick(() => {
       this.toggle(entry.version);
     })
-    .geometryTransition('update')
+   // .geometryTransition('update')
   }
 
   build() {
@@ -77,7 +77,7 @@ export struct ChangelogSheet {
               ListItem() {
                 MarkdownView({ markdown: entry.markdown })
               }.padding({ left: 16, right: 16, top: 4, bottom: 12 })
-              .geometryTransition('update', { follow: true })
+              //.geometryTransition('update', { follow: true })
               .transition(TransitionEffect.OPACITY.animation({duration: 200}))
             }
           }
