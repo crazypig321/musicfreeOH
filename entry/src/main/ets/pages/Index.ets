@@ -35,6 +35,8 @@ import { LyricSourceDialogContent } from '../view/DialogView/LyricSourceDialogCo
 import { EqGainDialogContent } from '../view/DialogView/EqGainDialogContent';
 import { SheetIntroDialogContent } from '../view/DialogView/SheetIntroDialogContent';
 import { MetaEditDialogContent } from '../view/DialogView/MetaEditDialogContent';
+import { WebDavBackupListDialogContent } from '../view/DialogView/WebDavBackupListDialogContent';
+import { WebDavCountInputDialogContent } from '../view/DialogView/WebDavCountInputDialogContent';
 import { ContextHolder } from '../common/ContextHolder';
 import { AppMeta } from '../core/AppMeta';
 import { appConfig } from '../core/AppConfig';
@@ -390,6 +392,10 @@ struct Index {
       EqGainDialogContent()
     } else if (key === '编辑信息') {
       MetaEditDialogContent()
+    } else if (key === '选择备份文件') {
+      WebDavBackupListDialogContent()
+    } else if (key === '备份保留数量') {
+      WebDavCountInputDialogContent()
     } else if (key === '捐赠'){
       PaySupport()
     }

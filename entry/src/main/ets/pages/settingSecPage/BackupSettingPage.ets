@@ -193,10 +193,10 @@ export struct BackupSettingPage {
                   Text('恢复')
                     .fontSize(15)
                     .fontColor($r('sys.color.font_primary'))
-                  Text('从本地备份文件恢复歌单、插件、设置与订阅源，与现有数据合并；原版 MusicFree 备份自动转换（原版的本地插件无法正常恢复，需要重新导入）')
+                  Text('从本地备份文件恢复歌单、插件、设置与订阅源，与现有数据合并；支持原版 MusicFree 备份（原版备份的本地插件无法正常恢复，需要重新导入）')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
-                    .maxLines(2)
+                    .maxLines(3)
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
@@ -205,7 +205,7 @@ export struct BackupSettingPage {
                   .fontColor([$r('sys.color.icon_tertiary')])
               }
               .width('100%')
-              .height(60)
+              .padding({ top: 10, bottom: 8 })
               .onClick(() => {
                 this.doRestore();
               })

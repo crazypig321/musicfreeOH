@@ -52,7 +52,7 @@ export function MainTabPagesBuilder() {
       } else if (i === 2) {
         PluginPage({ hostTabIndex: appState.currTabsIndex })
       } else if (i === 3) {
-        SubscriptionPage()
+        SubscriptionPage({ hostTabIndex: appState.currTabsIndex })
       } else {
         SettingsPage()
       }

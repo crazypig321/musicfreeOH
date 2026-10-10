@@ -2,15 +2,18 @@ import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../../view/CommonNav'
 import { appState } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
-import { WebDav } from '../../core/WebDav';
+import { WebDav, WebDavBackupEntry } from '../../core/WebDav';
 import { Backup } from '../../core/Backup';
 import { ResumeMode } from '../../common/Consts';
+import { DialogManager } from '../../utils/DialogUtils';
 import { showUiToast } from '../../utils/UiUtils';
 
 /**
  * WebDAV 备份与恢复页面
- * 服务器地址 / 用户名 / 密码（实时保存）+ 退出时自动备份开关 + 备份到 WebDAV / 从 WebDAV 恢复
- * 备份文件固定为 musicfree-backup.json（覆盖式，保留最新一份）
+ * 服务器地址 / 备份路径 / 用户名 / 密码（实时保存）+ 退出时自动备份开关 + 备份保留数量 +
+ * 备份到 WebDAV / 从 WebDAV 恢复
+ * 每次备份生成独立文件 musicfree-backup_yyyyMMdd_HHmmss_设备名.json（互不覆盖），
+ * 超出保留数量时删除最老备份；恢复时拉取远端备份列表弹窗选择文件
  * 恢复走 Backup.resume：musicfreeOH 备份与原版 MusicFree 备份均可（原版自动转换）
  */
 @ComponentV2
@@ -22,10 +25,12 @@ export struct WebDavSettingPage {
   @Local password: string = appConfig.getWebdavPassword();
   @Local autoBackupOnExit: boolean = appConfig.getWebdavAutoBackupOnExit();
   @Local working: boolean = false;
+  /** 备份保留数量展示文本（设置成功后刷新） */
+  @Local maxBackupCountText: string = appConfig.getWebdavMaxBackupCount().toString() + ' 个';
 
-  /** 备份文件相对服务器地址的完整路径（随配置实时刷新） */
+  /** 备份目录相对服务器地址的路径（随配置实时刷新，备份文件名含时间戳与设备名不再固定展示） */
   get backupFileDisplay(): string {
-    return WebDav.folderUrl().substring(WebDav.serverUrl().length) + WebDav.BACKUP_FILENAME;
+    return WebDav.folderUrl().substring(WebDav.serverUrl().length);
   }
 
   private showToast(message: string): void {
@@ -49,7 +54,7 @@ export struct WebDavSettingPage {
     });
   }
 
-  /** 从 WebDAV 恢复（musicfreeOH 备份与原版 MusicFree 备份均可，原版自动转换） */
+  /** 从 WebDAV 恢复：先拉取远端备份列表，弹窗选择文件后恢复（原版 MusicFree 备份自动转换） */
   private doRestore(): void {
     if (this.working) {
       return;
@@ -59,11 +64,39 @@ export struct WebDavSettingPage {
       return;
     }
     this.working = true;
+    WebDav.listBackups().then((entries): void => {
+      this.working = false;
+      if (entries === null) {
+        this.showToast('获取备份列表失败，请检查地址与账号');
+        return;
+      }
+      if (entries.length === 0) {
+        this.showToast('WebDAV 上没有备份文件');
+        return;
+      }
+      DialogManager.SelectWebDavBackup(entries, (fileName: string): void => {
+        this.restoreFrom(fileName);
+      });
+    });
+  }
+
+  /** 备份保留数量：弹窗输入 1-50 整数，超出保留数量时备份后自动删除最老备份 */
+  private showBackupCountDialog(): void {
+    DialogManager.InputWebDavBackupCount(appConfig.getWebdavMaxBackupCount(), (count: number): void => {
+      appConfig.setConfig(ConfigKeys.WEBDAV_MAX_BACKUP_COUNT, count);
+      this.maxBackupCountText = count.toString() + ' 个';
+      this.showToast('设置成功');
+    });
+  }
+
+  /** 拉取选中的备份文件并恢复（歌单合并，插件同源且本地版本更高则跳过） */
+  private restoreFrom(fileName: string): void {
+    this.working = true;
     this.showToast('正在从 WebDAV 恢复…');
-    WebDav.restore().then((result): void => {
+    WebDav.restore(fileName).then((result): void => {
       if (result.notFound) {
         this.working = false;
-        this.showToast('WebDAV 上没有备份文件');
+        this.showToast('备份文件不存在');
         return;
       }
       if (!result.ok) {
@@ -357,6 +390,43 @@ export struct WebDavSettingPage {
               }
               .width('100%')
               .height(52)
+
+              Divider()
+                .DividerStyle('do')
+
+              // 备份保留数量（智感握姿左手：数值镜像到行首，标题右对齐，图标镜像到行尾）
+              Row({ space: 12 }) {
+                if (appState.holdingHand === 'left') {
+                  Text(this.maxBackupCountText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.doc_text_on_doc_text'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                Text('备份保留数量')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  Text(this.maxBackupCountText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.doc_text_on_doc_text'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+              }
+              .width('100%')
+              .height(52)
+              .onClick(() => {
+                this.showBackupCountDialog();
+              })
             }
             .width('100%')
           }
