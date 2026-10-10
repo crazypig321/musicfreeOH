@@ -1,16 +1,19 @@
 import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../../view/CommonNav';
 import { appState } from '../../entryability/AppState';
 import { appConfig, ConfigKeys } from '../../core/AppConfig';
+import { ContextHolder } from '../../common/ContextHolder';
 import { PathConst } from '../../common/PathConst';
 import { FileUtils } from '../../utils/FileUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../../utils/BarScrollHelper';
 import { DialogManager } from '../../utils/DialogUtils';
 import { ArtworkCache } from '../../utils/ArtworkCache';
+import { DataReset } from '../../core/DataReset';
+import { Delay } from '../../utils/Delay';
 import { showUiToast } from '../../utils/UiUtils';
 
 /**
  * 缓存页面：音乐缓存上限 / 清除音乐缓存 / 清除图片缓存 / 清除歌词缓存 / 清除全部缓存 /
- * 本地音乐：本地音乐自动匹配音乐封面开关
+ * 本地音乐：本地音乐自动匹配音乐封面开关 / 应用数据：清空所有数据
  * 从设置页「缓存」条目进入；条目行 UI 同关于页
  */
 @ComponentV2
@@ -105,6 +108,37 @@ export struct CachePage {
   /** 清除确认弹窗（对齐 RN 的 SimpleDialog 确认流程） */
   private confirmClear(message: string, onConfirm: () => void): void {
     DialogManager.ClearCache(message, onConfirm);
+  }
+
+  /** 清空所有数据：弹窗确认后清空全部应用数据并重启应用（内存态已不可信，重启拉起全新状态） */
+  private doClearAll(): void {
+    DialogManager.ConfirmClearData(
+      '将清空歌单、插件、设置、订阅源、播放历史与全部缓存，此操作不可恢复；已下载的音乐文件不会被删除。确定继续吗？',
+      (): void => {
+        DataReset.clearAll();
+        this.showToast('已清空所有数据，应用即将重启');
+        Delay.wait(2000).then((): void => {
+          this.restartApp();
+        });
+      }
+    );
+  }
+
+  /**
+   * 重启应用；restartApp 失败（如未获焦）时退化为退出应用
+   * restartApp 不触发 onDestroy：清空后若走退出自动备份会把空数据覆盖云端 WebDAV 备份，此路径天然规避
+   */
+  private restartApp(): void {
+    const context = ContextHolder.get();
+    try {
+      context.getApplicationContext().restartApp({
+        bundleName: context.abilityInfo.bundleName,
+        abilityName: context.abilityInfo.name
+      });
+    } catch (_e) {
+      context.terminateSelf().catch((_e2: Object): void => {
+      });
+    }
   }
 
   build() {
@@ -362,6 +396,44 @@ export struct CachePage {
               .margin({ top: 16, bottom: 16 })
             }
             .width('100%')
+          }
+          .ListItemStyle()
+
+          // 小标题：应用数据
+          ListItem() {
+            Text('应用数据')
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }
+
+          // 清空所有数据（独立卡片，红色条目）
+          ListItem() {
+            Row({ space: 12 }) {
+              SymbolGlyph($r('sys.symbol.trash'))
+                .fontSize(20)
+                .fontColor([Color.Red])
+              Column({ space: 2 }) {
+                Text('清空所有数据')
+                  .fontSize(15)
+                  .fontColor(Color.Red)
+                Text('清空歌单、插件、设置、订阅源、播放历史与缓存，不可恢复；下载的音乐文件保留')
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+                  .maxLines(2)
+              }
+              .layoutWeight(1)
+              .alignItems(HorizontalAlign.Start)
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(14)
+                .fontColor([$r('sys.color.icon_tertiary')])
+            }
+            .width('100%')
+            .height(60)
+            .onClick(() => {
+              this.doClearAll();
+            })
           }
           .ListItemStyle()
         }

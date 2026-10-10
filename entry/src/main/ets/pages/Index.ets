@@ -382,7 +382,7 @@ struct Index {
     } else if (key === '设置缓存') {
       CacheInputDialogContent()
     } else if (key === '清除缓存' || key === '确认删除' || key === '确认移出' || key === '确认导入' ||
-      key === '发现新版本') {
+      key === '清空数据' || key === '发现新版本') {
       ConfirmMessageDialogContent()
     } else if (key === '转换简洁命名') {
       SimpleRenameDialogContent()

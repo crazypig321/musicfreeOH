@@ -17,6 +17,7 @@ export class WebDavRestoreResult {
  * WebDAV 备份与恢复
  * 服务器地址（如 https://dav.example.com/dav/）+ 备份路径（可选）+ 自动追加的 musicfreeOH 目录，
  * 备份文件固定为 musicfree-backup.json；认证方式为 Basic Auth（用户名/密码可留空）
+ * 恢复走 Backup.resume：musicfreeOH 备份与原版 MusicFree 备份均可（原版自动转换）
  */
 export class WebDav {
   static readonly BACKUP_FILENAME: string = 'musicfree-backup.json';

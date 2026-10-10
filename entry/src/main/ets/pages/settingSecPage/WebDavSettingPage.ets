@@ -11,6 +11,7 @@ import { showUiToast } from '../../utils/UiUtils';
  * WebDAV 备份与恢复页面
  * 服务器地址 / 用户名 / 密码（实时保存）+ 退出时自动备份开关 + 备份到 WebDAV / 从 WebDAV 恢复
  * 备份文件固定为 musicfree-backup.json（覆盖式，保留最新一份）
+ * 恢复走 Backup.resume：musicfreeOH 备份与原版 MusicFree 备份均可（原版自动转换）
  */
 @ComponentV2
 export struct WebDavSettingPage {
@@ -48,7 +49,7 @@ export struct WebDavSettingPage {
     });
   }
 
-  /** 从 WebDAV 恢复 */
+  /** 从 WebDAV 恢复（musicfreeOH 备份与原版 MusicFree 备份均可，原版自动转换） */
   private doRestore(): void {
     if (this.working) {
       return;

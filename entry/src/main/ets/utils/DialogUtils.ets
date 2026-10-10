@@ -170,6 +170,13 @@ export class DialogManager {
     DialogManager.OpenDialog('确认导入');
   }
 
+  /** 清空所有数据确认弹窗：message 提示文案，onConfirm 点击「清空」后才执行（取消不执行） */
+  public static ConfirmClearData(message: string, onConfirm: () => void): void {
+    DialogManager.confirmMessage = message;
+    DialogManager.confirmCallback = onConfirm;
+    DialogManager.OpenDialog('清空数据');
+  }
+
   /** 版本更新确认弹窗：message 提示文案，onConfirm 点击「下载」后才执行（取消不执行） */
   public static ConfirmUpdate(message: string, onConfirm: () => void): void {
     DialogManager.confirmMessage = message;
@@ -287,6 +294,8 @@ export class DialogManager {
         return '删除';
       case '确认移出':
         return '移出';
+      case '清空数据':
+        return '清空所有数据';
       case '发现新版本':
         return '发现新版本';
       case '免责声明':
@@ -602,6 +611,7 @@ export class DialogManager {
       case '确认删除':
       case '确认移出':
       case '确认导入':
+      case '清空数据':
       case '发现新版本': {
         const cancel: ButtonOptions = {
           value: '取消',
@@ -715,6 +725,7 @@ export class DialogManager {
       case '确认导入':
       case '确认删除':
       case '确认移出':
+      case '清空数据':
       case '发现新版本':
         if (DialogManager.confirmCallback !== null) {
           DialogManager.confirmCallback();
@@ -820,7 +831,7 @@ export class DialogManager {
     }
     // 四个通用确认弹窗同理（取消或关闭弹窗不触发确认回调）
     if (key === '清除缓存' || key === '确认删除' || key === '确认移出' || key === '确认导入' ||
-      key === '发现新版本') {
+      key === '清空数据' || key === '发现新版本') {
       DialogManager.confirmMessage = '';
       DialogManager.confirmCallback = null;
     }
@@ -853,6 +864,9 @@ export class DialogManager {
     }
     if (key === '确认移出') {
       return '移出';
+    }
+    if (key === '清空数据') {
+      return '清空';
     }
     if (key === '确认导入') {
       return '导入';

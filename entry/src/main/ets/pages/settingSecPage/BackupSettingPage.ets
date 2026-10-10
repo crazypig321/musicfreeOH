@@ -14,8 +14,8 @@ import { showUiToast } from '../../utils/UiUtils';
 
 /**
  * 备份与恢复设置页面
- * 本地备份与恢复：备份（导出到本地文件）/ 恢复（从本地备份文件）
- * WebDAV 备份与恢复：WebDAV 服务器（云端备份与恢复入口）
+ * 本地备份与恢复：备份（导出到本地文件）/ 恢复（从本地备份文件，原版 MusicFree 备份自动转换）
+ * WebDAV 备份与恢复：WebDAV 服务器（云端备份与恢复入口，恢复同样支持原版备份自动转换）
  * 条目行 UI 同其他设置二级页面（图标 + 标题/小字说明 + chevron）
  */
 @ComponentV2
@@ -73,8 +73,8 @@ export struct BackupSettingPage {
     this.showToast(ok ? '备份成功' : '备份失败');
   }
 
-  /** 恢复：选择本地备份文件并合并恢复 */
-  private doRestore(): void {
+  /** 选择本地 JSON 备份文件（单选），选中后回调 */
+  private pickJsonFile(onPicked: (uri: string) => void): void {
     try {
       const documentPicker = new picker.DocumentViewPicker(ContextHolder.get());
       const options = new picker.DocumentSelectOptions();
@@ -84,7 +84,7 @@ export struct BackupSettingPage {
         if (uris.length === 0) {
           return;
         }
-        this.restoreFrom(uris[0]);
+        onPicked(uris[0]);
       }).catch((_e: Object): void => {
         this.showToast('选择文件失败');
       });
@@ -93,9 +93,8 @@ export struct BackupSettingPage {
     }
   }
 
-  /** 读取备份文件并恢复（歌单合并，插件同源且本地版本更高则跳过） */
-  private restoreFrom(uri: string): void {
-    // 经缓存目录中转读取（与插件导入一致的 URI 读取方式）
+  /** 读取备份文件文本（经缓存目录中转读取，与插件导入一致的 URI 读取方式） */
+  private readBackupText(uri: string): string | null {
     const cachePath = PathConst.cachePath + 'backup_read_' + Date.now().toString() + '.json';
     try {
       const src = fs.openSync(uri, fs.OpenMode.READ_ONLY);
@@ -104,12 +103,27 @@ export struct BackupSettingPage {
       fs.closeSync(src);
       fs.closeSync(dst);
     } catch (error) {
-      this.showToast('读取备份文件失败');
-      return;
+      return null;
     }
     const text = FileUtils.readFileText(cachePath);
     FileUtils.unlink(cachePath);
     if (text === null || text.length === 0) {
+      return null;
+    }
+    return text;
+  }
+
+  /** 恢复：选择本地备份文件并合并恢复 */
+  private doRestore(): void {
+    this.pickJsonFile((uri: string): void => {
+      this.restoreFrom(uri);
+    });
+  }
+
+  /** 读取备份文件并恢复（歌单合并，插件同源且本地版本更高则跳过；原版备份自动转换） */
+  private restoreFrom(uri: string): void {
+    const text = this.readBackupText(uri);
+    if (text === null) {
       this.showToast('读取备份文件失败');
       return;
     }
@@ -150,7 +164,7 @@ export struct BackupSettingPage {
                   Text('备份')
                     .fontSize(15)
                     .fontColor($r('sys.color.font_primary'))
-                  Text('将歌单、插件、设置与订阅源导出为 JSON 备份文件，保存到本地')
+                  Text('将歌单、插件（含本地插件源码）、设置与订阅源导出为 JSON 备份文件，保存到本地')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
                     .maxLines(2)
@@ -179,7 +193,7 @@ export struct BackupSettingPage {
                   Text('恢复')
                     .fontSize(15)
                     .fontColor($r('sys.color.font_primary'))
-                  Text('从本地备份文件恢复歌单、插件、设置与订阅源，与现有数据合并')
+                  Text('从本地备份文件恢复歌单、插件、设置与订阅源，与现有数据合并；原版 MusicFree 备份自动转换（原版的本地插件无法正常恢复，需要重新导入）')
                     .fontSize(11)
                     .fontColor($r('sys.color.font_tertiary'))
                     .maxLines(2)
