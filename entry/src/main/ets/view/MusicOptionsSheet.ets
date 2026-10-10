@@ -10,6 +10,7 @@ import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
 import { LocalMusicExclusion } from '../core/LocalMusicExclusion';
 import { downloader, Downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
+import { moodMode } from '../core/MoodMode';
 import { ScheduleClose } from '../utils/ScheduleClose';
 import { MediaUtils } from '../utils/MediaUtils';
 import { FileUtils } from '../utils/FileUtils';
@@ -258,6 +259,8 @@ export struct MusicOptionsSheet {
       (): void => { this.pickCoverForCurrent(); }));
     items.push(new OptionEntry($r('sys.symbol.list_bullet'), '加入播放队列',
       (): void => { this.addToPlayQueue(); }));
+    items.push(new OptionEntry($r('sys.symbol.waveform_path_ecg_heart'), '心动模式',
+      (): void => { this.startMoodMode(); }));
     // 我的歌单进入的歌单详情页：从当前歌单删除本曲
     if (this.removeSheetId.length > 0) {
       items.push(new OptionEntry($r('sys.symbol.trash'), '从当前歌单删除',
@@ -423,6 +426,14 @@ export struct MusicOptionsSheet {
   private playNext(): void {
     trackPlayer.addNext(this.displayItem);
     this.showToast('将在下一首播放');
+  }
+
+  /** 心动模式：以本曲为种子生成相似歌单并播放（先收起面板） */
+  private startMoodMode(): void {
+    this.onClose();
+    moodMode.startFromSong(this.displayItem).catch((_e: Object): void => {
+      this.showToast('启动心动模式失败');
+    });
   }
 
   /** 更换音源：打开弹窗并发搜索可用音源（弹窗内加载动画→插件选择列表），确认后替换并保存（队列/我的歌单） */

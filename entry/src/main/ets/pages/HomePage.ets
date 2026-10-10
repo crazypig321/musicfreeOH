@@ -19,6 +19,7 @@ import { pluginManager } from '../plugin/PluginManager';
 import { PluginAbility } from '../common/Consts';
 import { localMusicSheet } from '../core/LocalMusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
+import { moodMode } from '../core/MoodMode';
 import { MenuUtils } from '../utils/MenuUtils';
 import { sheetGridColumns, useSidebarLayout } from '../utils/BreakpointUtils';
 import { showUiToast, thickImmersiveMaterial } from '../utils/UiUtils';
@@ -365,6 +366,13 @@ export struct HomePage{
     });
   }
 
+  /** 心动模式：基于最近播放生成相似歌单并播放 */
+  private startMoodMode(): void {
+    moodMode.startFromHistory().catch((_e: Object): void => {
+      this.showToast('启动心动模式失败');
+    });
+  }
+
   /** 打开本地音乐条目操作半模态（与搜索结果一致） */
   private openLocalOptions(item: MusicItem): void {
     this.optionsItem = item.clone();
@@ -423,8 +431,17 @@ export struct HomePage{
     });
   }
 
-  /** titleBar 菜单按钮：下载 + 选择插件 */
+  /** titleBar 菜单按钮：心动模式 + 下载 + 选择插件 */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const mood: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.waveform_path_ecg_heart'),
+        label: '心动模式',
+        action: (): void => {
+          this.startMoodMode();
+        }
+      }
+    };
     const download: HdsNavigationMenuItemOptions = {
       content: {
         icon: $r('sys.symbol.download'),
@@ -443,7 +460,7 @@ export struct HomePage{
         }
       }
     };
-    return [download, menu];
+    return [mood, download, menu];
   }
 
   // ==================== UI 构建 ====================

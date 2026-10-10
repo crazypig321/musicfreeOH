@@ -29,6 +29,7 @@ import { pluginManager } from '../plugin/PluginManager';
 import { downloader } from '../core/Downloader';
 import { appConfig, ConfigKeys } from '../core/AppConfig';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
+import { moodMode } from '../core/MoodMode';
   import { DialogManager } from '../utils/DialogUtils';
   import { LyricSearch } from '../utils/LyricSearch';
 import { LyricView } from '../view/LyricView';
@@ -1022,7 +1023,6 @@ export struct PlayerPage {
           this.SongInfo(this.uiScale())
           this.ProgressArea(this.uiScale())
           this.ControlsRow(this.uiScale())
-        //  this.BottomActions(this.uiScale())
         }
         .layoutWeight(1)
         .height('100%')
@@ -1030,7 +1030,6 @@ export struct PlayerPage {
         // 右侧：歌词常驻滚动（当前行自动居中）+ 底部歌词操作按钮排（与左侧功能按钮排底部对齐）
         Column() {
           this.LyricArea()
-        //  this.LyricActions(this.uiScale())
         }
         .layoutWeight(1)
         .height('100%')
@@ -1075,37 +1074,41 @@ export struct PlayerPage {
   @Builder
   SplitCoverSlot() {
     Column() {
-      if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
-        Image(ArtworkCache.resolve(this.currentMusic.artwork))
+      Stack(){
+        if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
+          Image(ArtworkCache.resolve(this.currentMusic.artwork))
+            .height('100%')
+            .aspectRatio(1)
+            .constraintSize({ maxWidth: 340 })
+            .borderRadius(24)
+            .objectFit(ImageFit.Cover)
+            .shadow({
+              radius: 80,
+              color: $r('sys.color.ohos_id_shadow_default_sm'),
+              offsetX: 0,
+              offsetY: 0
+            })
+            .draggable(false)
+            .id('player_page_cover')
+            .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+        } else {
+          Column() {
+            SymbolGlyph($r('sys.symbol.music'))
+              .fontSize(64)
+              .fontColor([$r('sys.color.icon_secondary')])
+          }
           .height('100%')
           .aspectRatio(1)
-          .constraintSize({ maxWidth: 340 })
+          .constraintSize({ maxHeight: 340 })
           .borderRadius(24)
-          .objectFit(ImageFit.Cover)
-          .shadow({
-            radius: 80,
-            color: $r('sys.color.ohos_id_shadow_default_sm'),
-            offsetX: 0,
-            offsetY: 0
-          })
-          .draggable(false)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
           .id('player_page_cover')
           .opacity(playerAnim.bigCoverHidden ? 0 : 1)
-      } else {
-        Column() {
-          SymbolGlyph($r('sys.symbol.music'))
-            .fontSize(64)
-            .fontColor([$r('sys.color.icon_secondary')])
         }
-        .height('100%')
-        .aspectRatio(1)
-        .constraintSize({ maxHeight: 340 })
-        .borderRadius(24)
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .id('player_page_cover')
-        .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+        // 封面右下角「选择封面」入口（仅本地音乐/已下载歌曲显示）
+        this.SearchCoverButton({ x: '2%', y: '2%' })
       }
     }
     .width('100%')
@@ -1189,36 +1192,41 @@ export struct PlayerPage {
     Stack(){
       // 封面（点击/左滑进入歌词模式）
       Column() {
-        if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
-          Image(ArtworkCache.resolve(this.currentMusic.artwork))
+        Stack(){
+          if (this.currentMusic !== null && this.currentMusic.artwork.length > 0) {
+            Image(ArtworkCache.resolve(this.currentMusic.artwork))
+              .width(280)
+              .aspectRatio(1)
+              //.sourceSize({ width: 280, height: 280 })会造成封面变形
+              .borderRadius(24)
+              .objectFit(ImageFit.Cover)
+              .shadow({
+                radius: 80,
+                color: $r('sys.color.background_secondary'),
+                offsetX: 0,
+                offsetY: 0
+              })
+              .id('player_page_cover')
+              .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+              .draggable(false)
+          } else {
+            Column() {
+              SymbolGlyph($r('sys.symbol.music'))
+                .fontSize(64)
+                .fontColor([$r('sys.color.icon_secondary')])
+            }
             .width(280)
-            .aspectRatio(1)
-            //.sourceSize({ width: 280, height: 280 })会造成封面变形
+            .height(280)
             .borderRadius(24)
-            .objectFit(ImageFit.Cover)
-            .shadow({
-              radius: 80,
-              color: $r('sys.color.background_secondary'),
-              offsetX: 0,
-              offsetY: 0
-            })
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
             .id('player_page_cover')
             .opacity(playerAnim.bigCoverHidden ? 0 : 1)
-            .draggable(false)
-        } else {
-          Column() {
-            SymbolGlyph($r('sys.symbol.music'))
-              .fontSize(64)
-              .fontColor([$r('sys.color.icon_secondary')])
           }
-          .width(280)
-          .height(280)
-          .borderRadius(24)
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-          .id('player_page_cover')
-          .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+
+          // 封面右下角「选择封面」入口（仅本地音乐/已下载歌曲显示）
+          this.SearchCoverButton({ x: '2%', y: '2%' })
         }
       }
       .width('100%')
@@ -1237,28 +1245,37 @@ export struct PlayerPage {
             }
           })
       )
-      // 封面右下角「选择封面」入口（仅本地音乐/已下载歌曲显示）
-      Row() {
-        SymbolGlyph($r('sys.symbol.magnifyingglass'))
-          .fontSize(18)
-          .fontColor([Color.White])
-          .fontWeight(FontWeight.Bold)
-      }
-      .backdropBlur(10)
-      .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.Center)
-      .width(36)
-      .height(36)
-      .borderRadius(18)
-      .backgroundColor($r('sys.color.comp_background_tertiary'))
-      .shadow({ radius: 12, color: 'rgba(0,0,0,0.35)', offsetX: 0, offsetY: 4 })
-      .offset({ x: 124, y: 124 })
-      .opacity(playerAnim.bigCoverHidden ? 0 : 1)
-      .onClick(() => {
-        this.pickCoverForCurrentMusic();
-      })
     }.layoutWeight(1)
     .transition(TransitionEffect.OPACITY)
+  }
+
+  /**
+   * 搜索封面按钮
+   */
+  @Builder
+  SearchCoverButton(offset: Position | Edges | LocalizedEdges) {
+    // 封面右下角「选择封面」入口（仅本地音乐/已下载歌曲显示）
+    Row() {
+      SymbolGlyph($r('sys.symbol.magnifyingglass'))
+        .fontSize(18)
+        .fontColor([Color.White])
+        .fontWeight(FontWeight.Bold)
+    }
+    .backdropBlur(10)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
+    .width(36)
+    .height(36)
+    .scale(!this.isBottonExpand ? { x: 1, y: 1 } : { x: 0.85, y: 0.85 })
+    .borderRadius(18)
+    .backgroundColor($r('sys.color.comp_background_tertiary'))
+    .shadow({ radius: 12, color: 'rgba(0,0,0,0.35)', offsetX: 0, offsetY: 4 })
+    .offset(offset)
+    .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+    .onClick(() => {
+      this.pickCoverForCurrentMusic();
+    })
+    .layoutGravity(LocalizedAlignment.BOTTOM_END)// stack组件中子组件对齐位置
   }
 
   /** 歌词区（横向滑动返回封面） */
