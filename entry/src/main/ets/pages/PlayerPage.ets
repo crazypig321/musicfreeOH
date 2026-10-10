@@ -1084,7 +1084,7 @@ export struct PlayerPage {
             .objectFit(ImageFit.Cover)
             .shadow({
               radius: 80,
-              color: $r('sys.color.ohos_id_shadow_default_sm'),
+              color: $r('sys.color.slider_block_shadow_color'),
               offsetX: 0,
               offsetY: 0
             })
@@ -1106,6 +1106,12 @@ export struct PlayerPage {
           .alignItems(HorizontalAlign.Center)
           .id('player_page_cover')
           .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+          .shadow({
+            radius: 80,
+            color: $r('sys.color.slider_block_shadow_color'),
+            offsetX: 0,
+            offsetY: 0
+          })
         }
         // 封面右下角「选择封面」入口（仅本地音乐/已下载歌曲显示）
         this.SearchCoverButton({ x: '2%', y: '2%' })
@@ -1202,7 +1208,7 @@ export struct PlayerPage {
               .objectFit(ImageFit.Cover)
               .shadow({
                 radius: 80,
-                color: $r('sys.color.background_secondary'),
+                color: $r('sys.color.slider_block_shadow_color'),
                 offsetX: 0,
                 offsetY: 0
               })
@@ -1223,6 +1229,12 @@ export struct PlayerPage {
             .alignItems(HorizontalAlign.Center)
             .id('player_page_cover')
             .opacity(playerAnim.bigCoverHidden ? 0 : 1)
+            .shadow({
+              radius: 80,
+              color: $r('sys.color.slider_block_shadow_color'),
+              offsetX: 0,
+              offsetY: 0
+            })
           }
 
           // 封面右下角「选择封面」入口（仅本地音乐/已下载歌曲显示）
