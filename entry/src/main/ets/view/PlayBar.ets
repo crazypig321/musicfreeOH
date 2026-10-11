@@ -5,6 +5,7 @@ import { PlayState } from '../core/PlayerEngine';
 import { appState } from '../entryability/AppState';
 import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAnim';
 import { QueueSheet } from './QueueSheet';
+import { CommonLoading } from './CommonCom';
 import { HdsBarStyle } from '@kit.UIDesignKit';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { sheetPreferType } from '../utils/BreakpointUtils';
@@ -22,6 +23,8 @@ let playBarSeq: number = 0;
 export struct PlayBar {
   @Local currentMusic: MusicItem | null = null;
   @Local isPlaying: boolean = false;
+  /** 切歌拉源中（播放键转圈） */
+  @Local sourceLoading: boolean = false;
   /** 播放队列半模态 */
   @Local showQueue: boolean = false;
   @Param isTwoPage: boolean = false
@@ -36,21 +39,28 @@ export struct PlayBar {
   };
   private offState: () => void = (): void => {
   };
+  private offLoading: () => void = (): void => {
+  };
 
   aboutToAppear(): void {
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
+    this.sourceLoading = trackPlayer.sourceLoading;
     this.offCurrent = trackPlayer.onCurrentMusicChanged((music: MusicItem | null) => {
       this.currentMusic = music;
     });
     this.offState = trackPlayer.onPlayStateChanged((state: PlayState) => {
       this.isPlaying = state === PlayState.Playing;
     });
+    this.offLoading = trackPlayer.onSourceLoadingChanged((loading: boolean) => {
+      this.sourceLoading = loading;
+    });
   }
 
   aboutToDisappear(): void {
     this.offCurrent();
     this.offState();
+    this.offLoading();
   }
 
   /** 封面尺寸：单排 44 / 上下两排略小 30；悬浮态与 API<24 恒 44 */
@@ -169,13 +179,18 @@ export struct PlayBar {
       })
 
       if (this.floating || (appState.miniBarStyle === HdsBarStyle.EXPAND) || IsApiVersion_24()) {
-        SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill'))
-          .fontSize(26)
-          .fontColor([$r('sys.color.icon_primary')])
-          .animation({ duration: 500, curve: Curve.Smooth })
-          .onClick(() => {
-            this.togglePlay()
-          })
+        if (this.sourceLoading) {
+          // 切歌拉源中：播放键转圈
+          CommonLoading({ sizeValue: 26, loadColor: $r('sys.color.icon_primary') })
+        } else {
+          SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill'))
+            .fontSize(26)
+            .fontColor([$r('sys.color.icon_primary')])
+            .animation({ duration: 500, curve: Curve.Smooth })
+            .onClick(() => {
+              this.togglePlay()
+            })
+        }
 
         SymbolGlyph($r('sys.symbol.forward_end_fill'))
           .fontSize(22)

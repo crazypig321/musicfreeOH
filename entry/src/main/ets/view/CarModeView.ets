@@ -12,6 +12,7 @@ import { ParsedLrcItem } from '../utils/LyricParser';
 import { appConfig } from '../core/AppConfig';
 import { appState } from '../entryability/AppState';
 import { LyricView } from './LyricView';
+import { CommonLoading } from './CommonCom';
 
 /** 封面主色染色层透明度（两位十六进制，'40' ≈ 25%） */
 const CAR_BG_TINT_ALPHA_HEX = '40';
@@ -26,6 +27,8 @@ const CAR_BG_TINT_ALPHA_HEX = '40';
 export struct CarModeView {
   @Local currentMusic: MusicItem | null = null;
   @Local isPlaying: boolean = false;
+  /** 切歌拉源中（播放键转圈） */
+  @Local sourceLoading: boolean = false;
   @Local repeatMode: MusicRepeatMode = MusicRepeatMode.QUEUE;
   @Local isFavorited: boolean = false;
   @Local lyrics: Array<ParsedLrcItem> = [];
@@ -39,6 +42,8 @@ export struct CarModeView {
   };
   private offState: () => void = (): void => {
   };
+  private offLoading: () => void = (): void => {
+  };
   private offRepeatMode: () => void = (): void => {
   };
   private offFavorite: () => void = (): void => {
@@ -49,6 +54,7 @@ export struct CarModeView {
   aboutToAppear(): void {
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
+    this.sourceLoading = trackPlayer.sourceLoading;
     this.repeatMode = trackPlayer.repeatMode;
     this.refreshFavorite();
     this.syncLyricState(lyricManager.lyricState);
@@ -60,6 +66,9 @@ export struct CarModeView {
     });
     this.offState = trackPlayer.onPlayStateChanged((state: PlayState) => {
       this.isPlaying = state === PlayState.Playing;
+    });
+    this.offLoading = trackPlayer.onSourceLoadingChanged((loading: boolean) => {
+      this.sourceLoading = loading;
     });
     this.offRepeatMode = trackPlayer.onRepeatModeChanged((mode: MusicRepeatMode) => {
       this.repeatMode = mode;
@@ -75,6 +84,7 @@ export struct CarModeView {
   aboutToDisappear(): void {
     this.offCurrent();
     this.offState();
+    this.offLoading();
     this.offRepeatMode();
     this.offFavorite();
     this.offLyricState();
@@ -249,13 +259,19 @@ export struct CarModeView {
           trackPlayer.skipToPrevious().catch((): void => {
           });
         })
-      SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause_circle_fill') : $r('sys.symbol.play_circle_fill'))
-        .fontSize(72)
-        .fontColor([$r('sys.color.icon_primary')])
-        .padding(2)
-        .onClick(() => {
-          this.togglePlay();
-        })
+      if (this.sourceLoading) {
+        // 切歌拉源中：播放键转圈
+        CommonLoading({ sizeValue: 48, loadColor: $r('sys.color.icon_primary') })
+          .padding(14)
+      } else {
+        SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause_circle_fill') : $r('sys.symbol.play_circle_fill'))
+          .fontSize(72)
+          .fontColor([$r('sys.color.icon_primary')])
+          .padding(2)
+          .onClick(() => {
+            this.togglePlay();
+          })
+      }
       SymbolGlyph($r('sys.symbol.forward_end_fill'))
         .fontSize(46)
         .fontColor([$r('sys.color.icon_primary')])

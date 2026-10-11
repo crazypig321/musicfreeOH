@@ -37,7 +37,7 @@ import { EqualizerSheet } from '../view/EqualizerSheet';
 import { EqualizerManager } from '../core/EqualizerManager';
 import { AudioEnhanceManager, AudioEnhanceState } from '../audioenhance/AudioEnhanceManager';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetPreferType, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
-import { CommonBlur } from '../view/CommonCom';
+import { CommonBlur, CommonLoading } from '../view/CommonCom';
 import { showUiToast, formatDuration, sliderImmersiveModifier } from '../utils/UiUtils';
 import { hdsEffect } from '@kit.UIDesignKit';
 
@@ -98,6 +98,8 @@ export struct PlayerPage {
   @Local isForegroundBlur: boolean = false;
   @Local currentMusic: MusicItem | null = null;
   @Local isPlaying: boolean = false;
+  /** 切歌拉源中（播放键转圈） */
+  @Local sourceLoading: boolean = false;
   @Local currentPosition: number = 0;
   @Local duration: number = 0;
   @Local repeatMode: MusicRepeatMode = MusicRepeatMode.QUEUE;
@@ -154,6 +156,8 @@ export struct PlayerPage {
   };
   private offState: () => void = (): void => {
   };
+  private offLoading: () => void = (): void => {
+  };
   private offProgress: () => void = (): void => {
   };
   private offRepeatMode: () => void = (): void => {
@@ -180,6 +184,7 @@ export struct PlayerPage {
     ];
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
+    this.sourceLoading = trackPlayer.sourceLoading;
     const progress = trackPlayer.getProgress();
     this.currentPosition = progress.position;
     this.duration = progress.duration;
@@ -196,6 +201,9 @@ export struct PlayerPage {
     });
     this.offState = trackPlayer.onPlayStateChanged((state: PlayState) => {
       this.isPlaying = state === PlayState.Playing;
+    });
+    this.offLoading = trackPlayer.onSourceLoadingChanged((loading: boolean) => {
+      this.sourceLoading = loading;
     });
     // 播放队列 sheet 等其他入口切换播放方式时同步本页按钮
     this.offRepeatMode = trackPlayer.onRepeatModeChanged((mode: MusicRepeatMode) => {
@@ -247,6 +255,7 @@ export struct PlayerPage {
     playerAnim.onCollapsed = null;
     this.offCurrent();
     this.offState();
+    this.offLoading();
     this.offProgress();
     this.offRepeatMode();
     this.offLyricState();
@@ -1520,12 +1529,17 @@ export struct PlayerPage {
           this.skipToPrevious();
         })
 
-      SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause_circle_fill') : $r('sys.symbol.play_circle_fill'))
-        .fontSize(Math.max(42, Math.round(58 * s)))
-        .fontColor([$r('sys.color.icon_primary')])
-        .onClick(() => {
-          this.togglePlay();
-        })
+      if (this.sourceLoading) {
+        // 切歌拉源中：播放键转圈
+        CommonLoading({ sizeValue: Math.max(42, Math.round(58 * s)), loadColor: $r('sys.color.icon_primary') })
+      } else {
+        SymbolGlyph(this.isPlaying ? $r('sys.symbol.pause_circle_fill') : $r('sys.symbol.play_circle_fill'))
+          .fontSize(Math.max(42, Math.round(58 * s)))
+          .fontColor([$r('sys.color.icon_primary')])
+          .onClick(() => {
+            this.togglePlay();
+          })
+      }
 
       SymbolGlyph($r('sys.symbol.forward_end_fill'))
         .fontSize(Math.max(26, Math.round(36 * s)))

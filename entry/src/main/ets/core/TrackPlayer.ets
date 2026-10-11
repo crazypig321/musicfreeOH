@@ -1,6 +1,6 @@
 import { EventEmitter, EventListenerFn } from '../common/EventBus';
 import { JsonUtil, JsonRecord } from '../utils/JsonUtil';
-import { MusicRepeatMode, MAX_PLAYLIST_SIZE, LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
+import { MusicRepeatMode, MAX_PLAYLIST_SIZE, LOCAL_PLUGIN_PLATFORM, CacheControl } from '../common/Consts';
 import { MusicItem, MediaSource, QualityKey } from '../common/model/MediaTypes';
 import { MediaUtils } from '../utils/MediaUtils';
 import { MediaIndexMap } from '../utils/MediaIndexMap';
@@ -11,6 +11,7 @@ import { Log } from '../utils/Log';
 import { BackgroundTask } from '../utils/BackgroundTask';
 import { FileUtils } from '../utils/FileUtils';
 import { PersistStatus } from './PersistStatus';
+import { MediaCache } from './MediaCache';
 import { appConfig } from './AppConfig';
 import { musicHistory } from './MusicHistory';
 import { localMusicSheet, downloadedSheet } from './LocalMusicSheet';
@@ -73,6 +74,11 @@ export class TrackSourceLoadedEvent {
   url: string = '';
 }
 
+/** 切歌拉源中状态变化事件（UI 播放键转圈用） */
+export class SourceLoadingChangedEvent {
+  loading: boolean = false;
+}
+
 /** 移动网络播放被禁止事件（UI 弹提示用） */
 export class CellularForbiddenEvent {
 }
@@ -98,6 +104,10 @@ export class TrackPlayer {
   private initRestoring: boolean = false;
   /** 已加载到引擎的源（对应 RNTP queue[0] 的 track） */
   private loadedMusic: MusicItem | null = null;
+  /** 切歌拉源中（UI 播放键转圈用） */
+  private sourceLoadingInternal: boolean = false;
+  /** 预拉源序号：切歌后丢弃过期的预拉任务 */
+  private prefetchSeq: number = 0;
   /** 防止连续播放失败时重复跳曲 */
   private handlingPlayFail: boolean = false;
   private progressTimer: number = -1;
@@ -115,6 +125,11 @@ export class TrackPlayer {
 
   get currentMusic(): MusicItem | null {
     return this.currentMusicItem;
+  }
+
+  /** 切歌拉源中（播放键转圈用） */
+  get sourceLoading(): boolean {
+    return this.sourceLoadingInternal;
   }
 
   get previousMusic(): MusicItem | null {
@@ -520,6 +535,17 @@ export class TrackPlayer {
       // 4. 更新当前音乐
       this.setCurrentMusic(musicItem);
 
+      // 4.1 切歌拉源中：通知 UI 播放键转圈
+      this.setSourceLoadingInternal(true);
+
+      // 4.2 切歌：立即停掉旧源，避免网络拉源期间上一首继续出声；
+      //     不 await —— pause 与拉源并行（网络源 pause 状态迁移耗时，
+      //     若串行等待会拖慢整个切歌链路），切换引擎源前再等其落定
+      const pauseTask: Promise<void> = playerEngine.state === PlayState.Playing
+        ? playerEngine.pause().catch((): void => {
+        })
+        : Promise.resolve();
+
       // 5. 获取音源
       const plugin = pluginManager.getByName(musicItem.platform);
       const qualityOrder = Qualities.getQualityOrder(
@@ -614,8 +640,33 @@ export class TrackPlayer {
       });
 
       Log.debug('获取音源成功: ' + track.title);
-      // 8. 设置音源
-      await this.setTrackSource(track);
+      // 8. 等待旧源 pause 落定（避免与引擎 reset 冲突；3s 兜底防 pause 卡死阻塞切歌）
+      await Promise.race<void>([pauseTask, Delay.wait(3000)]);
+      // 9. 设置音源；引擎加载失败可能是缓存的 URL 已过期（含预拉源场景），
+      //    清空源缓存（保留歌词缓存）后在线重拉一次，仍失败才走原有跳过逻辑
+      try {
+        await this.setTrackSource(track);
+      } catch (loadErr) {
+        // arkts-limited-throw：rethrow 须为 Error 类型
+        const loadError = loadErr instanceof Error ? loadErr : new Error('引擎加载音源失败');
+        if (!this.isCurrentMusic(musicItem)) {
+          throw loadError;
+        }
+        MediaCache.invalidateSourceCache(musicItem);
+        let freshSource: MediaSource | null = null;
+        if (plugin !== null) {
+          try {
+            freshSource = await plugin.methods.getMediaSource(musicItem, this.qualityValue);
+          } catch (fetchErr) {
+            freshSource = null;
+          }
+        }
+        if (freshSource === null || freshSource.url.length === 0) {
+          throw loadError;
+        }
+        const freshTrack = this.mergeTrackSource(musicItem, freshSource);
+        await this.setTrackSource(freshTrack);
+      }
 
       // 9. 获取补充信息
       let info: JsonRecord | null = null;
@@ -634,7 +685,12 @@ export class TrackPlayer {
         ev.music = mergedTrack;
         this.ee.emit('current-music-changed', ev);
       }
+
+      // 11. 预拉下一曲音源（后台静默，命中缓存后切歌秒切）
+      this.schedulePrefetchNextSource();
     } catch (e) {
+      // 拉源失败：结束转圈（handlePlayFail 跳下一首时会重新置 true）
+      this.setSourceLoadingInternal(false);
       const message = e instanceof Error ? e.message : '';
       if (message === PlayFailReason.FORBID_CELLUAR_NETWORK_PLAY) {
         Log.warn('当前非WIFI环境，播放已停止');
@@ -1026,6 +1082,59 @@ export class TrackPlayer {
     this.ee.emit('quality-changed', ev);
   }
 
+  private setSourceLoadingInternal(loading: boolean): void {
+    if (this.sourceLoadingInternal === loading) {
+      return;
+    }
+    this.sourceLoadingInternal = loading;
+    const ev = new SourceLoadingChangedEvent();
+    ev.loading = loading;
+    this.ee.emit('source-loading-changed', ev);
+  }
+
+  /**
+   * 预拉下一曲音源：结果由 Plugin.getMediaSource 内部写入 MediaCache，切歌时命中缓存秒切。
+   * 护栏：
+   * - 仅 cacheControl 为 cache 的插件（URL 非强时效、源站可承受）
+   * - 蜂窝网络且未开「移动网络播放」时跳过（遵循省流量意图）
+   * - 单曲循环（下一曲=当前曲）不预拉
+   * - 延迟 5s 执行：让当前曲起播/补信息优先，快速切歌时自动作废
+   * - 完全静默：失败不影响主流程，切歌时缓存 miss 自动回落在线拉源
+   */
+  private schedulePrefetchNextSource(): void {
+    const current = this.currentMusicItem;
+    if (current === null) {
+      return;
+    }
+    const next = this.getPlayListMusicAt(this.currentIndex + 1);
+    if (next === null || MediaUtils.isSameMediaItem(next, current)) {
+      return;
+    }
+    const plugin = pluginManager.getByName(next.platform);
+    if (plugin === null || !plugin.hasMethod('getMediaSource') ||
+      plugin.cacheControl() !== CacheControl.Cache) {
+      return;
+    }
+    if (Network.getInstance().isCellular && !appConfig.getUseCellularNetworkPlay()) {
+      return;
+    }
+    this.prefetchSeq += 1;
+    const seq = this.prefetchSeq;
+    const quality = this.qualityValue;
+    Delay.wait(5000).then((): void => {
+      // 已切歌或下一曲已在播：作废本次预拉
+      if (seq !== this.prefetchSeq || !this.isCurrentMusic(current) || this.isCurrentMusic(next)) {
+        return;
+      }
+      plugin.methods.getMediaSource(next, quality).then((_src: MediaSource | null): void => {
+        Log.debug('预拉下一曲音源完成: ' + next.title);
+      }).catch((): void => {
+        // 预拉失败静默：切歌时缓存 miss 自动回落在线拉源
+      });
+    }).catch((): void => {
+    });
+  }
+
   /** 设置音源 */
   private async setTrackSource(track: MusicItem, autoPlay: boolean = true): Promise<void> {
     const headers = TrackPlayer.collectHeaders(track);
@@ -1040,6 +1149,8 @@ export class TrackPlayer {
     if (autoPlay) {
       await playerEngine.play();
     }
+    // 音源已就绪（含自动起播）：结束播放键转圈
+    this.setSourceLoadingInternal(false);
   }
 
   private setPlayList(newPlayList: Array<MusicItem>, persist: boolean = true): void {
@@ -1323,6 +1434,18 @@ export class TrackPlayer {
     this.ee.on('source-loaded', wrapper);
     return (): void => {
       this.ee.off('source-loaded', wrapper);
+    };
+  }
+
+  onSourceLoadingChanged(cb: (loading: boolean) => void): () => void {
+    const wrapper: EventListenerFn = (payload?: Object) => {
+      if (payload instanceof SourceLoadingChangedEvent) {
+        cb(payload.loading);
+      }
+    };
+    this.ee.on('source-loading-changed', wrapper);
+    return (): void => {
+      this.ee.off('source-loading-changed', wrapper);
     };
   }
 

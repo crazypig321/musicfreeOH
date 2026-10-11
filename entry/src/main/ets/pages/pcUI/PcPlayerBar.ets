@@ -12,6 +12,7 @@ import { musicSheet } from '../../core/MusicSheet';
 import { MediaUtils } from '../../utils/MediaUtils';
 import { ControlButtonConfig } from '../../common/model/home/HomeModel';
 import { sliderImmersiveModifier } from '../../utils/UiUtils';
+import { CommonLoading } from '../../view/CommonCom';
 
 /** 实例序号：组件测量 id 必须全局唯一 */
 export let pcPlayBarSeq: number = 0;
@@ -26,6 +27,8 @@ export let pcPlayBarSeq: number = 0;
 export struct PcPlayerBar {
   @Local currentMusic: MusicItem | null = null;
   @Local isPlaying: boolean = false;
+  /** 切歌拉源中（播放键转圈） */
+  @Local sourceLoading: boolean = false;
   @Local playPosition: number = 0;
   @Local playDuration: number = 0;
   /** 进度条拖动中：暂停进度回写，松手 seek */
@@ -49,6 +52,8 @@ export struct PcPlayerBar {
   private offCurrent: () => void = (): void => {
   };
   private offState: () => void = (): void => {
+  };
+  private offLoading: () => void = (): void => {
   };
   private offProgress: () => void = (): void => {
   };
@@ -106,6 +111,7 @@ export struct PcPlayerBar {
   aboutToAppear(): void {
     this.currentMusic = trackPlayer.currentMusic;
     this.isPlaying = trackPlayer.playState === PlayState.Playing;
+    this.sourceLoading = trackPlayer.sourceLoading;
     this.repeatMode = trackPlayer.repeatMode;
     this.refreshFavorite();
     this.offCurrent = trackPlayer.onCurrentMusicChanged((music: MusicItem | null): void => {
@@ -117,6 +123,9 @@ export struct PcPlayerBar {
     });
     this.offState = trackPlayer.onPlayStateChanged((state: PlayState): void => {
       this.isPlaying = state === PlayState.Playing;
+    });
+    this.offLoading = trackPlayer.onSourceLoadingChanged((loading: boolean): void => {
+      this.sourceLoading = loading;
     });
     this.offProgress = trackPlayer.onProgressChanged((position: number, duration: number): void => {
       this.playDuration = duration;
@@ -132,6 +141,7 @@ export struct PcPlayerBar {
   aboutToDisappear(): void {
     this.offCurrent();
     this.offState();
+    this.offLoading();
     this.offProgress();
     this.offRepeatMode();
   }
@@ -278,14 +288,22 @@ export struct PcPlayerBar {
       Column({ space: 0 }) {
         Row({ space: 24 }) {
           ForEach(this.getControlButtons(), (item: ControlButtonConfig, index: number) => {
-            SymbolGlyph(index === 2 ? (this.isPlaying ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill')) :
-              index === 4 ? this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart') :
-              item.symbol)
-              .fontSize(item.fontSize)
-              .fontColor(index === 4 ? (this.isFavorited ? ['#E84026'] : [$r('sys.color.icon_primary')]) : item.fontColor)
-              .onClick((): void => {
-                item.action();
-              })
+            if (index === 2 && this.sourceLoading) {
+              // 切歌拉源中：播放键转圈
+              CommonLoading({ sizeValue: item.fontSize, loadColor: appState.accentColor })
+                .onClick((): void => {
+                  item.action();
+                })
+            } else {
+              SymbolGlyph(index === 2 ? (this.isPlaying ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill')) :
+                index === 4 ? this.isFavorited ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart') :
+                item.symbol)
+                .fontSize(item.fontSize)
+                .fontColor(index === 4 ? (this.isFavorited ? ['#E84026'] : [$r('sys.color.icon_primary')]) : item.fontColor)
+                .onClick((): void => {
+                  item.action();
+                })
+            }
           }, (item: ControlButtonConfig, index: number) => index.toString())
         }
         .alignItems(VerticalAlign.Center)

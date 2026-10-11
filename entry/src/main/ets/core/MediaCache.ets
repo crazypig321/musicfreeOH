@@ -155,6 +155,26 @@ export class MediaCache {
     store.delete(key);
   }
 
+  /** 清空某曲的音源缓存（保留歌词缓存）：缓存的 URL 过期失效后强制在线重拉用 */
+  static invalidateSourceCache(item: MusicItem): void {
+    const store = MediaCache.store();
+    const key = MediaCache.keyOf(item);
+    const raw = store.get(key);
+    if (raw.length === 0) {
+      return;
+    }
+    const rec = JsonUtil.parseRecord(raw);
+    if (rec === null) {
+      return;
+    }
+    const entry = MediaCacheEntry.fromRecord(rec);
+    if (entry === null || Object.keys(entry.musicItem.source).length === 0) {
+      return;
+    }
+    entry.musicItem.source = {};
+    store.set(key, JsonUtil.safeStringify(entry.toRecord()));
+  }
+
   /** 获取歌词缓存信息（本地文件路径 + 遗留缓存文本） */
   static getLyricCacheInfo(item: MusicItem): LyricCacheInfo | null {
     const raw = MediaCache.store().get(MediaCache.keyOf(item));
