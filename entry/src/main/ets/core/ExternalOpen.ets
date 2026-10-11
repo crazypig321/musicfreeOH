@@ -369,7 +369,8 @@ export class ExternalOpen {
     }
   }
 
-  /** 分享文本：歌曲标记 → 进搜索页自动搜索；URL → 安装插件(.js)/导入订阅源；其余 → 复制到剪贴板 */
+  /** 分享文本：歌曲标记 → 装有发送方插件时按 platform+id 直接播放，否则进搜索页自动搜索；
+   * URL → 安装插件(.js)/导入订阅源；其余 → 复制到剪贴板 */
   private static async handleSharedText(text: string): Promise<void> {
     const trimmed = text.trim();
     const markIdx = trimmed.indexOf(MUSICFREE_SONG_MARK);
@@ -377,8 +378,28 @@ export class ExternalOpen {
       const rec = JsonUtil.parseRecord(trimmed.substring(markIdx + MUSICFREE_SONG_MARK.length));
       const title = rec !== null ? JsonUtil.recStr(rec, 'title') : '';
       if (title.length > 0) {
-        // 接收方无需安装发送方平台的插件：带歌名进搜索页直接搜索
         const artist = rec !== null ? JsonUtil.recStr(rec, 'artist') : '';
+        // 接收方装有发送方平台插件：按 platform+id 构造条目直接播放
+        const platform = rec !== null ? JsonUtil.recStr(rec, 'platform') : '';
+        const id = rec !== null ? JsonUtil.recStr(rec, 'id') : '';
+        if (platform.length > 0 && id.length > 0 && pluginManager.getByName(platform) !== null) {
+          const item = new MusicItem();
+          item.id = id;
+          item.platform = platform;
+          item.title = title;
+          item.artist = artist;
+          item.album = rec !== null ? JsonUtil.recStr(rec, 'album') : '';
+          item.artwork = rec !== null ? JsonUtil.recStr(rec, 'artwork') : '';
+          item.duration = rec !== null ? JsonUtil.recNum(rec, 'duration') : 0;
+          try {
+            await trackPlayer.playWithReplacePlayList(item, [item]);
+            ExternalOpen.toast('正在播放：' + title);
+            return;
+          } catch (e) {
+            // 直接播放失败（如歌曲已下架）：回落搜索匹配
+          }
+        }
+        // 未装对应插件：带歌名进搜索页搜索（匹配到结果后正常播放）
         ExternalOpen.openSearchWithKeyword(artist.length > 0 ? title + ' ' + artist : title);
         return;
       }

@@ -1041,7 +1041,7 @@ export struct PlayerPage {
         .fontSize(Math.max(20, Math.round(24 * this.uiScale())))
         .fontColor([$r('sys.color.icon_secondary')])
         .padding(5)
-        .position({ top: this.isBottonExpand ? '80%' : '95%', right: 0 })
+        .position({ bottom: this.isBottonExpand ? 47 : 0, right: 0 })
         .onClick(()=>{
           this.getUIContext().animateTo({ duration: 250, curve: Curve.Smooth }, (): void => {
             this.isBottonExpand = !this.isBottonExpand

@@ -19,12 +19,15 @@ export const SHEETS_UTD: string = 'com.crazypig321.musicfreeoh.sheets';
 export const PLUGIN_UTD: string = 'com.crazypig321.musicfreeoh.plugin';
 export const SUB_UTD: string = 'com.crazypig321.musicfreeoh.sub';
 
-/** 结构化歌曲数据（仅用于 JSON 序列化） */
+/** 结构化歌曲数据（仅用于 JSON 序列化；album/artwork/duration 为增强字段，旧接收端自动忽略） */
 class SharedSongPayload {
   platform: string = '';
   id: string = '';
   title: string = '';
   artist: string = '';
+  album: string = '';
+  artwork: string = '';
+  duration: number = 0;
 }
 
 /** 歌曲跨设备分享数据（data 为发送数据；tempPath 为网络歌曲临时文件，发送后需清理） */
@@ -38,21 +41,23 @@ export class MusicShareData {
  * 支持纯文本 / 链接 / 本地沙箱文件；面板拉起失败时回调 onFailure
  */
 export class ShareUtils {
-  /** 分享歌曲：有本地文件直接发文件（接收端导入后可播）；网络歌曲仅分享歌名文本
-   * （接收端 MusicFreeOH 解析标记进入搜索页自动搜索，无需与发送方安装相同插件；其他应用可见歌名） */
+  /** 分享歌曲：有本地文件直接发文件（接收端导入后可播）；
+    * 网络歌曲生成 .mfsong 标记文件经华为分享跨设备直达（同款 MusicFreeOH 接收后直接播放，
+    * 未装发送方插件时接收端自动搜索匹配；其他应用仅见歌名文本） */
   static shareMusic(item: MusicItem, onFailure: (message: string) => void): void {
     const localPath = MediaUtils.getLocalPath(item);
     if (localPath !== null && localPath.length > 0 && !localPath.startsWith('content://')) {
       ShareUtils.shareFile(item.title, localPath, onFailure);
       return;
     }
-    const payload = new SharedSongPayload();
-    payload.platform = item.platform;
-    payload.id = item.id;
-    payload.title = item.title;
-    payload.artist = item.artist;
+    const tempPath: string = ShareUtils.buildSongShareFile(item);
+    if (tempPath.length > 0) {
+      ShareUtils.shareFile(item.title, tempPath, onFailure, SONG_UTD);
+      return;
+    }
+    // 临时文件生成失败回落纯文本分享（接收端解析标记进入搜索页自动搜索）
     const text = '「' + item.title + '」 - ' + item.artist + '（来自 ' + item.platform + '）' +
-      '\n' + MUSICFREE_SONG_MARK + JSON.stringify(payload);
+      '\n' + MUSICFREE_SONG_MARK + JSON.stringify(ShareUtils.songPayload(item));
     ShareUtils.shareText(item.title, text, onFailure);
   }
 
@@ -188,17 +193,8 @@ export class ShareUtils {
       }
     }
     try {
-      const dir: string = PathConst.cachePath + 'songshare/';
-      FileUtils.checkAndCreateDir(dir);
-      const tempPath: string = dir + FileUtils.escapeCharacter(item.title) + '-' + Date.now() + '.mfsong';
-      const payload = new SharedSongPayload();
-      payload.platform = item.platform;
-      payload.id = item.id;
-      payload.title = item.title;
-      payload.artist = item.artist;
-      const text = '「' + item.title + '」 - ' + item.artist + '（来自 ' + item.platform + '）' +
-        '\n' + MUSICFREE_SONG_MARK + JSON.stringify(payload);
-      if (!FileUtils.writeFileText(tempPath, text)) {
+      const tempPath: string = ShareUtils.buildSongShareFile(item);
+      if (tempPath.length === 0) {
         return r;
       }
       r.tempPath = tempPath;
@@ -208,6 +204,36 @@ export class ShareUtils {
       r.data = null;
     }
     return r;
+  }
+
+  /** 构造歌曲跨设备分享标记文本（含 platform/id 元数据，接收端据此直接播放） */
+  private static songPayload(item: MusicItem): SharedSongPayload {
+    const payload = new SharedSongPayload();
+    payload.platform = item.platform;
+    payload.id = item.id;
+    payload.title = item.title;
+    payload.artist = item.artist;
+    payload.album = item.album;
+    payload.artwork = item.artwork;
+    payload.duration = item.duration;
+    return payload;
+  }
+
+  /** 生成网络歌曲分享临时文件（.mfsong，内容为歌曲标记文本），失败返回空串 */
+  static buildSongShareFile(item: MusicItem): string {
+    try {
+      const dir: string = PathConst.cachePath + 'songshare/';
+      FileUtils.checkAndCreateDir(dir);
+      const tempPath: string = dir + FileUtils.escapeCharacter(item.title) + '-' + Date.now() + '.mfsong';
+      const text = '「' + item.title + '」 - ' + item.artist + '（来自 ' + item.platform + '）' +
+        '\n' + MUSICFREE_SONG_MARK + JSON.stringify(ShareUtils.songPayload(item));
+      if (!FileUtils.writeFileText(tempPath, text)) {
+        return '';
+      }
+      return tempPath;
+    } catch (e) {
+      return '';
+    }
   }
 
   /** 构造歌单分享文件（歌单元数据+全曲目；多歌单合并为一个 json），返回临时文件路径（失败返回空串） */

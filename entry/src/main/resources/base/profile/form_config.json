@@ -1,0 +1,46 @@
+{
+  "forms": [
+    {
+      "name": "MusicCard",
+      "displayName": "$string:music_card_display_name",
+      "description": "$string:music_card_description",
+      "src": "./ets/widget/pages/MusicCard.ets",
+      "uiSyntax": "arkts",
+      "isDynamic": true,
+      "isDefault": true,
+      "updateEnabled": false,
+      "supportDimensions": [
+        "2*2"
+      ],
+      "defaultDimension": "2*2"
+    },
+    {
+      "name": "MusicCardMedium",
+      "displayName": "$string:music_card_medium_display_name",
+      "description": "$string:music_card_medium_description",
+      "src": "./ets/widget/pages/MusicCardMedium.ets",
+      "uiSyntax": "arkts",
+      "isDynamic": true,
+      "isDefault": false,
+      "updateEnabled": false,
+      "supportDimensions": [
+        "2*4"
+      ],
+      "defaultDimension": "2*4"
+    },
+    {
+      "name": "MusicCardLarge",
+      "displayName": "$string:music_card_large_display_name",
+      "description": "$string:music_card_large_description",
+      "src": "./ets/widget/pages/MusicCardLarge.ets",
+      "uiSyntax": "arkts",
+      "isDynamic": true,
+      "isDefault": false,
+      "updateEnabled": false,
+      "supportDimensions": [
+        "4*4"
+      ],
+      "defaultDimension": "4*4"
+    }
+  ]
+}
