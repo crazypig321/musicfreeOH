@@ -12,6 +12,16 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v311: ChangelogEntry = new ChangelogEntry();
+  v311.version = '3.1.1';
+  v311.date = '2026-10-11';
+  v311.markdown = '- 新增心动模式：首页右上角「心动模式」按钮，按最近播放偏好（越近播放权重越高 × 播放次数）从收藏、歌单、本地音乐与已下载中匹配相似风格歌曲立即开播（单歌手限量保证多样性），并自动通过插件并发拉取常听歌手的线上作品补充进播放队列\n' +
+    '- 歌曲操作菜单新增「心动模式」入口（「加入播放队列」旁）：以当前歌曲为种子、播放历史为偏好背景生成心动歌单\n' +
+    '- 心动模式播放期间，播放页封面右上角显示主题色跳动心形徽标；播放队列换成其它歌单后自动消失\n' +
+    '- 网络歌曲分享升级为 .mfsong 专属类型文件：经华为分享发送到另一台鸿蒙设备后，装有本应用的接收端点开文件即可播放——装有相同插件时按歌曲 ID 一步直达播放，未安装插件时自动进入搜索页按「歌名 + 歌手」搜索匹配\n' +
+    '- 播放历史新增播放次数与最近播放时间统计（旧数据完全兼容），为心动模式提供偏好依据';
+  list.push(v311);
+
   const v310: ChangelogEntry = new ChangelogEntry();
   v310.version = '3.1.0';
   v310.date = '2026-10-10';
