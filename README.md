@@ -1,5 +1,7 @@
 <h1 align="center">🎵 MusicFreeOH</h1>
-
+<td align="center">
+  <img src=".appImage/startIcon.png" width="35%" style="display:block; margin:0 auto;">
+</td>
 <p align="center">
   <b>开源插件化音乐播放器 MusicFree 的 HarmonyOS（鸿蒙）移植版</b>
 </p>
