@@ -12,6 +12,18 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v312: ChangelogEntry = new ChangelogEntry();
+  v312.version = '3.1.2';
+  v312.date = '2026-10-12';
+  v312.markdown = '- 新增音频缓存代理：播放流经本地 HTTP 代理边下边缓存到磁盘，再次播放同一 URL 直接命中本地缓存无需联网；缓存受「音乐缓存上限」限制，超限按最近访问时间 LRU 淘汰（正在播放的条目不淘汰）\n' +
+    '- 音频缓存支持渐进回包：边下载边向播放器推送数据，首块 64KB 快速起播、后续 512KB 大粒度减少请求往返；seek 到未下载区时等待至多 2s 后回当前已有数据\n' +
+    '- 缓存页「音乐缓存上限」改为菜单选择（256MB / 512MB / 1GB / 2GB / 4GB / 8GB），替代原输入对话框，并适配智感握姿左手镜像\n' +
+    '- 启动时自动清扫上次中断的 .tmp 临时文件并修正索引与目录一致性\n' +
+    '- 优化缓存代理性能：索引落盘 5s 防抖减少高频 IO，复用 TextEncoder 减少对象创建，发送缓冲区增大至 256KB 减少系统调用\n' +
+    '- 优化音频打断机制\n' +
+    '- 优化播放加载显示，避免导致分不清加载速度问题，优化下一曲逻辑'
+  list.push(v312);
+
   const v311: ChangelogEntry = new ChangelogEntry();
   v311.version = '3.1.1';
   v311.date = '2026-10-11';
