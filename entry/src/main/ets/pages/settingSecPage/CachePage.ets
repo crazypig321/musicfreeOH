@@ -9,7 +9,8 @@ import { DialogManager } from '../../utils/DialogUtils';
 import { ArtworkCache } from '../../utils/ArtworkCache';
 import { DataReset } from '../../core/DataReset';
 import { Delay } from '../../utils/Delay';
-import { showUiToast } from '../../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial } from '../../utils/UiUtils';
+import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 
 /**
  * 缓存页面：音乐缓存上限 / 清除音乐缓存 / 清除图片缓存 / 清除歌词缓存 / 清除全部缓存 /
@@ -28,6 +29,17 @@ export struct CachePage {
   @Local autoMatchCover: boolean = true;
   /** 匹配封面后写入音频文件开关 */
   @Local writeCoverToFile: boolean = false;
+  /** 缓存上限菜单手动弹出开关 */
+  @Local showCacheLimitMenu: boolean = false;
+  /** 缓存上限候选值（对齐 RN 版 MusicFree 预设选项） */
+  private static readonly CACHE_LIMIT_VALUES: Array<number> = [
+    256 * 1024 * 1024,
+    512 * 1024 * 1024,
+    1024 * 1024 * 1024,
+    2 * 1024 * 1024 * 1024,
+    4 * 1024 * 1024 * 1024,
+    8 * 1024 * 1024 * 1024
+  ];
 
   aboutToAppear(): void {
     this.refreshSizes();
@@ -74,35 +86,39 @@ export struct CachePage {
     return Math.round(bytes / MB).toString() + 'MB';
   }
 
-  /** 音乐缓存上限：输入数值并选择单位（MB/GB），范围 100M-8G，存 basic.maxCacheSize */
-  private showCacheLimitDialog(): void {
-    const MB = 1024 * 1024;
-    const GB = MB * 1024;
+  /** 菜单弹出位置：智感握姿开启且左手握持 → 左下（拇指可达），否则条目右下 */
+  private menuPlacement(): Placement {
+    return appConfig.getSmartReachEnabled() && appState.holdingHand === 'left'
+      ? Placement.BottomLeft : Placement.BottomRight;
+  }
+
+  /** 缓存上限菜单选项 */
+  private cacheLimitEntries(): Array<MenuOptionEntry> {
     const cur = appConfig.getMaxCacheSize();
-    // 按当前值预选单位与数值
-    if (cur >= GB && cur % GB === 0) {
-      DialogManager.cacheInputUnit = 'G';
-      DialogManager.cacheInputValue = (cur / GB).toString();
-    } else {
-      DialogManager.cacheInputUnit = 'M';
-      DialogManager.cacheInputValue = Math.round(cur / MB).toString();
+    const entries: Array<MenuOptionEntry> = [];
+    for (const bytes of CachePage.CACHE_LIMIT_VALUES) {
+      entries.push(new MenuOptionEntry(bytes.toString(), CachePage.formatLimit(bytes), bytes === cur));
     }
-    DialogManager.cacheInputConfirm = (text: string): void => {
-      const val = parseInt(text, 10);
-      if (isNaN(val)) {
-        DialogManager.Toast('请输入 100M-8G 范围内的数字');
-        return;
-      }
-      const unit = DialogManager.cacheInputUnit;
-      const unitBytes = unit === 'G' ? GB : MB;
-      // 越界自动收敛到边界（100M-8G，与 RN 行为一致）
-      const clamped = Math.min(Math.max(val * unitBytes, 100 * MB), 8 * GB);
-      appConfig.setConfig(ConfigKeys.MAX_CACHE_SIZE, clamped);
-      // 条目右侧展示设置的值 + 单位
-      this.maxCacheLimitText = (clamped / unitBytes).toString() + (unit === 'G' ? 'GB' : 'MB');
-      this.showToast('设置成功');
-    };
-    DialogManager.OpenDialog('设置缓存');
+    return entries;
+  }
+
+  /** 选中缓存上限 */
+  private applyCacheLimit(value: string): void {
+    const bytes = parseInt(value, 10);
+    if (Number.isFinite(bytes) && bytes > 0) {
+      appConfig.setConfig(ConfigKeys.MAX_CACHE_SIZE, bytes);
+      this.maxCacheLimitText = CachePage.formatLimit(bytes);
+    }
+  }
+
+  /** 缓存上限菜单 */
+  @Builder
+  private cacheLimitMenu(): void {
+    OptionsMenuBuilder(this.cacheLimitEntries(), (value: string): void => {
+      this.applyCacheLimit(value);
+    }, (): void => {
+      this.showCacheLimitMenu = true;
+    })
   }
 
   /** 清除确认弹窗（对齐 RN 的 SimpleDialog 确认流程） */
@@ -161,26 +177,51 @@ export struct CachePage {
 
           ListItem() {
             Column() {
-              // 音乐缓存上限
+              // 音乐缓存上限（智感握姿左手：值+chevron 镜像到行首，文本右对齐，图标镜像到行尾）
               Row({ space: 12 }) {
-                SymbolGlyph($r('sys.symbol.music'))
-                  .fontSize(20)
-                  .fontColor([$r('sys.color.icon_secondary')])
+                if (appState.holdingHand === 'left') {
+                  Text(this.maxCacheLimitText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
+                if (appState.holdingHand !== 'left') {
+                  SymbolGlyph($r('sys.symbol.music'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
                 Text('音乐缓存上限')
                   .fontSize(15)
                   .fontColor($r('sys.color.font_primary'))
                   .layoutWeight(1)
-                Text(this.maxCacheLimitText)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(14)
-                  .fontColor([$r('sys.color.icon_tertiary')])
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                if (appState.holdingHand !== 'left') {
+                  Text(this.maxCacheLimitText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
+                if (appState.holdingHand === 'left') {
+                  SymbolGlyph($r('sys.symbol.music'))
+                    .fontSize(20)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
               }
               .width('100%')
               .height(52)
               .onClick(() => {
-                this.showCacheLimitDialog();
+                this.showCacheLimitMenu = true;
+              })
+              .bindMenu(this.showCacheLimitMenu, this.cacheLimitMenu, {
+                placement: this.menuPlacement(),
+                systemMaterial: thickImmersiveMaterial(),
+                onDisappear: (): void => {
+                  this.showCacheLimitMenu = false;
+                }
               })
 
               Divider()
