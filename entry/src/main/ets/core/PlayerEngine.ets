@@ -33,11 +33,21 @@ export enum PlayState {
  * 基于 @ohos.multimedia.avPlayer；对外时间单位为秒（与 RN TrackPlayer 一致）
  */
 export class PlayerEngine {
+  /** 等待音频会话激活完成的时限（超时放弃等待，不阻塞起播） */
+  private static readonly SESSION_ACTIVATE_TIMEOUT_MS = 2000;
   private player: media.AVPlayer | null = null;
   private createPromise: Promise<media.AVPlayer> | null = null;
   private stateInternal: PlayState = PlayState.Idle;
   private rate: number = 1;
   private playingBeforeInterrupt: boolean = false;
+  /** 音频会话管理器（「被打断转暂停」策略用；低版本设备获取失败为 null） */
+  private sessionManager: audio.AudioSessionManager | null = null;
+  /** 会话行为（PAUSE_WHEN_INTERRUPTED）已设置 */
+  private sessionBehaviorSet: boolean = false;
+  /** 会话焦点状态监听已注册 */
+  private sessionStateHooked: boolean = false;
+  /** 会话激活请求进行中（防重复激活；null 表示无进行中的激活） */
+  private sessionActivateTask: Promise<void> | null = null;
   /** 本地播放文件句柄（fd:// 播放期间需保持打开） */
   private localFile: fs.File | null = null;
   /** 音效开关（true=系统默认音效 EFFECT_DEFAULT / false=关闭音效 EFFECT_NONE） */
@@ -177,15 +187,126 @@ export class PlayerEngine {
   }
 
   private handleInterrupt(info: audio.InterruptEvent): void {
+    Log.debug('audioInterrupt 提示: hint=' + info.hintType.toString() + ', force=' + info.forceType.toString());
     if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_PAUSE) {
       this.playingBeforeInterrupt = this.stateInternal === PlayState.Playing;
       this.pause().catch(() => {
       });
     } else if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_STOP) {
-      this.playingBeforeInterrupt = false;
-      this.stop().catch(() => {
+      // 系统默认策略下音乐类应用互打为 STOP（永久失焦，对方结束后不恢复）：
+      // 仅转为暂停以保留进度（stop 会清进度，手动续播将从头开始）；
+      // 已启用 PAUSE_WHEN_INTERRUPTED 时一般收到的是 PAUSE 而非 STOP
+      this.playingBeforeInterrupt = this.stateInternal === PlayState.Playing;
+      this.pause().catch(() => {
       });
     } else if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_RESUME) {
+      if (this.playingBeforeInterrupt && this.resumeAfterInterrupt) {
+        this.playingBeforeInterrupt = false;
+        this.play().catch(() => {
+        });
+      }
+    }
+  }
+
+  /**
+   * 启用「被其他应用打断时转暂停」的音频会话策略（API 24+，低版本设备静默跳过）。
+   * 默认焦点策略下音乐类应用互打为 STOP：被抢占后永久失焦，对方停止播放后
+   * 系统不会下发 RESUME，应用无法自动恢复；设置 PAUSE_WHEN_INTERRUPTED 后，
+   * 被抢占转为暂停并保留进度，对方释放焦点后收到 RESUME 提示可自动续播。
+   * 注意：会话必须在起流前完成激活，否则策略对本流不生效（文档明确要求），
+   * 故本方法返回 Promise，由 load/play 在起流前 await（awaitSessionReady）。
+   * 仅在即将播放时调用：会话激活本身会申请焦点，冷启动预热会打断其他应用。
+   */
+  ensurePauseOnInterruptSession(): Promise<void> {
+    const mgr = this.getSessionManager();
+    if (mgr === null) {
+      return Promise.resolve();
+    }
+    if (!this.sessionBehaviorSet) {
+      try {
+        mgr.setAudioSessionScene(audio.AudioSessionScene.AUDIO_SESSION_SCENE_MEDIA);
+        mgr.setAudioSessionBehavior(audio.AudioSessionBehaviorFlags.PAUSE_WHEN_INTERRUPTED);
+        this.sessionBehaviorSet = true;
+        Log.debug('已设置音频会话行为: PAUSE_WHEN_INTERRUPTED');
+      } catch (e) {
+        // 低版本设备无此接口：保持系统默认打断策略（STOP 后不自动恢复）
+        return Promise.resolve();
+      }
+    }
+    if (!this.sessionStateHooked) {
+      this.sessionStateHooked = true;
+      try {
+        mgr.on('audioSessionStateChanged', (event: audio.AudioSessionStateChangedEvent) => {
+          Log.debug('音频会话焦点提示: ' + event.stateChangeHint.toString());
+          this.handleSessionStateChange(event);
+        });
+      } catch (e) {
+        // 监听注册失败忽略：AVPlayer 的 audioInterrupt 仍可用
+      }
+    }
+    let activated = false;
+    try {
+      activated = mgr.isAudioSessionActivated();
+    } catch (e) {
+      activated = false;
+    }
+    if (activated) {
+      return Promise.resolve();
+    }
+    if (this.sessionActivateTask !== null) {
+      // 已有激活在途：等待其落定，避免并发重复激活
+      return this.sessionActivateTask;
+    }
+    const strategy: audio.AudioSessionStrategy = {
+      concurrencyMode: audio.AudioConcurrencyMode.CONCURRENCY_DEFAULT
+    };
+    const raw: Promise<void> = mgr.activateAudioSession(strategy).then((): void => {
+      Log.debug('音频会话已激活，被打断转暂停策略生效');
+    }).catch((e: BusinessError): void => {
+      Log.warn('音频会话激活失败: ' + e.message);
+    });
+    const wrapped: Promise<void> = raw.finally((): void => {
+      if (this.sessionActivateTask === wrapped) {
+        // 失败也清空以允许下次播放重试
+        this.sessionActivateTask = null;
+      }
+    });
+    this.sessionActivateTask = wrapped;
+    return wrapped;
+  }
+
+  /** 等待「被打断转暂停」会话就绪（限时兜底，防激活异常时阻塞起播） */
+  private async awaitSessionReady(): Promise<void> {
+    const racers: Array<Promise<void>> = [
+      this.ensurePauseOnInterruptSession(),
+      Delay.wait(PlayerEngine.SESSION_ACTIVATE_TIMEOUT_MS)
+    ];
+    await Promise.race(racers);
+  }
+
+  /** 获取音频会话管理器（懒加载） */
+  private getSessionManager(): audio.AudioSessionManager | null {
+    if (this.sessionManager !== null) {
+      return this.sessionManager;
+    }
+    try {
+      this.sessionManager = audio.getAudioManager().getSessionManager();
+    } catch (e) {
+      this.sessionManager = null;
+    }
+    return this.sessionManager;
+  }
+
+  /** 会话焦点状态回调（会话级「被打断转暂停」的提示经由此事件送达） */
+  private handleSessionStateChange(event: audio.AudioSessionStateChangedEvent): void {
+    const hint = event.stateChangeHint;
+    if (hint === audio.AudioSessionStateChangeHint.AUDIO_SESSION_STATE_CHANGE_HINT_PAUSE ||
+      hint === audio.AudioSessionStateChangeHint.AUDIO_SESSION_STATE_CHANGE_HINT_STOP) {
+      // 系统已暂停/停止音频流：主动同步引擎状态以保留进度
+      this.playingBeforeInterrupt = this.stateInternal === PlayState.Playing;
+      this.pause().catch(() => {
+      });
+    } else if (hint === audio.AudioSessionStateChangeHint.AUDIO_SESSION_STATE_CHANGE_HINT_RESUME) {
       if (this.playingBeforeInterrupt && this.resumeAfterInterrupt) {
         this.playingBeforeInterrupt = false;
         this.play().catch(() => {
@@ -265,6 +386,8 @@ export class PlayerEngine {
     */
   async load(url: string, headers: Record<string, string> | null): Promise<void> {
     this.syncEqListenersOnce();
+    // 会话必须在起流前激活完成，「被打断转暂停」策略才对本流生效（异步竞态会导致策略失效）
+    await this.awaitSessionReady();
     this.lastUrl = url;
     this.lastHeaders = headers;
     await this.teardownPcm();
@@ -538,6 +661,8 @@ export class PlayerEngine {
   }
 
   async play(): Promise<void> {
+    // 恢复播放/起流前确保会话就绪：会话可能因超时/被抢占停用，需重新激活
+    await this.awaitSessionReady();
     if (this.pcmMode) {
       if (this.stateInternal === PlayState.Playing) {
         return;
