@@ -12,6 +12,7 @@ import type {
   PcmStreamDecoderCallbacks
 } from '@ospark/free-pcm';
 import { EqualizerManager } from './EqualizerManager';
+import { audioCacheProxy } from './AudioCacheProxy';
 
 /**
  * 播放器引擎状态（对应 avPlayer 状态）
@@ -388,6 +389,13 @@ export class PlayerEngine {
     this.syncEqListenersOnce();
     // 会话必须在起流前激活完成，「被打断转暂停」策略才对本流生效（异步竞态会导致策略失效）
     await this.awaitSessionReady();
+    // 音频缓存代理改写（对齐 RN react-native-track-player SimpleCache 行为）
+    // 仅 http/https 且非 m3u8 时改写；降级时返回原始 URL，不影响播放
+    // 代理 URL 已将 headers 编码进查询参数，无需再传给播放器
+    const proxyUrl = await audioCacheProxy.getProxyUrl(url, headers ?? undefined);
+    const usingProxy = proxyUrl !== url;
+    const playUrl = proxyUrl;
+    const playHeaders = usingProxy ? null : headers;
     this.lastUrl = url;
     this.lastHeaders = headers;
     await this.teardownPcm();
@@ -395,7 +403,7 @@ export class PlayerEngine {
       // 停掉 AVPlayer 旧源，避免 PCM 与 AVPlayer 双路输出
       await this.silenceAVPlayer();
       try {
-        await this.loadPcm(url);
+        await this.loadPcm(playUrl);
         return;
       } catch (e) {
         Log.warn('PCM 引擎加载失败，回退 AVPlayer: ' + (e instanceof Error ? e.message : ''));
@@ -406,11 +414,11 @@ export class PlayerEngine {
     const p = await this.recycle();
     // 播放器已回收，上一首本地文件句柄不再被占用
     this.closeLocalFile();
-    const isHttp = url.startsWith('http://') || url.startsWith('https://');
+    const isHttp = playUrl.startsWith('http://') || playUrl.startsWith('https://');
     let sourceSet = false;
-    if (isHttp && headers !== null && Object.keys(headers).length > 0) {
+    if (isHttp && playHeaders !== null && Object.keys(playHeaders).length > 0) {
       try {
-        await p.setMediaSource(media.createMediaSourceWithUrl(url, headers));
+        await p.setMediaSource(media.createMediaSourceWithUrl(playUrl, playHeaders));
         sourceSet = true;
       } catch (e) {
         Log.warn('setMediaSource 失败，回退无请求头播放');
@@ -418,10 +426,10 @@ export class PlayerEngine {
     }
     if (!sourceSet) {
       if (isHttp) {
-        p.url = url;
+        p.url = playUrl;
       } else {
         // AVPlayer 不支持裸磁盘路径，本地文件需打开为 fd://
-        const path = url.startsWith('file://') ? url.substring('file://'.length) : url;
+        const path = playUrl.startsWith('file://') ? playUrl.substring('file://'.length) : playUrl;
         const file = fs.openSync(path, fs.OpenMode.READ_ONLY);
         this.localFile = file;
         p.url = 'fd://' + file.fd.toString();

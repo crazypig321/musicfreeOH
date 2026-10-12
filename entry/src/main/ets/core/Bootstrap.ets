@@ -18,6 +18,7 @@ import { hdsMaterial } from '@kit.UIDesignKit';
 import { ContextHolder } from '../common/ContextHolder';
 import { OrientationUtils } from '../utils/OrientationUtils';
 import { appState, themeColorOf } from '../entryability/AppState';
+import { audioCacheProxy } from './AudioCacheProxy';
 
 /**
  * 应用启动编排（移植自 src/entry/bootstrap/bootstrap.ts，仅后端部分）
@@ -63,6 +64,10 @@ export class Bootstrap {
   private static async runSetup(): Promise<void> {
     // 1. 数据目录（EntryAbility 已建，此处幂等兜底）
     Bootstrap.setupFolder();
+
+    // 1.1 音频缓存代理：清扫 .tmp 拘留 + 索引与目录一致性修正
+    //     （对齐 RN react-native-track-player SimpleCache 行为）
+    audioCacheProxy.reconcileOnStartup();
 
     // 2. 配置 + 数据域
     await Promise.all([

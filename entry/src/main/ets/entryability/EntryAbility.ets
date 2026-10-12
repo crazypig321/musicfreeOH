@@ -22,6 +22,7 @@ import { Continuation, ContinuationData } from '../core/Continuation';
 import { SmartMobilityManager } from '../core/SmartMobilityManager';
 import { Bootstrap } from '../core/Bootstrap';
 import { WebPluginExecutor } from '../plugin/WebPluginExecutor';
+import { audioCacheProxy } from '../core/AudioCacheProxy';
 
 const DOMAIN = 0x0000;
 /** 桌面音乐卡片 call 事件方法名（与卡片页 MusicCard.ets postCardAction method 一致） */
@@ -207,6 +208,9 @@ export default class EntryAbility extends UIAbility {
     }
     // 注销智慧出行状态监听
     SmartMobilityManager.getInstance().teardown();
+    // 关闭音频缓存代理 server 兜底（进程亡 socket 自灭，此处显式关闭释放端口）
+    audioCacheProxy.close().catch((): void => {
+    });
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
