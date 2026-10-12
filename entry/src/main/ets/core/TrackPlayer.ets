@@ -554,42 +554,44 @@ export class TrackPlayer {
         appConfig.getPlayQualityOrder(),
       );
       let source: MediaSource | null = null;
-      for (const quality of qualityOrder) {
-        if (this.isCurrentMusic(musicItem)) {
-          if (plugin !== null) {
-            // 拉源失败（无窗口后台模式沙箱不可用/网络异常等）不中断：
-            // 落到缓存过的源或持久化 url 兜底
-            try {
-              const s = await plugin.methods.getMediaSource(musicItem, quality);
-              source = s === null ? null : s;
-            } catch (e) {
+      // 5.0 优先查音频缓存代理的完整缓存，命中则跳过插件直接播本地缓存
+      //     在线/离线均适用：避免在线时等插件解析 URL 才能播放已缓存的歌曲
+      const cachedUrl = await audioCacheProxy.getCachedUrlForMediaId(musicItem.platform + '@' + musicItem.id);
+      if (cachedUrl !== null) {
+        source = new MediaSource();
+        source.url = cachedUrl;
+        this.setQualityInternal('standard');
+        Log.debug('缓存命中: ' + musicItem.title);
+      }
+      // 5.1 缓存未命中：调插件获取音源
+      if (source === null) {
+        for (const quality of qualityOrder) {
+          if (this.isCurrentMusic(musicItem)) {
+            if (plugin !== null) {
+              // 拉源失败（无窗口后台模式沙箱不可用/网络异常等）不中断：
+              // 落到缓存过的源或持久化 url 兜底
+              try {
+                const s = await plugin.methods.getMediaSource(musicItem, quality);
+                source = s === null ? null : s;
+              } catch (e) {
+                source = null;
+              }
+            } else {
               source = null;
             }
+            if (source !== null) {
+              this.setQualityInternal(quality);
+              break;
+            }
           } else {
-            source = null;
+            // 已切换到其他歌曲
+            return;
           }
-          if (source !== null) {
-            this.setQualityInternal(quality);
-            break;
-          }
-        } else {
-          // 已切换到其他歌曲
-          return;
         }
       }
 
       if (!this.isCurrentMusic(musicItem)) {
         return;
-      }
-      // 5.0 断网时优先查音频缓存代理的完整缓存，跳过插件直接播本地缓存
-      if (source === null && Network.getInstance().isOffline) {
-        const cachedUrl = await audioCacheProxy.getCachedUrlForMediaId(musicItem.platform + '@' + musicItem.id);
-        if (cachedUrl !== null) {
-          source = new MediaSource();
-          source.url = cachedUrl;
-          this.setQualityInternal('standard');
-          Log.debug('断网缓存命中: ' + musicItem.title);
-        }
       }
       if (source === null) {
         // 5.1 使用缓存过的源
