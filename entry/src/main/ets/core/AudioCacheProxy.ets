@@ -76,8 +76,14 @@ export class AudioCacheProxy {
   /**
    * 获取代理 URL（仅 http/https 且非 m3u8 时改写）
    * 启动失败降级返回原始 URL，不影响播放
+   * @param mediaId 歌曲唯一标识（platform@id），传入时用 SHA1(mediaId) 作 cacheKey，
+   *                 同一首歌无论 CDN 签名 URL 怎么变都命中同一缓存文件
    */
-  async getProxyUrl(originalUrl: string, headers?: Record<string, string>): Promise<string> {
+  async getProxyUrl(
+    originalUrl: string,
+    headers?: Record<string, string>,
+    mediaId?: string
+  ): Promise<string> {
     if (!originalUrl.startsWith('http://') && !originalUrl.startsWith('https://')) {
       return originalUrl;
     }
@@ -91,9 +97,12 @@ export class AudioCacheProxy {
       return originalUrl;
     }
 
-    const cacheKey = await AudioCacheProxy.computeCacheKey(originalUrl);
+    // cacheKey 优先基于歌曲ID（稳定不变），回退到 URL hash
+    const cacheKey = mediaId !== undefined && mediaId.length > 0
+      ? await AudioCacheProxy.computeCacheKey(mediaId)
+      : await AudioCacheProxy.computeCacheKey(originalUrl);
 
-    // 预写索引（代理收到请求后据此查上游 URL）
+    // 预写索引（代理收到请求后据此查上游 URL；URL 变化时更新为最新）
     this.ensureEntry(cacheKey, originalUrl);
 
     let proxyUrl = `http://127.0.0.1:${this.port}/${cacheKey}`;
@@ -133,6 +142,24 @@ export class AudioCacheProxy {
     this.cleanupTmpFiles();
     this.loadIndex();
     this.reconcileIndexWithDir();
+  }
+
+  /**
+   * 查找歌曲已完整缓存的URL（断网时用）
+   * @param mediaId 歌曲唯一标识（platform@id）
+   * @return 已缓存的上游 URL（代理据此改写为本地代理URL，.media存在则本地回包），null 表示无完整缓存
+   */
+  async getCachedUrlForMediaId(mediaId: string): Promise<string | null> {
+    const cacheKey = await AudioCacheProxy.computeCacheKey(mediaId);
+    const entry = this.entries.get(cacheKey);
+    if (entry === undefined) {
+      return null;
+    }
+    const mediaPath = PathConst.musicCachePath + cacheKey + '.media';
+    if (!FileUtils.exists(mediaPath)) {
+      return null;
+    }
+    return entry.url;
   }
 
   // ==================== 启动 ====================

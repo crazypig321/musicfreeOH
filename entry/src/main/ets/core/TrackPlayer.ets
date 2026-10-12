@@ -21,6 +21,7 @@ import { Plugin } from '../plugin/Plugin';
 import { SupportMediaType, SearchResult } from '../common/model/SheetTypes';
 import { Network } from '../infra/Network';
 import { playerEngine, PlayState } from './PlayerEngine';
+import { audioCacheProxy } from './AudioCacheProxy';
 
 /** 播放失败原因 */
 export class PlayFailReason {
@@ -579,6 +580,16 @@ export class TrackPlayer {
 
       if (!this.isCurrentMusic(musicItem)) {
         return;
+      }
+      // 5.0 断网时优先查音频缓存代理的完整缓存，跳过插件直接播本地缓存
+      if (source === null && Network.getInstance().isOffline) {
+        const cachedUrl = await audioCacheProxy.getCachedUrlForMediaId(musicItem.platform + '@' + musicItem.id);
+        if (cachedUrl !== null) {
+          source = new MediaSource();
+          source.url = cachedUrl;
+          this.setQualityInternal('standard');
+          Log.debug('断网缓存命中: ' + musicItem.title);
+        }
       }
       if (source === null) {
         // 5.1 使用缓存过的源
@@ -1139,7 +1150,7 @@ export class TrackPlayer {
   private async setTrackSource(track: MusicItem, autoPlay: boolean = true): Promise<void> {
     const headers = TrackPlayer.collectHeaders(track);
     this.loadedMusic = track.clone();
-    await playerEngine.load(track.url, headers);
+    await playerEngine.load(track.url, headers, track.platform + '@' + track.id);
     PersistStatus.setMusicItem(track);
     PersistStatus.setProgress(0);
     // 实际播放地址已切换：通知 UI 更新音频格式等信息

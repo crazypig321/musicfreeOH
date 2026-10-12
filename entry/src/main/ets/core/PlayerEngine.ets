@@ -382,17 +382,19 @@ export class PlayerEngine {
     * 加载音源并 prepare 完成
     * 均衡器开启时走 free-pcm PCM 管线（解码 + AudioRenderer 渲染，EQ 生效）；
     * 加载失败自动回退 AVPlayer（EQ 不生效但不断播）
-    * @param url 网络地址或本地路径（支持 file:// 前缀；本地文件以 fd:// 方式播放）
-    * @param headers 自定义 HTTP 头（网络源生效；PCM 管线暂不支持请求头）
-    */
-  async load(url: string, headers: Record<string, string> | null): Promise<void> {
+   * @param url 网络地址或本地路径（支持 file:// 前缀；本地文件以 fd:// 方式播放）
+   * @param headers 自定义 HTTP 头（网络源生效；PCM 管线暂不支持请求头）
+   * @param mediaId 歌曲唯一标识（platform@id），用于稳定缓存键
+   */
+  async load(url: string, headers: Record<string, string> | null, mediaId?: string): Promise<void> {
     this.syncEqListenersOnce();
     // 会话必须在起流前激活完成，「被打断转暂停」策略才对本流生效（异步竞态会导致策略失效）
     await this.awaitSessionReady();
     // 音频缓存代理改写（对齐 RN react-native-track-player SimpleCache 行为）
     // 仅 http/https 且非 m3u8 时改写；降级时返回原始 URL，不影响播放
     // 代理 URL 已将 headers 编码进查询参数，无需再传给播放器
-    const proxyUrl = await audioCacheProxy.getProxyUrl(url, headers ?? undefined);
+    // mediaId 传入时 cacheKey 基于 SHA1(mediaId)，同一首歌 CDN 签名变化也命中同一缓存
+    const proxyUrl = await audioCacheProxy.getProxyUrl(url, headers ?? undefined, mediaId);
     const usingProxy = proxyUrl !== url;
     const playUrl = proxyUrl;
     const playHeaders = usingProxy ? null : headers;
