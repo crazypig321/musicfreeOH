@@ -1,7 +1,7 @@
 <h1 align="center">🎵 MusicFreeOH</h1>
-<td align="center">
-  <img src=".appImage/startIcon.png" width="35%" style="display:block; margin:0 auto;">
-</td>
+<div align="center">
+  <img src=".appImage/startIcon.png" width="35%">
+</div>
 <p align="center">
   <b>开源插件化音乐播放器 MusicFree 的 HarmonyOS（鸿蒙）移植版</b>
 </p>
@@ -131,9 +131,8 @@ hvigorw assembleHap
 
 ## 👍 支持作者
 - 如果你也喜欢MusicFreeOH项目，欢迎打赏作者(微信/支付宝)
-<td align="center">
-  <img src=".appImage/erweima.png" width="35%" style="display:block; margin:0 auto;">
-</td>
-
+<div align="center">
+  <img src=".appImage/erweima.png" width="35%">
+</div>
 > ⭐ 如果这个项目对你有帮助，欢迎给本项目MusicFreeOH和原项目 [MusicFree](https://github.com/maotoumao/MusicFree) 点个 Star 支持一下～
 >
