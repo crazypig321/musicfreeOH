@@ -171,6 +171,28 @@ export class MusicHistory {
     return Promise.resolve();
   }
 
+  /** 换源：替换历史记录中的同名歌曲（保留原顺序与播放统计；批量换源用） */
+  replaceMusic(oldItem: MusicItem, newItem: MusicItem): Promise<void> {
+    const oldKey = MediaUtils.getMediaUniqueKey(oldItem);
+    const newKey = MediaUtils.getMediaUniqueKey(newItem);
+    if (oldKey === newKey) {
+      return Promise.resolve();
+    }
+    const next: Array<MusicItem> = [];
+    for (const it of this.historyItems) {
+      next.push(MediaUtils.isSameMediaItem(it, oldItem) ? newItem : it);
+    }
+    this.historyItems = next;
+    const stat = this.stats.get(oldKey);
+    if (stat !== undefined) {
+      this.stats.delete(oldKey);
+      this.stats.set(newKey, stat);
+    }
+    this.persistStats();
+    this.persist();
+    return Promise.resolve();
+  }
+
   /** 清空播放记录 */
   clearMusic(): Promise<void> {
     this.historyItems = [];

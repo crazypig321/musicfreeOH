@@ -1,15 +1,24 @@
 import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
-import { CommonSearch } from '../view/CommonCom';
+import { CommonSearch, CommonBlur } from '../view/CommonCom';
+import { BatchSheetPicker } from '../view/BatchSheetPicker';
 import { ArtworkCache } from '../utils/ArtworkCache';
 import { musicHistory } from '../core/MusicHistory';
 import { trackPlayer } from '../core/TrackPlayer';
+import { musicSheet } from '../core/MusicSheet';
+import { downloader } from '../core/Downloader';
+import { appConfig } from '../core/AppConfig';
+import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
+import { MediaUtils } from '../utils/MediaUtils';
 import { appState } from '../entryability/AppState';
 import { MusicItem } from '../common/model/MediaTypes';
+import { SheetItem } from '../common/model/SheetTypes';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { NavPathUtils } from '../utils/NavPathUtils';
 import { ROUTE_LOCAL_MUSIC, ROUTE_DOWNLOAD } from '../common/model/NavModels';
+import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 import { showUiToast } from '../utils/UiUtils';
+import { sheetPreferType } from '../utils/BreakpointUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
 
@@ -51,6 +60,14 @@ export struct MinePage {
   @Local totalListenSec: number = 0;
   /** 常听排行 TOP5 */
   @Local topPlays: Array<TopPlayRow> = [];
+  /** 批量多选模式选中键（platform_id） */
+  @Local batchSelected: Array<string> = [];
+  /** 批量「添加到歌单」选择器 */
+  @Local showBatchSheetPicker: boolean = false;
+  /** 批量换源进行中 */
+  @Local batchChanging: boolean = false;
+  /** 批量换源进度文案 */
+  @Local batchChangeProgress: string = '';
 
   /** 切换到其他 tab 时收起搜索框并清空关键词 */
   @Monitor('hostTabIndex')
@@ -235,8 +252,11 @@ export struct MinePage {
     });
   }
 
-  /** 历史条目横滑操作（左滑呼出删除按钮，弹窗确认后单独删除该条记录） */
-  private historySwipeOptions(item: MusicItem): HdsSwipeActionOptions {
+  /** 历史条目横滑操作（左滑呼出删除按钮，弹窗确认后单独删除该条记录）；批量模式下禁用 */
+  private historySwipeOptions(item: MusicItem): HdsSwipeActionOptions | undefined {
+    if (appState.isBatchMode) {
+      return undefined;
+    }
     const options: HdsSwipeActionOptions = {
       deleteIconOptions: {
         onAction: (): void => {
@@ -259,6 +279,248 @@ export struct MinePage {
     musicHistory.removeMusic(item).then((): void => {
       this.showToast('已删除「' + item.title + '」');
     });
+  }
+
+  // ---------- 批量多选模式（样式与操作对齐歌单详情页） ----------
+
+  /** 进入批量模式（全局状态：隐藏 tab 栏、返回键退出；显式动画包裹避免突兀） */
+  private enterBatchMode(): void {
+    if (this.historySource.totalCount() === 0) {
+      this.showToast('暂无播放记录');
+      return;
+    }
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = true;
+    });
+    this.batchSelected = [];
+  }
+
+  /** 退出批量模式 */
+  private exitBatchMode(): void {
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      appState.isBatchMode = false;
+    });
+    this.batchSelected = [];
+  }
+
+  private static itemKey(item: MusicItem): string {
+    return item.platform + '_' + item.id;
+  }
+
+  /** 行是否被勾选 */
+  private isSelected(item: MusicItem): boolean {
+    return this.batchSelected.indexOf(MinePage.itemKey(item)) !== -1;
+  }
+
+  /** 批量模式下点击行：切换勾选状态 */
+  private toggleBatchSelect(item: MusicItem): void {
+    const key = MinePage.itemKey(item);
+    const next = this.batchSelected.slice();
+    const idx = next.indexOf(key);
+    if (idx === -1) {
+      next.push(key);
+    } else {
+      next.splice(idx, 1);
+    }
+    this.batchSelected = next;
+  }
+
+  /** 全选/取消全选 */
+  private toggleSelectAll(): void {
+    const all: Array<string> = [];
+    for (const item of this.historySource.getItems()) {
+      all.push(MinePage.itemKey(item));
+    }
+    this.batchSelected = this.batchSelected.length === all.length ? [] : all;
+  }
+
+  /** 勾选的歌曲实体列表（按列表顺序） */
+  private selectedItems(): Array<MusicItem> {
+    const result: Array<MusicItem> = [];
+    for (const item of this.historySource.getItems()) {
+      if (this.isSelected(item)) {
+        result.push(item);
+      }
+    }
+    return result;
+  }
+
+  /** 批量操作按钮文案（第一行：全部勾选后「全选」切换为「取消全选」） */
+  private batchTopLabels(): Array<string> {
+    const total = this.historySource.totalCount();
+    const allSelected = total > 0 && this.batchSelected.length === total;
+    return [allSelected ? '取消全选' : '全选', '下一首播放', '换源'];
+  }
+
+  /** 批量操作按钮文案（第二行：播放历史为 添加到歌单/下载） */
+  private batchBottomLabels(): Array<string> {
+    return ['添加到歌单', '下载'];
+  }
+
+  /** 批量下一首播放 */
+  private batchPlayNext(): void {
+    const items = this.selectedItems();
+    if (items.length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    trackPlayer.addNext(items);
+    this.showToast('已添加 ' + items.length.toString() + ' 首到下一首播放');
+  }
+
+  /** 打开批量「添加到歌单」选择器 */
+  private openBatchSheetPicker(): void {
+    if (this.selectedItems().length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    this.showBatchSheetPicker = true;
+  }
+
+  /** 批量添加到指定歌单 */
+  private batchAddToSheet(sheet: SheetItem): void {
+    const items = this.selectedItems();
+    this.showBatchSheetPicker = false;
+    if (items.length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    const fresh = this.filterNotInSheet(items, sheet.id);
+    if (fresh.length === 0) {
+      this.showToast('所选歌曲已在「' + sheet.title + '」中');
+      return;
+    }
+    musicSheet.addMusic(sheet.id, fresh).then((): void => {
+      this.showToast('已添加 ' + fresh.length.toString() + ' 首到「' + sheet.title + '」');
+    }).catch((_e: Object): void => {
+      this.showToast('添加失败');
+    });
+  }
+
+  /** 过滤出指定歌单中尚不存在的歌曲 */
+  private filterNotInSheet(items: Array<MusicItem>, sheetId: string): Array<MusicItem> {
+    const existing = musicSheet.getMusicList(sheetId);
+    const result: Array<MusicItem> = [];
+    for (const it of items) {
+      let found = false;
+      for (const ex of existing) {
+        if (MediaUtils.isSameMediaItem(ex, it)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        result.push(it);
+      }
+    }
+    return result;
+  }
+
+  /** 用户自建歌单列表（不含默认收藏歌单） */
+  private getUserSheets(): Array<SheetItem> {
+    const result: Array<SheetItem> = [];
+    for (const sheet of musicSheet.sheets) {
+      if (sheet.id === musicSheet.defaultSheet.id) {
+        continue;
+      }
+      result.push(sheet);
+    }
+    return result;
+  }
+
+  /**
+   * 批量换源：逐首搜索其它插件的同一首歌，自动选第一个命中的候选，
+   * 替换队列/歌单/播放历史（保留原顺序与统计）
+   */
+  private async batchChangeSource(): Promise<void> {
+    if (this.batchChanging) {
+      this.showToast('正在换源中，请稍候');
+      return;
+    }
+    const items = this.selectedItems();
+    if (items.length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    // 本地/已下载音乐与正在播放的歌曲不支持批量换源（正在播放的歌曲请单独换源）
+    const targets: Array<MusicItem> = [];
+    let playingSkipped = 0;
+    for (const it of items) {
+      if (localMusicSheet.isLocalMusicExisting(it) !== null || downloadedSheet.isLocalMusicExisting(it) !== null ||
+        it.platform === LOCAL_PLUGIN_PLATFORM) {
+        continue;
+      }
+      if (trackPlayer.isCurrentMusic(it)) {
+        playingSkipped++;
+        continue;
+      }
+      targets.push(it);
+    }
+    if (targets.length === 0) {
+      this.showToast(playingSkipped > 0 ? '正在播放的歌曲请单独换源' : '所选歌曲不支持换源（本地音乐）');
+      return;
+    }
+    this.batchChanging = true;
+    let success = 0;
+    let failed = 0;
+    for (let i = 0; i < targets.length; ++i) {
+      const item = targets[i];
+      this.batchChangeProgress = '换源中 ' + (i + 1).toString() + '/' + targets.length.toString();
+      try {
+        const candidates = await trackPlayer.searchAlternateSources(item);
+        const best = candidates.length > 0 ? candidates[0] : null;
+        if (best !== null) {
+          trackPlayer.replaceInQueue(item, best);
+          musicSheet.replaceMusicEverywhere(item, best);
+          await musicHistory.replaceMusic(item, best);
+          success++;
+        } else {
+          failed++;
+        }
+      } catch (_e) {
+        failed++;
+      }
+    }
+    this.batchChanging = false;
+    this.batchChangeProgress = '';
+    let message = '换源完成：成功 ' + success.toString() + ' 首';
+    if (failed > 0) {
+      message += '，失败 ' + failed.toString() + ' 首';
+    }
+    if (playingSkipped > 0) {
+      message += '（正在播放的 ' + playingSkipped.toString() + ' 首请单独换源）';
+    }
+    this.showToast(message);
+  }
+
+  /** 批量下载：跳过下载中与已下载的条目 */
+  private batchDownload(): void {
+    const items = this.selectedItems();
+    if (items.length === 0) {
+      this.showToast('请先勾选歌曲');
+      return;
+    }
+    const fresh: Array<MusicItem> = [];
+    for (const it of items) {
+      if (downloader.getDownloadTask(it) !== null) {
+        continue;
+      }
+      if (downloadedSheet.isLocalMusicExisting(it) !== null) {
+        continue;
+      }
+      fresh.push(it);
+    }
+    if (fresh.length === 0) {
+      this.showToast('所选歌曲均已下载或正在下载');
+      return;
+    }
+    // 弹窗填写目标子文件夹（留空 = 默认下载目录）
+    DialogManager.downloadFolderValue = '';
+    DialogManager.downloadFolderConfirm = (folder: string): void => {
+      downloader.download(fresh, appConfig.getDefaultDownloadQuality(), folder);
+      this.showToast('已加入 ' + fresh.length.toString() + ' 首到下载队列');
+    };
+    DialogManager.OpenDialog('下载到文件夹');
   }
 
   /** 历史行副标题：歌手 · 专辑 */
@@ -304,40 +566,148 @@ export struct MinePage {
       doubleTapToTop: true,
       scrollToTopYOffset: ScrollToTopYOffset(this.showSearchBox ? 56 : 0)
     }) {
-      List({ scroller: this.scroller, space: 12 }) {
-        // 搜索中隐藏统计卡，仅展示结果列表
-        if (this.searchKeyword.trim().length === 0 && this.historySource.totalCount() > 0) {
+      // Stack 承载列表 + 批量模式底栏 + 「添加到歌单」选择器锚点
+      Stack({ alignContent: Alignment.Top }) {
+        List({ scroller: this.scroller, space: 12 }) {
+          // 搜索中隐藏统计卡，仅展示结果列表
+          if (this.searchKeyword.trim().length === 0 && this.historySource.totalCount() > 0) {
+            ListItem() {
+              this.StatsCardBuilder()
+            }
+          }
           ListItem() {
-            this.StatsCardBuilder()
+            this.HistoryHeaderBuilder()
+          }
+          if (this.historySource.totalCount() > 0) {
+            LazyForEach(this.historySource, (item: MusicItem, _index: number) => {
+              // HdsListItem 不支持通用属性，链式设置会破坏横滑手势，故不挂 transition
+              HdsListItem({
+                customItemBuilder: (): void => {
+                  this.MusicRowBuilder(item, this.historySub(item), this.historyTail(item));
+                },
+                swipeActionOptions: this.historySwipeOptions(item)
+              })
+            }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + index.toString() +
+              '_' + appState.swipeResetTick.toString() +
+              (appState.isBatchMode && this.isSelected(item) ? '_sel' : ''))
+          } else {
+            ListItem() {
+              this.EmptyBuilder(this.searchKeyword.trim().length > 0 ?
+                '未找到匹配的播放记录' : '暂无播放记录，播放歌曲后将显示在这里')
+            }
           }
         }
-        ListItem() {
-          this.HistoryHeaderBuilder()
-        }
-        if (this.historySource.totalCount() > 0) {
-          LazyForEach(this.historySource, (item: MusicItem, _index: number) => {
-            // HdsListItem 不支持通用属性，链式设置会破坏横滑手势，故不挂 transition
-            HdsListItem({
-              customItemBuilder: (): void => {
-                this.MusicRowBuilder(item, this.historySub(item), this.historyTail(item));
-              },
-              swipeActionOptions: this.historySwipeOptions(item)
-            })
-          }, (item: MusicItem, index: number) => item.platform + '_' + item.id + '_' + index.toString() +
-            '_' + appState.swipeResetTick.toString())
-        } else {
-          ListItem() {
-            this.EmptyBuilder(this.searchKeyword.trim().length > 0 ?
-              '未找到匹配的播放记录' : '暂无播放记录，播放歌曲后将显示在这里')
+        .ListStyle(this.showSearchBox ? 56 : 0)
+        .onScrollFrameBegin((offset: number) => {
+          BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
+          return { offsetRemain: offset }
+        })
+
+        // 批量模式底栏（透明悬浮于列表之上，列表底部渐变模糊）：
+        // 已选行 + 全选 / 下一首播放 / 换源 + 添加到歌单 / 下载
+        if (appState.isBatchMode) {
+          // 渐变模糊高度与底栏内容高度一致（样式同歌单详情页）
+          CommonBlur({ heightValue: appState.bottomRect + 138 }).position({ bottom: 0 })
+            .transition(TransitionEffect.OPACITY)
+
+          Column({ space: 10 }) {
+            Row() {
+              Text(this.batchChanging ? this.batchChangeProgress :
+                '已选 ' + this.batchSelected.length.toString() + ' 首歌曲')
+                .fontSize(13)
+                .fontColor($r('sys.color.font_secondary'))
+              Blank()
+              Text('取消')
+                .fontSize(16)
+                .fontColor($r('sys.color.font_secondary'))
+                .onClick(() => {
+                  this.exitBatchMode();
+                })
+            }
+            .width('100%')
+
+            Row({ space: 8 }) {
+              ForEach(this.batchTopLabels(), (v: string, i: number) => {
+                Button(v)
+                  .layoutWeight(1)
+                  .height(36)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .borderRadius(10)
+                  .padding({ left: 2, right: 2 })
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    if (i === 0) {
+                      this.toggleSelectAll();
+                    } else if (i === 1) {
+                      this.batchPlayNext();
+                    } else {
+                      this.batchChangeSource();
+                    }
+                  })
+              }, (v: string, i: number) => v + '_' + i.toString())
+            }
+            .width('100%')
+
+            Row({ space: 8 }) {
+              ForEach(this.batchBottomLabels(), (v: string, i: number) => {
+                Button(v)
+                  .layoutWeight(1)
+                  .height(36)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .borderRadius(10)
+                  .padding({ left: 2, right: 2 })
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                  .fontColor($r('sys.color.font_primary'))
+                  .onClick(() => {
+                    if (i === 0) {
+                      this.openBatchSheetPicker();
+                    } else {
+                      this.batchDownload();
+                    }
+                  })
+              }, (v: string, i: number) => v + '_' + i.toString())
+            }
+            .width('100%')
           }
+          .width('100%')
+          .position({ bottom: 0 })
+          .padding({ top: 14, left: 16, right: 16, bottom: appState.bottomRect + 12 })
+          .transition(TransitionEffect.OPACITY)
         }
+
+        // 批量「添加到歌单」选择器锚点（零高度节点挂载半模态）
+        Column()
+          .width('100%')
+          .height(0)
+          .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
+            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            dragBar: true, preferType: sheetPreferType(),
+            onWillDisappear: () => {
+              this.showBatchSheetPicker = false;
+              appState.isForegroundBlur = false;
+            },
+            onWillAppear: () => {
+              appState.isForegroundBlur = true;
+            }
+          })
       }
-      .ListStyle(this.showSearchBox ? 56 : 0)
-      .onScrollFrameBegin((offset: number) => {
-        BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
-        return { offsetRemain: offset }
-      })
+      .width('100%')
+      .height('100%')
     }
+  }
+
+  /** 批量「添加到歌单」选择器内容 */
+  @Builder
+  BatchSheetPickerBuilder() {
+    BatchSheetPicker({
+      sheets: this.getUserSheets(),
+      onPick: (sheet: SheetItem): void => {
+        this.batchAddToSheet(sheet);
+      }
+    })
   }
 
   /** 标题栏下方扩展区：搜索框（展开时挂载，从顶部滑入） */
@@ -402,23 +772,41 @@ export struct MinePage {
 
       Blank()
 
-      Text('清空')
-        .fontSize(14)
-        .fontColor(appState.accentColor)
-        .padding({ left: 12, top: 6, bottom: 6 })
-        .onClick(() => {
-          this.confirmClearHistory();
-        })
+      if (!appState.isBatchMode) {
+        // 批量操作入口（最近收听右侧、清空前）
+        SymbolGlyph($r('sys.symbol.list_checkmask'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+          .padding({ left: 12, top: 6, bottom: 6 })
+          .onClick(() => {
+            this.enterBatchMode();
+          })
+        // 清空播放记录（删除图标，弹窗确认后执行）
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_secondary')])
+          .padding({ left: 12, right: 4, top: 6, bottom: 6 })
+          .onClick(() => {
+            this.confirmClearHistory();
+          })
+      }
     }
     .width('100%')
     .height(44)
     .padding({ left: 4, right: 4 })
   }
 
-  /** 歌曲行（卡片样式，风格同下载页歌曲行）：封面 + 歌名 + 副标题 + 尾部信息，点击播放 */
+  /** 歌曲行（卡片样式，风格同下载页歌曲行）：封面 + 歌名 + 副标题 + 尾部信息；
+   *  正常点击播放，长按进入批量模式，批量模式下点击切换勾选 */
   @Builder
   MusicRowBuilder(item: MusicItem, sub: string, tail: string) {
     Row({ space: 12 }) {
+      if (appState.isBatchMode) {
+        SymbolGlyph(this.isSelected(item) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+          .fontSize(24)
+          .fontColor([this.isSelected(item) ? appState.accentColor : $r('sys.color.icon_tertiary')])
+          .transition(TransitionEffect.OPACITY)
+      }
       if (item.artwork.length > 0) {
         Image(ArtworkCache.resolve(item.artwork))
           .width(40)
@@ -467,8 +855,22 @@ export struct MinePage {
     .padding(12)
     .backgroundColor($r('sys.color.comp_background_list_card'))
     .onClick(() => {
-      this.playFrom(item);
+      if (appState.isBatchMode) {
+        this.toggleBatchSelect(item);
+      } else {
+        this.playFrom(item);
+      }
     })
+    .gesture(
+      LongPressGesture({ repeat: false, duration: 500 })
+        .onAction(() => {
+          if (appState.isBatchMode) {
+            return;
+          }
+          this.enterBatchMode();
+          this.toggleBatchSelect(item);
+        })
+    )
   }
 
   /** 听歌数据卡片：累计收听/累计播放/听过/本周在听 四项统计 + 常听 TOP5 垂直柱状图 */
@@ -581,7 +983,8 @@ function ListStyle(extraTop: number) {
   .edgeEffect(EdgeEffect.Spring)
   // 搜索框展开时为固定搜索框让位
   .contentStartOffset(appState.topRect + 66 + extraTop)
-  .contentEndOffset(appState.bottomRect +
-    (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60))
+  // 批量模式下为底部操作栏让位（样式同歌单详情页）
+  .contentEndOffset(appState.bottomRect + (appState.isBatchMode ? 154 :
+    (IsApiVersion_24() && appState.hdsBarLayoutMode === 1 ? 130 : 60)))
   .padding({ left: 16, right: 16 })
 }
