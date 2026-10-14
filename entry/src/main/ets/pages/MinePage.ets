@@ -5,6 +5,9 @@ import { ArtworkCache } from '../utils/ArtworkCache';
 import { musicHistory } from '../core/MusicHistory';
 import { trackPlayer } from '../core/TrackPlayer';
 import { musicSheet } from '../core/MusicSheet';
+import { subscribedSheets } from '../core/SubscribedSheets';
+import { pluginManager } from '../plugin/PluginManager';
+import { Subscriptions } from '../plugin/Subscriptions';
 import { downloader } from '../core/Downloader';
 import { appConfig } from '../core/AppConfig';
 import { localMusicSheet, downloadedSheet } from '../core/LocalMusicSheet';
@@ -60,6 +63,16 @@ export struct MinePage {
   @Local totalListenSec: number = 0;
   /** 常听排行 TOP5 */
   @Local topPlays: Array<TopPlayRow> = [];
+  /** 乐库统计：收藏歌曲数（我的收藏歌单） */
+  @Local favorCount: number = 0;
+  /** 乐库统计：我的歌单数（含默认收藏歌单） */
+  @Local mySheetCount: number = 0;
+  /** 乐库统计：订阅歌单数 */
+  @Local subscribedSheetCount: number = 0;
+  /** 乐库统计：插件数 */
+  @Local pluginCount: number = 0;
+  /** 乐库统计：订阅源数 */
+  @Local subscriptionSourceCount: number = 0;
   /** 批量多选模式选中键（platform_id） */
   @Local batchSelected: Array<string> = [];
   /** 批量「添加到歌单」选择器 */
@@ -69,7 +82,7 @@ export struct MinePage {
   /** 批量换源进度文案 */
   @Local batchChangeProgress: string = '';
 
-  /** 切换到其他 tab 时收起搜索框并清空关键词 */
+  /** 切换到其他 tab 时收起搜索框并清空关键词；切回本 tab 时刷新乐库统计 */
   @Monitor('hostTabIndex')
   onTabIndexChanged(): void {
     if (this.hostTabIndex !== 2 && this.showSearchBox) {
@@ -78,10 +91,14 @@ export struct MinePage {
       this.searchInput = '';
       appState.tabSearchClose = null;
     }
+    if (this.hostTabIndex === 2) {
+      this.refreshLibraryStats();
+    }
   }
 
   aboutToAppear(): void {
     this.refreshHistory();
+    this.refreshLibraryStats();
     musicHistory.onHistoryUpdated((): void => {
       this.refreshHistory();
     });
@@ -141,6 +158,16 @@ export struct MinePage {
   private rebuildHistorySource(): void {
     this.historySource.clear();
     this.historySource.appendData(this.displayHistory());
+  }
+
+  /** 刷新乐库统计（收藏/歌单/订阅歌单/插件/订阅源；进入本 tab 或挂载时调用） */
+  private refreshLibraryStats(): void {
+    // 收藏歌曲数 = 我的收藏歌单内曲目数
+    this.favorCount = musicSheet.getMusicList(musicSheet.defaultSheet.id).length;
+    this.mySheetCount = musicSheet.sheets.length;
+    this.subscribedSheetCount = subscribedSheets.getAll().length;
+    this.pluginCount = pluginManager.getPlugins().length;
+    this.subscriptionSourceCount = Subscriptions.getSources().length;
   }
 
   /** titleBar 右上角菜单：本地音乐/下载管理入口 + 搜索按钮 */
@@ -209,12 +236,12 @@ export struct MinePage {
     }
   }
 
-  /** 标题副文本：搜索中显示命中数量，否则显示累计播放次数 */
+  /** 标题副文本：搜索中显示命中数量，否则显示累计收听时长 */
   private subTitleText(): string {
     if (this.searchKeyword.trim().length > 0) {
       return '找到 ' + this.historySource.totalCount().toString() + ' 首';
     }
-    return '累计播放 ' + this.totalPlays.toString() + ' 次';
+    return '累计收听 ' + this.listenDurationText() + ' ' + this.listenDurationUnit();
   }
 
   /** 以当前过滤结果为播放队列播放歌曲 */
@@ -569,12 +596,15 @@ export struct MinePage {
       // Stack 承载列表 + 批量模式底栏 + 「添加到歌单」选择器锚点
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {
-          // 搜索中隐藏统计卡，仅展示结果列表
-          if (this.searchKeyword.trim().length === 0 && this.historySource.totalCount() > 0) {
-            ListItem() {
-              this.StatsCardBuilder()
-            }
+        // 搜索中隐藏乐库/听歌数据卡，仅展示结果列表
+        if (this.searchKeyword.trim().length === 0 && this.historySource.totalCount() > 0) {
+          ListItem() {
+            this.LibraryCardBuilder()
           }
+          ListItem() {
+            this.StatsCardBuilder()
+          }
+        }
           ListItem() {
             this.HistoryHeaderBuilder()
           }
@@ -873,6 +903,30 @@ export struct MinePage {
     )
   }
 
+  /**
+   * 我的乐库卡片（列表顶部独立卡片）：
+   * 收藏歌曲 / 我的歌单 / 订阅歌单 / 插件 / 订阅源（图标 + 数值 + 标签）
+   */
+  @Builder
+  LibraryCardBuilder() {
+    Column() {
+      Row() {
+        this.LibraryStatEntry($r('sys.symbol.heart_fill'), this.favorCount.toString(), '收藏歌曲')
+        this.LibraryStatEntry($r('sys.symbol.music_note_list'), this.mySheetCount.toString(), '我的歌单')
+        this.LibraryStatEntry($r('sys.symbol.music_note_list_square'), this.subscribedSheetCount.toString(),
+          '订阅歌单')
+        this.LibraryStatEntry($r('sys.symbol.AI_panels'), this.pluginCount.toString(), '插件')
+        this.LibraryStatEntry($r('sys.symbol.dot_radiowaves_left_and_right'),
+          this.subscriptionSourceCount.toString(), '订阅源')
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .borderRadius(16)
+    .padding(16)
+    .backgroundColor($r('sys.color.comp_background_list_card'))
+  }
+
   /** 听歌数据卡片：累计收听/累计播放/听过/本周在听 四项统计 + 常听 TOP5 垂直柱状图 */
   @Builder
   StatsCardBuilder() {
@@ -955,6 +1009,30 @@ export struct MinePage {
           .margin({ bottom: 3 })
       }
       .alignItems(VerticalAlign.Bottom)
+      Text(label)
+        .fontSize(11)
+        .fontColor($r('sys.color.font_tertiary'))
+        .maxLines(1)
+    }
+    .layoutWeight(1)
+  }
+
+  /** 乐库统计项：主题色图标 + 数值同行，下方灰色标签 */
+  @Builder
+  LibraryStatEntry(icon: Resource, value: string, label: string) {
+    Column({ space: 4 }) {
+      Row({ space: 5 }) {
+        SymbolGlyph(icon)
+          .fontSize(17)
+          .fontColor([appState.accentColor])
+        Text(value)
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+      }
+      .alignItems(VerticalAlign.Center)
+
       Text(label)
         .fontSize(11)
         .fontColor($r('sys.color.font_tertiary'))
