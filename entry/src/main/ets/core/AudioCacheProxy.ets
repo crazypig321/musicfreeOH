@@ -66,6 +66,8 @@ export class AudioCacheProxy {
 
   private downloadingTasks: Map<string, Promise<boolean>> = new Map<string, Promise<boolean>>();
   private metaFetchTasks: Map<string, Promise<void>> = new Map<string, Promise<void>>();
+  /** 下载代数：URL 变更能作废在途下载（旧任务完成后按代数丢弃，不落 .media） */
+  private downloadGenerations: Map<string, number> = new Map<string, number>();
   private activeKeys: Set<string> = new Set<string>();
 
   private readonly textEncoder: util.TextEncoder = new util.TextEncoder();
@@ -76,8 +78,8 @@ export class AudioCacheProxy {
   /**
    * 获取代理 URL（仅 http/https 且非 m3u8 时改写）
    * 启动失败降级返回原始 URL，不影响播放
-   * @param mediaId 歌曲唯一标识（platform@id），传入时用 SHA1(mediaId) 作 cacheKey，
-   *                 同一首歌无论 CDN 签名 URL 怎么变都命中同一缓存文件
+   * @param mediaId 歌曲唯一标识（platform@id@quality，含音质），传入时用 SHA1(mediaId) 作 cacheKey，
+   *                 同一首歌同一音质无论 CDN 签名 URL 怎么变都命中同一缓存文件
    */
   async getProxyUrl(
     originalUrl: string,
@@ -102,6 +104,9 @@ export class AudioCacheProxy {
       ? await AudioCacheProxy.computeCacheKey(mediaId)
       : await AudioCacheProxy.computeCacheKey(originalUrl);
 
+    // 上游文件已变化（域名/路径不同，如换源/换音质共用同一键）时作废旧缓存与在途下载，
+    // 防止旧文件被当作本次歌曲的缓存误播（串台）；仅签名参数变化不作废
+    this.invalidateIfUpstreamChanged(cacheKey, originalUrl);
     // 预写索引（代理收到请求后据此查上游 URL；URL 变化时更新为最新）
     this.ensureEntry(cacheKey, originalUrl);
 
@@ -146,7 +151,7 @@ export class AudioCacheProxy {
 
   /**
    * 查找歌曲已完整缓存的URL（断网时用）
-   * @param mediaId 歌曲唯一标识（platform@id）
+   * @param mediaId 歌曲唯一标识（platform@id@quality，含音质）
    * @return 已缓存的上游 URL（代理据此改写为本地代理URL，.media存在则本地回包），null 表示无完整缓存
    */
   async getCachedUrlForMediaId(mediaId: string): Promise<string | null> {
@@ -285,7 +290,7 @@ export class AudioCacheProxy {
     try {
       const entry = this.entries.get(cacheKey);
       const mediaPath = PathConst.musicCachePath + cacheKey + '.media';
-      const tmpPath = PathConst.musicCachePath + cacheKey + '.tmp';
+      const tmpPath = this.tmpPathFor(cacheKey);
 
       if (FileUtils.exists(mediaPath) && entry !== undefined) {
         this.touchEntry(cacheKey);
@@ -300,7 +305,7 @@ export class AudioCacheProxy {
       }
 
       const upstreamUrl = entry.url;
-      this.startDownload(cacheKey, upstreamUrl, upstreamHeaders, tmpPath);
+      this.startDownload(cacheKey, upstreamUrl, upstreamHeaders);
       await this.serveFromUpstream(client, cacheKey, tmpPath, mediaPath, entry, req);
     } finally {
       this.activeKeys.delete(cacheKey);
@@ -501,15 +506,24 @@ export class AudioCacheProxy {
   private startDownload(
     cacheKey: string,
     url: string,
-    headers: Record<string, string> | undefined,
-    tmpPath: string
+    headers: Record<string, string> | undefined
   ): Promise<boolean> {
     const existing = this.downloadingTasks.get(cacheKey);
     if (existing !== undefined) {
       return existing;
     }
-    const task = this.doDownload(cacheKey, url, headers, tmpPath);
+    const gen = this.downloadGenerations.get(cacheKey) ?? 0;
+    const tmpPath = this.tmpPathFor(cacheKey);
+    const task: Promise<boolean> = this.doDownload(cacheKey, url, headers, tmpPath, gen);
     this.downloadingTasks.set(cacheKey, task);
+    // 任务表清理带身份校验：URL 变更换新任务后，旧任务完成不得误删新任务
+    task.then((): void => {
+      if (this.downloadingTasks.get(cacheKey) === task) {
+        this.downloadingTasks.delete(cacheKey);
+      }
+    }).catch((): void => {
+      // doDownload 各分支均正常返回，此处防御性兜底
+    });
     return task;
   }
 
@@ -517,14 +531,19 @@ export class AudioCacheProxy {
     cacheKey: string,
     url: string,
     headers: Record<string, string> | undefined,
-    tmpPath: string
+    tmpPath: string,
+    gen: number
   ): Promise<boolean> {
     // 并行获取 Content-Type/Length（HEAD 请求，不阻塞下载）
-    const metaTask = this.fetchContentType(cacheKey, url, headers).catch((): void => {
+    const metaTask = this.fetchContentType(cacheKey, url, headers, gen).catch((): void => {
     });
     this.metaFetchTasks.set(cacheKey, metaTask);
 
     const onProgress = (downloaded: number, total: number): void => {
+      // 代数已变（上游变化作废）：不得污染新条目的元数据
+      if ((this.downloadGenerations.get(cacheKey) ?? 0) !== gen) {
+        return;
+      }
       const entry = this.entries.get(cacheKey);
       if (entry !== undefined && total > 0) {
         entry.size = total;
@@ -535,8 +554,15 @@ export class AudioCacheProxy {
     if (!ok) {
       hilog.warn(DOMAIN, TAG, '下载失败: %{public}s', cacheKey);
       FileUtils.unlink(tmpPath);
-      this.downloadingTasks.delete(cacheKey);
-      this.metaFetchTasks.delete(cacheKey);
+      this.cleanupMetaTask(cacheKey, metaTask);
+      return false;
+    }
+
+    // 代数已变（上游变化作废）：丢弃本次下载成果，不落 .media
+    if ((this.downloadGenerations.get(cacheKey) ?? 0) !== gen) {
+      hilog.info(DOMAIN, TAG, '下载已作废（上游变化）: %{public}s', cacheKey);
+      FileUtils.unlink(tmpPath);
+      this.cleanupMetaTask(cacheKey, metaTask);
       return false;
     }
 
@@ -544,7 +570,7 @@ export class AudioCacheProxy {
     const fileSize = FileUtils.fileSize(tmpPath);
     if (fileSize <= 0) {
       FileUtils.unlink(tmpPath);
-      this.downloadingTasks.delete(cacheKey);
+      this.cleanupMetaTask(cacheKey, metaTask);
       return false;
     }
 
@@ -555,7 +581,7 @@ export class AudioCacheProxy {
     if (!FileUtils.renameFile(tmpPath, mediaPath)) {
       hilog.error(DOMAIN, TAG, 'rename 失败: %{public}s', cacheKey);
       FileUtils.unlink(tmpPath);
-      this.downloadingTasks.delete(cacheKey);
+      this.cleanupMetaTask(cacheKey, metaTask);
       return false;
     }
 
@@ -568,19 +594,30 @@ export class AudioCacheProxy {
     this.markIndexDirty();
     this.evictIfNeeded();
 
-    this.downloadingTasks.delete(cacheKey);
-    this.metaFetchTasks.delete(cacheKey);
+    this.cleanupMetaTask(cacheKey, metaTask);
     hilog.info(DOMAIN, TAG, '下载完成: %{public}s 大小 %{public}d', cacheKey, fileSize);
     return true;
+  }
+
+  /** metaFetchTasks 清理带身份校验：旧代任务不得误删新代任务的元数据任务 */
+  private cleanupMetaTask(cacheKey: string, metaTask: Promise<void>): void {
+    if (this.metaFetchTasks.get(cacheKey) === metaTask) {
+      this.metaFetchTasks.delete(cacheKey);
+    }
   }
 
   private async fetchContentType(
     cacheKey: string,
     url: string,
-    headers: Record<string, string> | undefined
+    headers: Record<string, string> | undefined,
+    gen: number
   ): Promise<void> {
     try {
       const resp = await HttpClient.request(url, 'HEAD', headers, 8000);
+      // 代数已变（上游变化作废）：不得写入新条目的元数据
+      if ((this.downloadGenerations.get(cacheKey) ?? 0) !== gen) {
+        return;
+      }
       if (resp !== null && resp.statusCode >= 200 && resp.statusCode < 300) {
         const ct = resp.headers['content-type'];
         if (ct !== undefined && ct.length > 0) {
@@ -605,6 +642,42 @@ export class AudioCacheProxy {
     } catch (e) {
       // HEAD 失败忽略，用默认 Content-Type
     }
+  }
+
+  // ==================== 缓存失效 ====================
+
+  /** 当前代 .tmp 路径（代数隔离：URL 变更作废在途下载后，新旧任务写不同 tmp 文件） */
+  private tmpPathFor(cacheKey: string): string {
+    const gen = this.downloadGenerations.get(cacheKey) ?? 0;
+    return PathConst.musicCachePath + cacheKey + '.' + gen.toString() + '.tmp';
+  }
+
+  /**
+   * 上游文件已变化（去掉签名参数后域名/路径仍不同，如换源/换音质共用同一缓存键）时
+   * 作废旧缓存：删 .media 与索引条目、递增代数作废在途下载，防止旧文件被误播（串台）
+   * 仅 CDN 签名参数变化的 URL 视为同一上游，不作废
+   */
+  private invalidateIfUpstreamChanged(cacheKey: string, url: string): void {
+    const existing = this.entries.get(cacheKey);
+    if (existing === undefined) {
+      return;
+    }
+    if (AudioCacheProxy.stripQuery(existing.url) === AudioCacheProxy.stripQuery(url)) {
+      return;
+    }
+    hilog.info(DOMAIN, TAG, '上游已变化，作废缓存: %{public}s', cacheKey);
+    // 递增代数：在途旧下载完成后代数不匹配，自行丢弃 .tmp 不落 .media
+    this.downloadGenerations.set(cacheKey, (this.downloadGenerations.get(cacheKey) ?? 0) + 1);
+    // 移除任务表让新请求开新下载；旧任务清理带身份校验不会误删新任务
+    this.downloadingTasks.delete(cacheKey);
+    this.metaFetchTasks.delete(cacheKey);
+    const mediaPath = PathConst.musicCachePath + cacheKey + '.media';
+    if (FileUtils.exists(mediaPath)) {
+      FileUtils.unlink(mediaPath);
+    }
+    // 旧代 .tmp 由旧任务完成/失败时按自己的代数路径清理；启动时兜底清扫
+    this.entries.delete(cacheKey);
+    this.markIndexDirty();
   }
 
   // ==================== LRU 淘汰 ====================
@@ -895,6 +968,20 @@ export class AudioCacheProxy {
       return '';
     }
     return fileName.substring(lastDot).toLowerCase();
+  }
+
+  /** 去掉查询串与锚点：CDN 签名参数变化不算上游变化 */
+  private static stripQuery(url: string): string {
+    let u = url;
+    const hIdx = u.indexOf('#');
+    if (hIdx !== -1) {
+      u = u.substring(0, hIdx);
+    }
+    const qIdx = u.indexOf('?');
+    if (qIdx !== -1) {
+      u = u.substring(0, qIdx);
+    }
+    return u;
   }
 
   private static computeCacheKey(url: string): Promise<string> {

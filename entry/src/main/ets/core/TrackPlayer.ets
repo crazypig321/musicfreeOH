@@ -556,11 +556,25 @@ export class TrackPlayer {
       let source: MediaSource | null = null;
       // 5.0 优先查音频缓存代理的完整缓存，命中则跳过插件直接播本地缓存
       //     在线/离线均适用：避免在线时等插件解析 URL 才能播放已缓存的歌曲
-      const cachedUrl = await audioCacheProxy.getCachedUrlForMediaId(musicItem.platform + '@' + musicItem.id);
+      //     缓存键含音质（platform@id@quality）：同一首歌不同音质是不同音频文件，
+      //     防止不同音质/换源共用一份缓存导致串台（对齐 RN SimpleCache 按 URL 缓存）
+      //     id 为空的插件多首歌会共用 platform@ 键，此类歌曲不查 id 缓存（播放时回退 URL 键）
+      let cachedUrl: string | null = null;
+      let cachedQuality: QualityKey = 'standard';
+      if (musicItem.id.length > 0) {
+        for (const quality of qualityOrder) {
+          const hit = await audioCacheProxy.getCachedUrlForMediaId(musicItem.platform + '@' + musicItem.id + '@' + quality);
+          if (hit !== null) {
+            cachedUrl = hit;
+            cachedQuality = quality;
+            break;
+          }
+        }
+      }
       if (cachedUrl !== null) {
         source = new MediaSource();
         source.url = cachedUrl;
-        this.setQualityInternal('standard');
+        this.setQualityInternal(cachedQuality);
         Log.debug('缓存命中: ' + musicItem.title);
       }
       // 5.1 缓存未命中：调插件获取音源
@@ -1148,11 +1162,20 @@ export class TrackPlayer {
     });
   }
 
+  /** 缓存代理 mediaId（platform@id@quality，含音质）；id 为空返回 undefined（回退 URL 键，防空 id 串台） */
+  private static buildCacheMediaId(item: MusicItem, quality: QualityKey): string | undefined {
+    if (item.id.length === 0) {
+      return undefined;
+    }
+    return item.platform + '@' + item.id + '@' + quality;
+  }
+
   /** 设置音源 */
   private async setTrackSource(track: MusicItem, autoPlay: boolean = true): Promise<void> {
     const headers = TrackPlayer.collectHeaders(track);
     this.loadedMusic = track.clone();
-    await playerEngine.load(track.url, headers, track.platform + '@' + track.id);
+    // 缓存键含音质：同一首歌不同音质各存一份，防止串台；id 为空传 undefined 回退 URL 键
+    await playerEngine.load(track.url, headers, TrackPlayer.buildCacheMediaId(track, this.qualityValue));
     PersistStatus.setMusicItem(track);
     PersistStatus.setProgress(0);
     // 实际播放地址已切换：通知 UI 更新音频格式等信息
