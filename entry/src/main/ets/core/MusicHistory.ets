@@ -10,15 +10,18 @@ import { EventEmitter, EventListenerFn } from '../common/EventBus';
 export class MusicHistoryUpdatedEvent {
 }
 
-/** 播放统计条目（次数 + 最近播放时间；心动模式偏好加权用） */
+/** 播放统计条目（次数 + 最近播放时间 + 累计收听秒数；心动模式偏好加权用） */
 export class MusicHistoryStat {
   count: number = 0;
   lastAt: number = 0;
+  /** 累计真实收听秒数（TrackPlayer 按播放状态累计，暂停/seek 不计） */
+  duration: number = 0;
 
   static fromRecord(rec: JsonRecord): MusicHistoryStat {
     const s = new MusicHistoryStat();
     s.count = JsonUtil.recNum(rec, 'count', 0);
     s.lastAt = JsonUtil.recNum(rec, 'lastAt', 0);
+    s.duration = JsonUtil.recNum(rec, 'duration', 0);
     return s;
   }
 
@@ -26,6 +29,7 @@ export class MusicHistoryStat {
     return {
       'count': this.count,
       'lastAt': this.lastAt,
+      'duration': this.duration,
     };
   }
 }
@@ -103,6 +107,22 @@ export class MusicHistory {
   getStat(musicItem: MusicItem): MusicHistoryStat | null {
     const stat = this.stats.get(MediaUtils.getMediaUniqueKey(musicItem));
     return stat !== undefined ? stat : null;
+  }
+
+  /**
+   * 累计真实收听时长（秒）：TrackPlayer 每 500ms tick 按播放状态累计，
+   * 满 10s 或切歌时结算一次；无统计条目时自动创建（count 为 0 仅有时长）
+   */
+  addListenDuration(musicItem: MusicItem, seconds: number): void {
+    if (seconds <= 0) {
+      return;
+    }
+    const key = MediaUtils.getMediaUniqueKey(musicItem);
+    const stat = this.stats.get(key) ?? new MusicHistoryStat();
+    stat.duration += seconds;
+    this.stats.set(key, stat);
+    this.persistStats();
+    this.ee.emit('UpdateHistory', new MusicHistoryUpdatedEvent());
   }
 
   private persist(): void {

@@ -56,12 +56,12 @@ export struct SubscriptionPage {
   /** 状态行自动隐藏定时器 */
   private statusTimer: number = -1;
   /** 当前所处 tab 序号（由 Index 传入，切回本 tab 时刷新订阅源列表） */
-  @Param hostTabIndex: number = 3;
+  @Param hostTabIndex: number = 4;
 
   /** 切回订阅源 tab 时重新读取订阅源（页面常驻不销毁，恢复备份等外部变更不会触发 aboutToAppear） */
   @Monitor('hostTabIndex')
   onTabIndexChanged(): void {
-    if (this.hostTabIndex === 3) {
+    if (this.hostTabIndex === 4) {
       this.sources = Subscriptions.getSources();
     }
   }

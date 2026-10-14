@@ -114,6 +114,10 @@ export class TrackPlayer {
   private progressTimer: number = -1;
   /** 上次进度落盘时间（节流用） */
   private lastProgressPersistAt: number = 0;
+  /** 当前曲目待结算的真实收听秒数（500ms tick 按播放状态累计） */
+  private pendingListenSeconds: number = 0;
+  /** 正在累计收听时长的曲目（切歌时结算上一首） */
+  private listenDurationItem: MusicItem | null = null;
   /** 接续（车机流转）目标端冷启动标记：恢复完成后无视「启动自动续播」设置直接续播 */
   private continuationPlaying: boolean = false;
   /** 冷启动恢复链（setupTrackPlayer 内拉源/seek/续播完成才算落定） */
@@ -309,6 +313,7 @@ export class TrackPlayer {
     this.progressTimer = setInterval(() => {
       this.emitProgress();
       this.persistProgressIfNeeded();
+      this.accumulateListenDuration();
     }, 500);
   }
 
@@ -316,6 +321,27 @@ export class TrackPlayer {
     if (this.progressTimer !== -1) {
       clearInterval(this.progressTimer);
       this.progressTimer = -1;
+    }
+  }
+
+  /**
+   * 真实收听时长累计：仅 Playing 状态按倍速计数（暂停/seek 不计），
+   * 切歌自动结算上一首，累计满 10s 结算一次写入播放统计
+   */
+  private accumulateListenDuration(): void {
+    const item = this.currentMusicItem;
+    if (playerEngine.state !== PlayState.Playing || item === null) {
+      return;
+    }
+    if (this.listenDurationItem !== null && this.listenDurationItem !== item) {
+      musicHistory.addListenDuration(this.listenDurationItem, this.pendingListenSeconds);
+      this.pendingListenSeconds = 0;
+    }
+    this.listenDurationItem = item;
+    this.pendingListenSeconds += 0.5 * playerEngine.currentRate;
+    if (this.pendingListenSeconds >= 10) {
+      musicHistory.addListenDuration(item, this.pendingListenSeconds);
+      this.pendingListenSeconds = 0;
     }
   }
 

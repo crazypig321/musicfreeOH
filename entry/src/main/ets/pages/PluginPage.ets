@@ -89,7 +89,7 @@ export struct PluginPage {
   /** 搜索框实时输入内容（未提交，不参与过滤） */
   @Local searchInput: string = '';
   /** 当前所处 tab 序号（由 Index 传入，切走时收起搜索框） */
-  @Param hostTabIndex: number = 2;
+  @Param hostTabIndex: number = 3;
   private detailHash: string = '';
   /** 是否正在同步订阅源 */
   private syncingSubscriptions: boolean = false;
@@ -97,7 +97,7 @@ export struct PluginPage {
   /** 切换到其他 tab 时收起搜索框并清空关键词 */
   @Monitor('hostTabIndex')
   onTabIndexChanged(): void {
-    if (this.hostTabIndex !== 2 && this.showSearchBox) {
+    if (this.hostTabIndex !== 3 && this.showSearchBox) {
       this.showSearchBox = false;
       this.searchKeyword = '';
       this.searchInput = '';
@@ -1138,7 +1138,7 @@ export struct PluginPage {
   build() {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_plugin'), this.subTitleText(), this.titleMenus(),
-        (this.showSearchBox && appState.currTabsIndex === 2) ? { builder: (): void => { this.SearchBuilder() } } : undefined),
+        (this.showSearchBox && appState.currTabsIndex === 3) ? { builder: (): void => { this.SearchBuilder() } } : undefined),
       isHideBackButton: true,
       embedded: true,
       scroller: this.scroller,

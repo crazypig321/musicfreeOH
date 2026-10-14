@@ -442,15 +442,6 @@ export struct HomePage{
         }
       }
     };
-    const download: HdsNavigationMenuItemOptions = {
-      content: {
-        icon: $r('sys.symbol.download'),
-        label: '下载',
-        action: (): void => {
-          NavPathUtils.push(ROUTE_DOWNLOAD);
-        }
-      }
-    };
     const menu: HdsNavigationMenuItemOptions = {
       content: {
         icon: $r('sys.symbol.AI_panels'),
@@ -460,7 +451,7 @@ export struct HomePage{
         }
       }
     };
-    return [mood, download, menu];
+    return [mood, menu];
   }
 
   // ==================== UI 构建 ====================

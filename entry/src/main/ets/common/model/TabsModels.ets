@@ -51,6 +51,14 @@ export const MENU_CONFIG: MenuItem[] = [
     pressBgColor: $r('sys.color.interactive_pressed')
   },
   {
+    icon: $r('sys.symbol.person'),
+    multiColor: false,
+    label: $r('app.string.tab_mine'),
+    defaultBgColor: Color.Transparent,
+    hoverBgColor: $r('sys.color.interactive_hover'),
+    pressBgColor: $r('sys.color.interactive_pressed')
+  },
+  {
     icon: $r('sys.symbol.AI_panels'),
     multiColor: false,
     label: $r('app.string.tab_plugin'),

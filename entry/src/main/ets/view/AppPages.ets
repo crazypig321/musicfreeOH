@@ -10,6 +10,7 @@ import { HomePage } from '../pages/HomePage';
 import { MySheetsPage } from '../pages/MySheetsPage';
 import { PluginPage } from '../pages/PluginPage';
 import { SubscriptionPage } from '../pages/SubscriptionPage';
+import { MinePage } from '../pages/MinePage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SearchPage } from '../pages/SearchPage';
 import { DownloadPage } from '../pages/DownloadPage';
@@ -50,8 +51,10 @@ export function MainTabPagesBuilder() {
       } else if (i === 1) {
         MySheetsPage({ hostTabIndex: appState.currTabsIndex })
       } else if (i === 2) {
-        PluginPage({ hostTabIndex: appState.currTabsIndex })
+        MinePage({ hostTabIndex: appState.currTabsIndex })
       } else if (i === 3) {
+        PluginPage({ hostTabIndex: appState.currTabsIndex })
+      } else if (i === 4) {
         SubscriptionPage({ hostTabIndex: appState.currTabsIndex })
       } else {
         SettingsPage()
