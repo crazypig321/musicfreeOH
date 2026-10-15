@@ -12,6 +12,16 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v314: ChangelogEntry = new ChangelogEntry();
+  v314.version = '3.1.4';
+  v314.date = '2026-10-15';
+  v314.markdown = '- 新增「我的」页面（歌单与插件之间的新 tab）：我的乐库卡片一览收藏歌曲、我的歌单、订阅歌单、插件与订阅源数量；听歌数据卡展示累计收听时长、累计播放、听过与本周在听，并按最近 50 条播放记录绘制「最近常听」TOP5 柱状图\n' +
+    '- 最近收听列表支持搜索（歌名 / 歌手 / 专辑）、全部播放、左滑删除（弹窗确认）与一键清空；长按歌曲或右上角图标进入批量模式，支持全选 / 下一首播放 / 换源 / 添加到歌单 / 下载\n' +
+    '- 收听时长改为真实播放统计：按播放状态与倍速累计（暂停不计、倍速按倍率折算），切歌自动结算\n' +
+    '- 「我的」页右上角菜单新增本地音乐与下载管理快捷入口；标题副文本显示累计收听时长\n' +
+    '- 修复缓存音频命中不对导致播放错误歌曲的问题：缓存键补充音质维度（同曲不同音质不再共用缓存）、空 ID 条目不再参与命中、上游地址或请求头变化自动失效旧缓存、下载与播放缓存相互隔离';
+  list.push(v314);
+
   const v312: ChangelogEntry = new ChangelogEntry();
   v312.version = '3.1.2';
   v312.date = '2026-10-12';
