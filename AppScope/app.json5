@@ -2,8 +2,8 @@
   "app": {
     "bundleName": "com.crazypig321.musicfreeoh",
     "vendor": "example",
-    "versionCode": 3010400,
-    "versionName": "3.1.4",
+    "versionCode": 3010500,
+    "versionName": "3.1.5",
     "icon": "$media:layered_image",
     "label": "$string:app_name"
   }

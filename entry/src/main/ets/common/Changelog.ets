@@ -12,6 +12,16 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v315: ChangelogEntry = new ChangelogEntry();
+  v315.version = '3.1.5';
+  v315.date = '2026-10-23';
+  v315.markdown = '- 全部半模态弹层接入系统沉浸光感材质（播放队列、歌曲操作、插件、订阅源、歌单、下载、搜索、均衡器、音效、更新日志等），弹层背景更通透；API 26 以下设备自动回退原有样式，不影响使用\n' +
+    '- 插件页与订阅源页弹层顶部样式统一：标题固定在弹层顶部不随内容滚动，内容区自动避让，PC 自由窗口模式下避让系统关闭按钮\n' +
+    '- 弹层内列表底部预留滚动空间，最后一项可完整滚出；上拉先展开半模态再滚动列表，下滑先滚回列表顶部再收起\n' +
+    '- 修复搜索页插件标签横向列表滚动位置偶发回顶的问题\n' +
+    '- 弹层弹出时页面背景模糊强度减弱，观感更通透';
+  list.push(v315);
+
   const v314: ChangelogEntry = new ChangelogEntry();
   v314.version = '3.1.4';
   v314.date = '2026-10-15';
