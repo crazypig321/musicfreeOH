@@ -38,7 +38,7 @@ import { EqualizerManager } from '../core/EqualizerManager';
 import { AudioEnhanceManager, AudioEnhanceState } from '../audioenhance/AudioEnhanceManager';
 import { contentMaxWidthVp, isLandscapeLayout as isLandscapeBreakpoint, sheetPreferType, sheetTopAvoidVp, useSidebarLayout } from '../utils/BreakpointUtils';
 import { CommonBlur, CommonLoading } from '../view/CommonCom';
-import { showUiToast, formatDuration, sliderImmersiveModifier } from '../utils/UiUtils';
+import { showUiToast, formatDuration, sliderImmersiveModifier, sheetImmersiveModifier } from '../utils/UiUtils';
 import { hdsEffect } from '@kit.UIDesignKit';
 
 /** 歌词字体大小档位标签与缩放（下标对应 appConfig lyric.fontSize） */
@@ -964,6 +964,7 @@ export struct PlayerPage {
         })
     )
     .bindSheet(this.isSheetVisible, this.ActiveSheetBuilder(), {
+      systemMaterial: sheetImmersiveModifier(),
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true, preferType: sheetPreferType(),
       backgroundColor: $r('sys.color.background_secondary'),

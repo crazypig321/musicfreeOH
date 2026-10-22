@@ -1,7 +1,7 @@
 import { appState } from '../entryability/AppState';
 import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { DialogManager } from '../utils/DialogUtils';
-import { sliderImmersiveModifier } from '../utils/UiUtils';
+import { sliderImmersiveModifier, rowImmersiveModifier, sheetImmersiveModifier } from '../utils/UiUtils';
 import {
   EqualizerManager,
   EqPresetDef,
@@ -167,6 +167,7 @@ export struct EqualizerSheet {
     Column() {
       Column()
         .bindSheet(!!this.show, this.EqPanelBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS,
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
@@ -272,6 +273,7 @@ export struct EqualizerSheet {
       .borderRadius(16)
       .padding(12)
       .backgroundColor($r('sys.color.comp_background_list_card'))
+      .attributeModifier(rowImmersiveModifier)
 
       // 预设横滑
       Scroll() {

@@ -108,3 +108,11 @@ export class StackImmersiveModifier implements AttributeModifier<StackAttribute>
 
 /** 共享的无状态 Stack 材质适配器实例 */
 export const stackImmersiveModifier: StackImmersiveModifier = new StackImmersiveModifier();
+
+
+/** 共享的无状态 sheet 材质适配器实例 */
+export function sheetImmersiveModifier(): uiMaterial.ImmersiveMaterial | null {
+  return IsApiVersion_26()
+    ? new uiMaterial.ImmersiveMaterial({ style: uiMaterial.ImmersiveStyle.THICK })
+    : null;
+}

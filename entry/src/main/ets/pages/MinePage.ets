@@ -20,7 +20,7 @@ import { NavPathUtils } from '../utils/NavPathUtils';
 import { ROUTE_LOCAL_MUSIC, ROUTE_DOWNLOAD } from '../common/model/NavModels';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
-import { showUiToast } from '../utils/UiUtils';
+import { showUiToast, sheetImmersiveModifier } from '../utils/UiUtils';
 import { sheetPreferType } from '../utils/BreakpointUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { HdsListItem, HdsSwipeActionOptions, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit';
@@ -713,6 +713,7 @@ export struct MinePage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
+            systemMaterial: sheetImmersiveModifier(),
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {

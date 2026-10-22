@@ -24,7 +24,7 @@ import { appState } from '../entryability/AppState';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortUtil } from '../view/MusicSortMenu';
-import { showUiToast } from '../utils/UiUtils';
+import { showUiToast, sheetImmersiveModifier } from '../utils/UiUtils';
 
 /**
  * 歌单详情页：主页榜单卡片 / 推荐歌单网格点击进入
@@ -1142,6 +1142,7 @@ export struct SheetDetailPage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
+            systemMaterial: sheetImmersiveModifier(),
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {

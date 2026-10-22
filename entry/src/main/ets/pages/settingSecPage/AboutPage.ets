@@ -16,7 +16,7 @@ import { PathConst } from '../../common/PathConst';
 import { FileUtils } from '../../utils/FileUtils';
 import { ChangelogSheet } from '../../view/ChangelogSheet';
 import { UpdateChecker, ReleaseAsset } from '../../utils/UpdateChecker';
-import { showUiToast } from '../../utils/UiUtils';
+import { showUiToast, sheetImmersiveModifier } from '../../utils/UiUtils';
 
 /** 仓库地址常量 */
 const REPO_OH: string = 'https://github.com/crazypig321/musicfreeOH.git';
@@ -505,6 +505,7 @@ export struct AboutPage {
           return { offsetRemain: offset }
         })
         .bindSheet(!!this.showChangelog, this.ChangelogSheetBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
           backgroundColor: $r('sys.color.background_secondary'),

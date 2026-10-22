@@ -11,7 +11,7 @@ import { MusicRepeatMode } from '../../common/Consts';
 import { musicSheet } from '../../core/MusicSheet';
 import { MediaUtils } from '../../utils/MediaUtils';
 import { ControlButtonConfig } from '../../common/model/home/HomeModel';
-import { sliderImmersiveModifier } from '../../utils/UiUtils';
+import { sliderImmersiveModifier, sheetImmersiveModifier } from '../../utils/UiUtils';
 import { CommonLoading } from '../../view/CommonCom';
 
 /** 实例序号：组件测量 id 必须全局唯一 */
@@ -406,6 +406,7 @@ export struct PcPlayerBar {
       }
     })
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
+      systemMaterial: sheetImmersiveModifier(),
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true, preferType: sheetPreferType(),
       backgroundColor: $r('sys.color.background_secondary'),

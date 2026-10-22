@@ -24,7 +24,7 @@ import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
 import { LOCAL_PLUGIN_PLATFORM, MAX_PLAYLIST_SIZE } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortUtil } from '../view/MusicSortMenu';
-import { showUiToast, formatArtistStats } from '../utils/UiUtils';
+import { showUiToast, formatArtistStats, sheetImmersiveModifier } from '../utils/UiUtils';
 
 /** 一次分页加载结果（专辑/歌手统一封装） */
 class MediaDetailPageResult {
@@ -1108,6 +1108,7 @@ export struct MediaDetailPage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
+            systemMaterial: sheetImmersiveModifier(),
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {

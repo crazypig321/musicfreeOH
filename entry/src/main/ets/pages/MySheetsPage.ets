@@ -20,7 +20,7 @@ import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { JsonUtil } from '../utils/JsonUtil';
 import { DialogManager } from '../utils/DialogUtils';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
-import { showUiToast, rowImmersiveModifier, stackImmersiveModifier, thickImmersiveMaterial } from '../utils/UiUtils';
+import { showUiToast, rowImmersiveModifier, stackImmersiveModifier, thickImmersiveMaterial, sheetImmersiveModifier } from '../utils/UiUtils';
 
 /** 添加菜单锚点 id（openMenu 在锚点处弹出） */
 const ADD_ANCHOR_ID = 'mysheets_add_anchor';
@@ -1498,6 +1498,7 @@ export struct MySheetsPage {
           return { offsetRemain: offset }
         })
         .bindSheet(!!this.showCreateSheet, this.SheetMetaFormBuilder(true), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
@@ -1591,6 +1592,7 @@ export struct MySheetsPage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showEditSheet, this.SheetMetaFormBuilder(false), {
+            systemMaterial: sheetImmersiveModifier(),
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
@@ -1607,6 +1609,7 @@ export struct MySheetsPage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showSortSheet, this.SortListSheetBuilder(true), {
+            systemMaterial: sheetImmersiveModifier(),
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
@@ -1623,6 +1626,7 @@ export struct MySheetsPage {
           .width('100%')
           .height(0)
           .bindSheet(!!this.showSubscribedSortSheet, this.SortListSheetBuilder(false), {
+            systemMaterial: sheetImmersiveModifier(),
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true, preferType: sheetPreferType(),
             onWillDisappear: () => {
@@ -1650,6 +1654,7 @@ export struct MySheetsPage {
         .padding({ right: 16 })
         .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {

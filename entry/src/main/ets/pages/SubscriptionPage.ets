@@ -16,7 +16,7 @@ import { Subscriptions } from '../plugin/Subscriptions';
 import { PluginImport } from '../plugin/PluginImport';
 import { DialogManager } from '../utils/DialogUtils';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
-import { showUiToast, thickImmersiveMaterial } from '../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial, sheetImmersiveModifier } from '../utils/UiUtils';
 
 /** 导入菜单锚点（标题栏下方右上角） */
 const IMPORT_ANCHOR_ID = 'subscription_import_anchor';
@@ -674,6 +674,7 @@ export struct SubscriptionPage {
         .padding({ left: 16, right: 16 })
         // 编辑订阅源半模态挂载点（独立锚点，避免与详情 bindSheet 冲突）
         .bindSheet(!!this.showEditSheet, this.EditSheetBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
@@ -752,6 +753,7 @@ export struct SubscriptionPage {
         .padding({ right: 16 })
         .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
@@ -765,7 +767,8 @@ export struct SubscriptionPage {
       }
       .width('100%')
       .height('100%')
-      .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
+        .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true, preferType: sheetPreferType(),
         onWillDisappear: () => {

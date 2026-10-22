@@ -9,6 +9,7 @@ import { CommonLoading } from './CommonCom';
 import { HdsBarStyle } from '@kit.UIDesignKit';
 import { IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { sheetPreferType } from '../utils/BreakpointUtils';
+import { sheetImmersiveModifier } from '../utils/UiUtils';
 
 /**
  * 迷你播放条（参考 ting_read TabsPlayBar）：
@@ -223,6 +224,7 @@ export struct PlayBar {
     })
     .opacity(playerAnim.miniBarOpacity)
     .bindSheet(!!this.showQueue, this.QueueSheetBuilder(), {
+      systemMaterial: sheetImmersiveModifier(),
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true, preferType: sheetPreferType(),
       backgroundColor: $r('sys.color.background_secondary'),

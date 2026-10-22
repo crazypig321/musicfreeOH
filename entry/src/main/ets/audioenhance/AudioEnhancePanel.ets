@@ -1,5 +1,6 @@
 import { appState } from '../entryability/AppState';
 import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { sheetImmersiveModifier } from '../utils/UiUtils';
 import { AudioEnhanceManager, AudioEnhanceState } from './AudioEnhanceManager';
 
 /**
@@ -54,6 +55,7 @@ export struct AudioEnhancePanel {
     Column() {
       Column()
         .bindSheet(!!this.show, this.panelBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS,
           detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),

@@ -11,7 +11,7 @@ import { MenuOptionEntry, OptionsMenuBuilder } from '../../view/OptionsMenu';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { HSBColorPicker } from '@keke/color-picker';
 import { sheetPreferType, sheetTopAvoidVp } from '../../utils/BreakpointUtils';
-import { thickImmersiveMaterial } from '../../utils/UiUtils';
+import { thickImmersiveMaterial, sheetImmersiveModifier } from '../../utils/UiUtils';
 
 /**
  * 外观设置页面
@@ -375,6 +375,7 @@ export struct AppearanceSettingPage {
                           this.showColorSheet = true;
                         })
                         .bindSheet(!!this.showColorSheet, this.ColorSheetBuilder(), {
+                          systemMaterial: sheetImmersiveModifier(),
                           dragBar: true, preferType: sheetPreferType(),
                           onWillDisappear: () => {
                             this.showColorSheet = false;
@@ -412,6 +413,7 @@ export struct AppearanceSettingPage {
                           this.showColorSheet = true;
                         })
                         .bindSheet(!!this.showColorSheet, this.ColorSheetBuilder(), {
+                          systemMaterial: sheetImmersiveModifier(),
                           dragBar: true, preferType: sheetPreferType(),
                           onWillDisappear: () => {
                             this.showColorSheet = false;

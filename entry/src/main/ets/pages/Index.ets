@@ -13,6 +13,7 @@ import { ArtworkCache } from '../utils/ArtworkCache';
 import { PlayerPage } from './PlayerPage';
 import { PlayBar } from '../view/PlayBar';
 import { sheetPreferType, useSidebarLayout } from '../utils/BreakpointUtils';
+import { sheetImmersiveModifier } from '../utils/UiUtils';
 import { playerAnim, PlayerExpandAnimController } from '../utils/PlayerExpandAnim';
 import { PcMainLayout } from './pcUI/PcMainLayout';
 import { CarModeView } from '../view/CarModeView';
@@ -184,8 +185,8 @@ struct Index {
         .width('100%')
         .height('100%')
         .backgroundColor($r('sys.color.background_secondary'))
-        .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin : BlurStyle.NONE,
-          { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
+        .foregroundBlurStyle(appState.isForegroundBlur ? BlurStyle.Thin: BlurStyle.NONE,
+          { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.1 })
       }
 
       Web({ src: 'resource://rawfile/plugin_host.html?v=4', controller: this.controller })
@@ -228,6 +229,7 @@ struct Index {
     .width('100%')
     .height('100%')
     .bindSheet(!!this.showChangelogSheet, this.ChangelogSheetBuilder(), {
+      systemMaterial: sheetImmersiveModifier(),
       detents: [SheetSize.LARGE],
       dragBar: true, preferType: sheetPreferType(),
       backgroundColor: $r('sys.color.background_secondary'),

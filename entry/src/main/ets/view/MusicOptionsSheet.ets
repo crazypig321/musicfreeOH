@@ -23,7 +23,7 @@ import { sheetPreferType, sheetTopAvoidVp } from '../utils/BreakpointUtils';
   import { LyricSearch } from '../utils/LyricSearch';
   import { lyricManager } from '../core/LyricManager';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
-import { showUiToast } from '../utils/UiUtils';
+import { showUiToast, sheetImmersiveModifier } from '../utils/UiUtils';
 
 /** 快捷操作按钮数据（ForEach 数据源） */
 class QuickActionSpec {
@@ -706,6 +706,7 @@ export struct MusicOptionsSheet {
     Column() {
       Column()
         .bindSheet(!!this.showSheetPicker, this.SheetPickerBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
           onDisappear: () => {
@@ -717,6 +718,7 @@ export struct MusicOptionsSheet {
     .width('100%')
     .height(0)
     .bindSheet(!!this.show, this.OptionsSheetBuilder(), {
+      systemMaterial: sheetImmersiveModifier(),
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [600, SheetSize.LARGE],
       dragBar: true,
       preferType: SheetType.CENTER,

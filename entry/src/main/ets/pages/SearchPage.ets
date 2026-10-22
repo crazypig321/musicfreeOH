@@ -21,7 +21,7 @@ import { CommonSearch, ListLoadingRow, ListEndRow } from '../view/CommonCom';
 import { showUiToast, formatDuration, formatArtistStats } from '../utils/UiUtils';
 import { KVStore } from '../infra/KVStore';
 import { JsonUtil } from '../utils/JsonUtil';
-import { BottomBuilderShowType } from '@kit.UIDesignKit';
+import { BottomBuilderShowType, TitleBarContentOptions } from '@kit.UIDesignKit';
 
 /** 搜索结果不足以铺满首屏时自动续拉的阈值 */
 const AUTO_LOAD_MORE_THRESHOLD = 30;
@@ -43,6 +43,14 @@ export struct SearchPage {
   ];
 
   scroller: Scroller = new Scroller();
+  /** 插件标签横向列表滚动控制器（HdsTitleBar 底部插槽重建后恢复滚动位置） */
+  private pluginScroller: Scroller = new Scroller();
+  /** 插件标签列表当前横向偏移（onScroll 持续记录，列表重挂后据此恢复） */
+  private pluginScrollX: number = 0;
+  /** 缓存的标题栏配置（保持对象引用稳定，避免 HdsTitleBar 因 titleBar 内容变化反复卸载重建底部插槽） */
+  private cachedTitleBar?: TitleBarContentOptions;
+  /** 缓存配置对应的 hasSearched 值（高度 80↔140 切换时才重建配置对象） */
+  private cachedTitleBarSearched: boolean = false;
   @Param bootReady: boolean = false;
   @Local keyword: string = '';
   @Local searchStatus: string = '';
@@ -133,6 +141,19 @@ export struct SearchPage {
       p.instanceInfo.supportedSearchType.indexOf(type) !== -1;
   }
 
+  /** 插件标签列表是否有变化（无变化时跳过 reload，避免 onDataReloaded 重建条目导致横向列表滚动位置回顶） */
+  private static sameNames(a: Array<string>, b: Array<string>): boolean {
+    if (a.length !== b.length) {
+      return false;
+    }
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private refreshPlugins(): void {
     // 插件标签列表不按分类过滤（保持跨分类恒定），选中插件按名称跨分类保持；
     // 分类支持性在搜索时按插件各自判断，避免声明不全的插件在切分类后被挤出列表
@@ -143,8 +164,11 @@ export struct SearchPage {
     for (const p of plugins) {
       names.push(p.name);
     }
-    this.pluginNames = names;
-    this.pluginTagSource.reload(names);
+    // 标签数据无变化时跳过 reload：onDataReloaded 会重建全部条目并使横向插件列表滚动位置回顶
+    if (!SearchPage.sameNames(this.pluginNames, names)) {
+      this.pluginNames = names;
+      this.pluginTagSource.reload(names);
+    }
     let index = 0;
     if (prevName.length > 0) {
       for (let i = 0; i < plugins.length; i++) {
@@ -554,10 +578,23 @@ export struct SearchPage {
     this.showOptions = true;
   }
 
+  /**
+   * 标题栏配置：仅 hasSearched 变化（搜索框区高度 80↔140）时才重建对象，其余渲染一律复用缓存。
+   * titleBar 内容对象变化会使 HdsTitleBar 卸载重建底部插槽（见 CommonSearch.focusId 注释），
+   * 插件标签列表随之重挂、横向滚动位置归零——保持引用稳定可避免搜索过程中的无谓重建
+   */
+  private searchTitleBar(): TitleBarContentOptions {
+    if (this.cachedTitleBar === undefined || this.cachedTitleBarSearched !== this.hasSearched) {
+      this.cachedTitleBar = titleBarOf($r('app.string.search_title'), undefined, undefined,
+        { builder: (): void => { this.SearchBarBuilder() }, height: this.hasSearched ? 140 : 80 });
+      this.cachedTitleBarSearched = this.hasSearched;
+    }
+    return this.cachedTitleBar;
+  }
+
   build() {
     CommonNav({
-      titleBarOp: titleBarOf($r('app.string.search_title'), undefined, undefined,
-        { builder: (): void => { this.SearchBarBuilder() }, height: this.hasSearched ? 140 : 80 }),
+      titleBarOp: this.searchTitleBar(),
       isShowPlayBar: true,
       scroller: this.scroller,
       doubleTapToTop: true,
@@ -727,7 +764,7 @@ export struct SearchPage {
   @Builder
   PluginSelectorBuilder() {
     if (this.pluginNames.length > 0) {
-      List({ space: 8 }) {
+      List({ space: 8, scroller: this.pluginScroller }) {
         LazyForEach(this.pluginTagSource, (name: string, index: number) => {
           ListItem() {
             Text(name)
@@ -751,6 +788,17 @@ export struct SearchPage {
       .width('100%')
       .height(36)
       .margin({ top: 10 })
+      .onScroll((_offset: number, _state: ScrollState) => {
+        this.pluginScrollX = this.pluginScroller.currentOffset().xOffset;
+      })
+      .onAppear(() => {
+        // 底部插槽重建后列表重挂、滚动归零：延迟至布局完成后恢复之前的横向偏移
+        if (this.pluginScrollX > 0) {
+          setTimeout((): void => {
+            this.pluginScroller.scrollTo({ xOffset: this.pluginScrollX, yOffset: 0 });
+          }, 100);
+        }
+      })
     } else {
       Text('无可用音乐插件，请先在「插件管理」中安装并启用')
         .fontSize(12)

@@ -31,7 +31,7 @@ import { ContextHolder } from '../common/ContextHolder';
 import { DialogManager } from '../utils/DialogUtils';
 import { MusicSortMenu, MusicSortUtil } from '../view/MusicSortMenu';
 import { BatchSheetPicker } from '../view/BatchSheetPicker';
-import { showUiToast, formatDuration } from '../utils/UiUtils';
+import { showUiToast, formatDuration, sheetImmersiveModifier, IsApiVersion_26 } from '../utils/UiUtils';
 
 /**
  * 下载页面：上半部分为下载任务（等待/准备中/下载中/失败，带进度条），
@@ -2031,6 +2031,7 @@ export struct DownloadPage {
       .bindSheet(!this.isLocalMode && !!this.showOptions, this.OptionsSheetBuilder(), {
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true, preferType: sheetPreferType(),
+        systemMaterial: sheetImmersiveModifier(),
         onWillDisappear: () => {
           this.showOptions = false;
           appState.isForegroundBlur = false
@@ -2185,6 +2186,7 @@ export struct DownloadPage {
           .bindSheet(!!this.showBatchSheetPicker, this.BatchSheetPickerBuilder(), {
             scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
             dragBar: true, preferType: sheetPreferType(),
+            systemMaterial: sheetImmersiveModifier(),
             onWillDisappear: () => {
               this.showBatchSheetPicker = false;
               appState.isForegroundBlur = false;

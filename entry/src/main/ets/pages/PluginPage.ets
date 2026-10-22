@@ -25,7 +25,7 @@ import { DialogManager, PluginVarField } from '../utils/DialogUtils';
 import { PluginImport } from '../plugin/PluginImport';
 import { Subscriptions } from '../plugin/Subscriptions';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
-import { showUiToast, thickImmersiveMaterial } from '../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial, sheetImmersiveModifier } from '../utils/UiUtils';
 
 interface PluginRow {
   name: string;
@@ -1176,6 +1176,7 @@ export struct PluginPage {
           return { offsetRemain: offset }
         })
         .bindSheet(!!this.showSortSheet, this.SortSheetBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
@@ -1254,6 +1255,7 @@ export struct PluginPage {
         .padding({ right: 16 })
         .margin({ top: appState.topRect + 20 })
         .bindSheet(!!this.showDetailSheet, this.DetailSheetBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
           scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
           dragBar: true, preferType: sheetPreferType(),
           onWillDisappear: () => {
@@ -1267,7 +1269,8 @@ export struct PluginPage {
       }
       .width('100%')
       .height('100%')
-      .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
+        .bindSheet(!!this.showImportSheet, this.ImportSheetBuilder(), {
+          systemMaterial: sheetImmersiveModifier(),
         scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true, preferType: sheetPreferType(),
         onWillDisappear: () => {
@@ -1672,6 +1675,7 @@ export struct PluginPage {
       scrollBackward: NestedScrollMode.SELF_FIRST
     })
     .bindSheet(!!this.showPluginImportSheet, this.PluginImportSheetBuilder(), {
+      systemMaterial: sheetImmersiveModifier(),
       scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true, preferType: sheetPreferType(),
       onWillDisappear: () => {

@@ -372,7 +372,6 @@ export struct QueueSheet {
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp() })
-      .backgroundColor($r('sys.color.background_secondary'))
 
       if (this.queueCount === 0) {
         Column({ space: 8 }) {
@@ -409,7 +408,8 @@ export struct QueueSheet {
         }
         .width('100%')
         .layoutWeight(1)
-        .padding({ left: 20, right: 20, bottom: 32 })
+        .padding({ left: 20, right: 20 })
+        .contentEndOffset(32)
         .scrollBar(BarState.Off)
         .nestedScroll({
           scrollForward: NestedScrollMode.PARENT_FIRST,
@@ -426,7 +426,6 @@ export struct QueueSheet {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
     .alignItems(HorizontalAlign.Start)
   }
 }
