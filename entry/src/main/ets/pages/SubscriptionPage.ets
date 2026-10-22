@@ -850,13 +850,18 @@ export struct SubscriptionPage {
   /** 编辑订阅源半模态（本地文件仅可修改名称；UI 同编辑歌单） */
   @Builder
   EditSheetBuilder() {
+    // 顶部固定标题（样式同详情半模态头部）
     Column() {
       Text('编辑订阅源')
         .fontSize(17)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .margin({ top: 4, bottom: 16 })
+    }
+    .width('100%')
+    .padding({ top: 4, bottom: 12, left: 20, right: 20 })
+
+    Column() {
       TextInput({ text: this.editName, placeholder: '订阅源名称' })
         .width('100%')
         .height(44)
@@ -949,62 +954,81 @@ export struct SubscriptionPage {
     })
   }
 
-  /** 订阅源详情半模态（UI 参考插件详情） */
+  /** 分组标题（样式对齐插件详情 DetailSectionTitle） */
+  @Builder
+  DetailSectionTitle(title: ResourceStr) {
+    Text(title)
+      .fontSize(14)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('sys.color.font_secondary'))
+      .width('100%')
+      .margin({ bottom: 6 })
+  }
+
+  /** 订阅源详情半模态（UI 同插件详情：固定头部 + 列表分组卡片） */
   @Builder
   DetailSheetBuilder() {
+    // 头部：源文件名 + 完整 URL（固定顶部，不随列表滚动）
     Column() {
-      // 头部：源文件名 + 完整 URL
       Text(SubscriptionPage.sourceTitle(this.detailUrl))
         .fontSize(19)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .margin({ top: 4 })
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
       Text(SubscriptionPage.isLocalSource(this.detailUrl) ? '本地文件' : this.detailUrl)
         .fontSize(12)
         .fontColor($r('sys.color.font_tertiary'))
         .width('100%')
-        .margin({ top: 4, bottom: 12 })
+        .margin({ top: 4 })
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .padding({ top: 4, bottom: 12, left: 20, right: 20 })
 
-      // 操作分组：更新 / 重命名 / 分享 / 导出 / 删除（卡片内以分割线隔开）
-      Text('操作')
-        .fontSize(14)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-        .margin({ top: 8, bottom: 6 })
-      Column() {
+    List({ space: 0 }) {
+      // 操作分组：更新 / 重命名 / 分享 / 导出 / 删除
+      ListItem() {
+        this.DetailSectionTitle('操作')
+      }
+      ListItemGroup() {
         ForEach(this.detailActionRows(), (row: SubDetailRow, index: number) => {
-          if (index > 0) {
-            Divider()
-              .DividerStyle()
+          ListItem() {
+            this.DetailActionRowItem(row)
           }
-          this.DetailActionRowItem(row)
         }, (row: SubDetailRow, index: number) => row.title + '_' + index.toString())
       }
-      .width('100%')
+      .divider({ strokeWidth: 0.5, color: $r('sys.color.comp_divider'), startMargin: 48, endMargin: 12 })
       .borderRadius(16)
       .backgroundColor($r('sys.color.comp_background_list_card'))
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
-    .alignItems(HorizontalAlign.Start)
+    .padding({ top: 12 + sheetTopAvoidVp() })
+    .contentEndOffset(32)
+    .scrollBar(BarState.Off)
+    .nestedScroll({
+      scrollForward: NestedScrollMode.PARENT_FIRST,
+      scrollBackward: NestedScrollMode.SELF_FIRST
+    })
   }
 
   /** 网络导入：订阅源 URL 输入 */
   @Builder
   ImportSheetBuilder() {
+    // 顶部固定标题（样式同详情半模态头部）
     Column() {
       Text('网络导入订阅源')
         .fontSize(17)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .margin({ top: 4, bottom: 16 })
+    }
+    .width('100%')
+    .padding({ top: 4, bottom: 12, left: 20, right: 20 })
+
+    Column() {
       TextInput({ text: this.importUrl, placeholder: '订阅源 URL（.js 或 .json）' })
         .width('100%')
         .height(44)
@@ -1045,10 +1069,4 @@ export struct SubscriptionPage {
     .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
-}
-
-@Extend(Divider)
-function DividerStyle(){
-  .color($r('sys.color.comp_divider'))
-  .margin({ left: 48, right: 12 })
 }

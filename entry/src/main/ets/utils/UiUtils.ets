@@ -109,6 +109,37 @@ export class StackImmersiveModifier implements AttributeModifier<StackAttribute>
 /** 共享的无状态 Stack 材质适配器实例 */
 export const stackImmersiveModifier: StackImmersiveModifier = new StackImmersiveModifier();
 
+/** column 沉浸式材质（ULTRA_THIN + colorInvert）版本兼容适配器：仅在 API >= 26 时生效 */
+export class ColumnImmersiveModifier implements AttributeModifier<ColumnAttribute> {
+  applyNormalAttribute(instance: ColumnAttribute): void {
+    if (IsApiVersion_26()) {
+      instance.systemMaterial(new uiMaterial.ImmersiveMaterial({
+        style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+        colorInvert: true
+      }));
+    }
+  }
+}
+
+/** 共享的无状态 column 材质适配器实例 */
+export const columnImmersiveModifier: ColumnImmersiveModifier = new ColumnImmersiveModifier();
+
+
+
+/** column 沉浸式材质（ULTRA_THIN + colorInvert）版本兼容适配器：仅在 API >= 26 时生效 */
+export class ListItemGroupImmersiveModifier implements AttributeModifier<ListItemGroupAttribute> {
+  applyNormalAttribute(instance: ListItemGroupAttribute): void {
+    if (IsApiVersion_26()) {
+      instance.systemMaterial(new uiMaterial.ImmersiveMaterial({
+        style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+        colorInvert: true
+      }));
+    }
+  }
+}
+
+/** 共享的无状态 column 材质适配器实例 */
+export const listItemGroupImmersiveModifier: ListItemGroupImmersiveModifier = new ListItemGroupImmersiveModifier();
 
 /** 共享的无状态 sheet 材质适配器实例 */
 export function sheetImmersiveModifier(): uiMaterial.ImmersiveMaterial | null {

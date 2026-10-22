@@ -25,7 +25,8 @@ import { DialogManager, PluginVarField } from '../utils/DialogUtils';
 import { PluginImport } from '../plugin/PluginImport';
 import { Subscriptions } from '../plugin/Subscriptions';
 import { IMPORT_TIMEOUT_MS_OPTIONS, IMPORT_TIMEOUT_LABELS } from '../common/Consts';
-import { showUiToast, thickImmersiveMaterial, sheetImmersiveModifier } from '../utils/UiUtils';
+import { showUiToast, thickImmersiveMaterial, sheetImmersiveModifier,
+  listItemGroupImmersiveModifier} from '../utils/UiUtils';
 
 interface PluginRow {
   name: string;
@@ -1388,13 +1389,18 @@ export struct PluginPage {
 
   @Builder
   ImportSheetBuilder() {
+    // 顶部固定标题（样式同详情半模态头部）
     Column() {
       Text('网络导入插件')
         .fontSize(17)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .margin({ top: 4, bottom: 16 })
+    }
+    .width('100%')
+    .padding({ top: 4, bottom: 12, left: 20, right: 20 })
+
+    Column() {
       TextInput({ text: this.importUrl, placeholder: '插件 URL' })
         .width('100%')
         .height(44)
@@ -1427,12 +1433,17 @@ export struct PluginPage {
   @Builder
   SortSheetBuilder() {
     Column() {
-      Text('插件排序')
-        .fontSize(17)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ top: 4, bottom: 8 })
+      // 顶部固定标题
+      Column() {
+        Text('插件排序')
+          .fontSize(17)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .width('100%')
+      }
+      .width('100%')
+      .padding({ top: 4, bottom: 12, left: 20, right: 20 })
+
       List() {
         ForEach(this.sortNames, (name: string, index: number) => {
           ListItem() {
@@ -1475,21 +1486,30 @@ export struct PluginPage {
       })
       .width('100%')
       .layoutWeight(1)
+      .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp() })
+      .contentEndOffset(32)
       .scrollBar(BarState.Off)
-      .margin({ top: 4 })
-      Button('保存排序')
-        .width('100%')
-        .height(42)
-        .fontSize(15)
-        .margin({ top: 12 })
-        .backgroundColor(appState.accentColor)
-        .onClick(() => {
-          this.saveSortOrder();
-        })
+      .nestedScroll({
+        scrollForward: NestedScrollMode.PARENT_FIRST,
+        scrollBackward: NestedScrollMode.SELF_FIRST
+      })
+
+      // 底部固定保存按钮
+      Column() {
+        Button('保存排序')
+          .width('100%')
+          .height(42)
+          .fontSize(15)
+          .backgroundColor(appState.accentColor)
+          .onClick(() => {
+            this.saveSortOrder();
+          })
+      }
+      .width('100%')
+      .padding({ top: 12, left: 20, right: 20, bottom: 32 })
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -1583,30 +1603,28 @@ export struct PluginPage {
 
   @Builder
   DetailSheetBuilder() {
-    List({ space: 0 }) {
-      // 头部：名字 + 版本 + 作者
-      ListItem() {
-        Column() {
-          Text(this.detailName)
-            .fontSize(19)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .width('100%')
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text((this.detailVersion.length > 0 ? 'v' + this.detailVersion : '') +
-            (this.detailAuthor.length > 0 ? ' · ' + this.detailAuthor : ''))
-            .fontSize(12)
-            .fontColor($r('sys.color.font_tertiary'))
-            .width('100%')
-            .margin({ top: 4 })
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
+    // 头部：名字 + 版本 + 作者
+    Column() {
+      Text(this.detailName)
+        .fontSize(19)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .padding({ top: 4, bottom: 12 })
-      }
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text((this.detailVersion.length > 0 ? 'v' + this.detailVersion : '') +
+        (this.detailAuthor.length > 0 ? ' · ' + this.detailAuthor : ''))
+        .fontSize(12)
+        .fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
+        .margin({ top: 4 })
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .padding({ bottom: 12, left: 20, right: 20, top: 4 })
 
+    List({ space: 0 }) {
       // 支持能力 / 使用说明
       ListItemGroup() {
         ForEach(this.detailAbilityRows(), (row: DetailRow, index: number) => {
@@ -1668,7 +1686,8 @@ export struct PluginPage {
       .backgroundColor($r('sys.color.comp_background_list_card'))
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 32 })
+    .padding({ top: 12 + sheetTopAvoidVp() })
+    .contentEndOffset(32)
     .scrollBar(BarState.Off)
     .nestedScroll({
       scrollForward: NestedScrollMode.PARENT_FIRST,
@@ -1687,18 +1706,23 @@ export struct PluginPage {
   /** 插件内导入半模态：来源固定为当前详情插件（不选插件），单曲需选目标歌单 */
   @Builder
   PluginImportSheetBuilder() {
+    // 顶部固定标题：导入类型 + 来源插件
     Column() {
       Text(this.pluginImportSingleMode ? '导入单曲' : '导入歌单')
         .fontSize(17)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .margin({ top: 4, bottom: 4 })
       Text('来源插件：' + this.detailName)
         .fontSize(13)
         .fontColor($r('sys.color.font_tertiary'))
         .width('100%')
-        .margin({ bottom: 12 })
+        .margin({ top: 4 })
+    }
+    .width('100%')
+    .padding({ top: 4, bottom: 12, left: 20, right: 20 })
+
+    Column() {
       if (!this.pluginImportSingleMode) {
         Text('超时时长')
           .fontSize(13)
