@@ -1,6 +1,7 @@
 import { MarkdownView } from './MarkdownView';
 import { CHANGELOGS, ChangelogEntry } from '../common/Changelog';
 import { sheetTopAvoidVp } from '../utils/BreakpointUtils';
+import { SheetBgColor } from '../utils/UiUtils';
 
 /**
  * 更新日志半模态内容：List + ListItemGroup + ListItem，
@@ -67,8 +68,8 @@ export struct ChangelogSheet {
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
-      .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 10 })
-      .backgroundColor($r('sys.color.background_secondary'))
+      .padding({ left: 20, right: 20, top: 12 + sheetTopAvoidVp(), bottom: 16 })
+      .backgroundColor(SheetBgColor())
 
       List({ space: 10 }) {
         ForEach(CHANGELOGS, (entry: ChangelogEntry) => {

@@ -147,3 +147,10 @@ export function sheetImmersiveModifier(): uiMaterial.ImmersiveMaterial | null {
     ? new uiMaterial.ImmersiveMaterial({ style: uiMaterial.ImmersiveStyle.THICK })
     : null;
 }
+
+/** 共享的无状态 sheet 光感材质背景色实例 */
+export function SheetBgColor(): ResourceColor {
+  return IsApiVersion_26()
+    ? Color.Transparent
+    : $r('sys.color.background_secondary');
+}
