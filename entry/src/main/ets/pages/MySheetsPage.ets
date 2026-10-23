@@ -84,10 +84,18 @@ class MySheetRowDataSource implements IDataSource {
  */
 @ComponentV2
 export struct MySheetsPage {
-  scroller: Scroller = new Scroller();
+  /** 我的歌单列表滚动器（两个列表常驻挂载、切 tab 仅切可见性，各自持有滚动位置） */
+  private sheetScroller: Scroller = new Scroller();
+  /** 订阅歌单列表滚动器 */
+  private subscribedScroller: Scroller = new Scroller();
   @Local sheetRows: Array<SheetRow> = [];
   /** 分段滑块：当前是否展示订阅歌单 tab */
   @Local showSubscribed: boolean = false;
+  /** 标题栏副标题/菜单滞后跟随的 tab 状态：等滑块位移动画结束后再更新。
+   *  标题栏内容变化会使 HdsTitleBar 重建底部插槽，滑块若在动画中被卸载重建会瞬移到位、丢失位移动画 */
+  @Local titleTabSubscribed: boolean = false;
+  /** 标题栏副标题/菜单滞后更新定时器 */
+  private titleTabTimer: number = -1;
   /** 订阅歌单记录 */
   @Local subscribedItems: Array<SubscribedSheetRecord> = [];
   /** 订阅同步进行中 */
@@ -163,6 +171,13 @@ export struct MySheetsPage {
     this.syncSubscribed(false);
   }
 
+  aboutToDisappear(): void {
+    if (this.titleTabTimer !== -1) {
+      clearTimeout(this.titleTabTimer);
+      this.titleTabTimer = -1;
+    }
+  }
+
   /** 刷新订阅列表 */
   private refreshSubscribed(): void {
     this.subscribedItems = subscribedSheets.getAll().slice();
@@ -211,6 +226,11 @@ export struct MySheetsPage {
     this.syncSubscribed(true);
   }
 
+  /** 当前激活列表的滚动器（订阅 tab 用订阅列表，否则我的歌单列表） */
+  private activeScroller(): Scroller {
+    return this.showSubscribed ? this.subscribedScroller : this.sheetScroller;
+  }
+
   /** 分段滑块切换 我的歌单/订阅歌单（退出批量模式并回顶；单一状态源，滑块位移由 animateTo 驱动） */
   private switchTab(showSubscribed: boolean): void {
     if (this.showSubscribed === showSubscribed) {
@@ -222,11 +242,21 @@ export struct MySheetsPage {
     this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
       this.showSubscribed = showSubscribed;
     });
+    // 副标题/菜单延后到滑块动画结束后更新：动画期间标题栏内容保持不变，
+    // 避免插槽重建导致滑块瞬移（参考 FQHouseOH 书架页：副标题/菜单不随 tab 切换变化）
+    if (this.titleTabTimer !== -1) {
+      clearTimeout(this.titleTabTimer);
+    }
+    this.titleTabTimer = setTimeout(() => {
+      this.titleTabTimer = -1;
+      this.titleTabSubscribed = showSubscribed;
+    }, 270);
     // 回顶目标为内容区起点（contentStartOffset 的负偏移处，首条目位于标题栏下方）；
     // 滚到 0 会把首条目顶进标题栏下方被遮挡（短列表切长列表时无法被钳制复位）
     const top = -(appState.topRect + 66 + 44 + (this.showSearchBox ? 56 : 0));
-    if (this.scroller.currentOffset().yOffset !== top) {
-      this.scroller.scrollTo({ xOffset: 0, yOffset: top, animation: { duration: 250, curve: Curve.EaseOut } });
+    const scroller = showSubscribed ? this.subscribedScroller : this.sheetScroller;
+    if (scroller.currentOffset().yOffset !== top) {
+      scroller.scrollTo({ xOffset: 0, yOffset: top, animation: { duration: 250, curve: Curve.EaseOut } });
     }
   }
 
@@ -436,13 +466,13 @@ export struct MySheetsPage {
     });
   }
 
-  /** 标题副文本：搜索中显示命中数量；订阅 tab 显示订阅数 */
+  /** 标题副文本：搜索中显示命中数量；订阅 tab 显示订阅数（滞后跟随滑块切换，避免插槽重建打断滑块动画） */
   private subTitleText(): string {
     if (this.searchKeyword.trim().length > 0) {
-      const hit = this.showSubscribed ? this.displaySubscribed().length : this.displayRows().length;
+      const hit = this.titleTabSubscribed ? this.displaySubscribed().length : this.displayRows().length;
       return '找到 ' + hit.toString() + ' 歌单';
     }
-    if (this.showSubscribed) {
+    if (this.titleTabSubscribed) {
       return '共 ' + this.subscribedItems.length.toString() + ' 个订阅';
     }
     return '共 ' + this.sheetRows.length.toString() + ' 个歌单';
@@ -475,8 +505,8 @@ export struct MySheetsPage {
         // 组件未挂载时忽略
       }
     }, 320);
-    if (this.scroller.currentOffset().yOffset !== 0) {
-      this.scroller.scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 66 + 44 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
+    if (this.activeScroller().currentOffset().yOffset !== 0) {
+      this.activeScroller().scrollTo({ xOffset: 0, yOffset: -(appState.topRect + 66 + 44 + 56), animation: { duration: 250, curve: Curve.EaseOut } });
     }
   }
 
@@ -484,7 +514,8 @@ export struct MySheetsPage {
     showUiToast(this.getUIContext(), message);
   }
 
-  /** titleBar 菜单按钮（订阅 tab：同步+搜索；我的歌单 tab：添加菜单+搜索+批量操作） */
+  /** titleBar 菜单按钮（订阅 tab：同步+搜索；我的歌单 tab：添加菜单+搜索+批量操作；
+   *  依滞后 tab 状态渲染，避免滑块动画期间菜单变化触发插槽重建） */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const search: HdsNavigationMenuItemOptions = {
       content: {
@@ -495,7 +526,7 @@ export struct MySheetsPage {
         }
       }
     };
-    if (this.showSubscribed) {
+    if (this.titleTabSubscribed) {
       const sync: HdsNavigationMenuItemOptions = {
         content: {
           icon: $r('sys.symbol.arrow_clockwise'),
@@ -1438,38 +1469,16 @@ export struct MySheetsPage {
       embedded: true,
       // 分段滑块常驻标题栏下方，不随滚动隐藏（否则上滑隐藏、下滑才重现）
       isSearchBarScroller: false,
-      scroller: this.scroller,
+      scroller: this.activeScroller(),
       doubleTapToTop: true,
       scrollToTopYOffset: ScrollToTopYOffset(44 + (this.showSearchBox ? 56 : 0))
     }) {
       Stack({ alignContent: Alignment.Top }) {
-        List({ scroller: this.scroller, space: 16 }) {
-          if (this.showSubscribed) {
-            // 订阅歌单列表（懒加载；HdsListItem 不支持通用属性，链式设置会破坏横滑手势，故不挂 transition）
-            if (this.subscribedSource.totalCount() > 0) {
-              LazyForEach(this.subscribedSource, (rec: SubscribedSheetRecord, _index: number) => {
-                HdsListItem({
-                  customItemBuilder: (): void => {
-                    this.SubscribedRowBuilder(rec);
-                  },
-                  swipeActionOptions: this.subscribedSwipeOptions(rec)
-                })
-              }, (rec: SubscribedSheetRecord, _index: number) => rec.platform + '_' + rec.id +
-                '_' + rec.title + '_' + rec.worksNum.toString() + (rec.hasUpdate ? '_upd' : '') +
-                (appState.isBatchMode && this.isSubscribedSelected(rec) ? '_sel' : '') +
-                '_' + appState.swipeResetTick.toString())
-            } else {
-              ListItem() {
-                Text(this.subscribedItems.length > 0 ? '未找到匹配的订阅' : '暂无订阅，进入歌单、专辑或歌手详情页点击订阅按钮订阅')
-                  .fontSize(13)
-                  .fontColor($r('sys.color.font_tertiary'))
-                  .width('100%')
-                  .textAlign(TextAlign.Center)
-                  .margin({ top: 32 })
-              }
-            }
-          } else if (this.sheetSource.totalCount() > 0) {
-            // 我的歌单列表（懒加载；HdsListItem 不支持通用属性，链式设置会破坏横滑手势，故不挂 transition）
+        // 我的歌单列表（懒加载；两个列表常驻挂载、切 tab 仅切可见性：
+        // 避免分支切换整体卸载重建 HdsListItem（customItemBuilder + 横滑手势跨帧初始化）导致列表闪烁；
+        // HdsListItem 不支持通用属性，链式设置会破坏横滑手势，故不挂 transition）
+        List({ scroller: this.sheetScroller, space: 16 }) {
+          if (this.sheetSource.totalCount() > 0) {
             LazyForEach(this.sheetSource, (row: SheetRow, index: number) => {
               HdsListItem({
                 customItemBuilder: (): void => {
@@ -1493,22 +1502,60 @@ export struct MySheetsPage {
           }
         }
         .ListStyle(44 + (this.showSearchBox ? 56 : 0))
+        .visibility(this.showSubscribed ? Visibility.None : Visibility.Visible)
         .onScrollFrameBegin((offset: number) => {
           BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
           return { offsetRemain: offset }
         })
-        .bindSheet(!!this.showCreateSheet, this.SheetMetaFormBuilder(true), {
-          systemMaterial: sheetImmersiveModifier(),
-          scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-          dragBar: true, preferType: sheetPreferType(),
-          onWillDisappear: () => {
-            this.showCreateSheet = false;
-            appState.isForegroundBlur = false
-          },
-          onWillAppear: () => {
-            appState.isForegroundBlur = true
+
+        // 订阅歌单列表（懒加载；常驻挂载，切 tab 仅切可见性，不卸载重建）
+        List({ scroller: this.subscribedScroller, space: 16 }) {
+          if (this.subscribedSource.totalCount() > 0) {
+            LazyForEach(this.subscribedSource, (rec: SubscribedSheetRecord, _index: number) => {
+              HdsListItem({
+                customItemBuilder: (): void => {
+                  this.SubscribedRowBuilder(rec);
+                },
+                swipeActionOptions: this.subscribedSwipeOptions(rec)
+              })
+            }, (rec: SubscribedSheetRecord, _index: number) => rec.platform + '_' + rec.id +
+              '_' + rec.title + '_' + rec.worksNum.toString() + (rec.hasUpdate ? '_upd' : '') +
+              (appState.isBatchMode && this.isSubscribedSelected(rec) ? '_sel' : '') +
+              '_' + appState.swipeResetTick.toString())
+          } else {
+            ListItem() {
+              Text(this.subscribedItems.length > 0 ? '未找到匹配的订阅' : '暂无订阅，进入歌单、专辑或歌手详情页点击订阅按钮订阅')
+                .fontSize(13)
+                .fontColor($r('sys.color.font_tertiary'))
+                .width('100%')
+                .textAlign(TextAlign.Center)
+                .margin({ top: 32 })
+            }
           }
+        }
+        .ListStyle(44 + (this.showSearchBox ? 56 : 0))
+        .visibility(this.showSubscribed ? Visibility.Visible : Visibility.None)
+        .onScrollFrameBegin((offset: number) => {
+          BarScrollHelper.notifyScrollDelta(this.getUIContext(), offset)
+          return { offsetRemain: offset }
         })
+
+        // 新建歌单半模态锚点（独立零尺寸节点挂载半模态，不与列表/其他 sheet 共用宿主）
+        Column()
+          .width('100%')
+          .height(0)
+          .bindSheet(!!this.showCreateSheet, this.SheetMetaFormBuilder(true), {
+            systemMaterial: sheetImmersiveModifier(),
+            scrollSizeMode: ScrollSizeMode.CONTINUOUS, detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+            dragBar: true, preferType: sheetPreferType(),
+            onWillDisappear: () => {
+              this.showCreateSheet = false;
+              appState.isForegroundBlur = false
+            },
+            onWillAppear: () => {
+              appState.isForegroundBlur = true
+            }
+          })
 
         // 批量模式底栏（UI 同歌单详情页）：已选行 + 全选 / 分享 / 删除
         if (appState.isBatchMode) {
@@ -1805,6 +1852,9 @@ export struct MySheetsPage {
       }
     }
     .width('100%')
+    // 参考书架页：插槽内容填满并钉在顶部，搜索框呼出（高度 40→110）时滑块位置固定不动
+    .height('100%')
+    .justifyContent(FlexAlign.Start)
     .alignItems(HorizontalAlign.Center)
   }
 
