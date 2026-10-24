@@ -393,6 +393,13 @@ export class SubscribedSheets {
       if (!force && now - record.lastSyncAt < SubscribedSheets.SYNC_THROTTLE_MS) {
         continue;
       }
+      // 插件未注册（冷启动初始化中）或被禁用时跳过且不消耗节流：
+      // 若照常更新 lastSyncAt，冷启动首批同步会因插件未就绪全部空转，
+      // 记录被标记「10 分钟内已同步」，切到订阅歌单后不再自动刷新
+      const plugin: Plugin | null = pluginManager.getByName(record.platform);
+      if (plugin === null || !pluginManager.isPluginEnabled(plugin)) {
+        continue;
+      }
       record.lastSyncAt = now;
       try {
         await this.syncOne(record);

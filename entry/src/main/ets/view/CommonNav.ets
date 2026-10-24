@@ -46,6 +46,8 @@ export struct CommonNav{
   @Param avoidLayoutSafeArea: boolean = true
   @Param isShowPlayBar: boolean = false
   @Param scroller: Scroller | undefined = undefined
+  /** 强制绑定标题栏滚动效果的滚动器集合（多列表页传入稳定实例；不传则绑定单个 scroller） */
+  @Param bindScrollers: Array<Scroller> | undefined = undefined
   @Param isSearchBarScroller: boolean = true
   /** 双击标题栏区域时列表回滚到顶部 */
   @Param doubleTapToTop: boolean = false
@@ -165,7 +167,8 @@ export struct CommonNav{
       },
       avoidLayoutSafeArea: this.avoidLayoutSafeArea,
     })
-    .bindToScrollable(this.scroller ? [this.scroller] : [])
+    .bindToScrollable(this.bindScrollers !== undefined && this.bindScrollers.length > 0 ?
+      this.bindScrollers : (this.scroller ? [this.scroller] : []))
     .hideBackButton(this.isHideBackButton)
     .onTouch((event: TouchEvent): void => {
       this.handleTouch(event);

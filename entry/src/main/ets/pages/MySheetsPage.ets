@@ -258,6 +258,17 @@ export struct MySheetsPage {
     if (scroller.currentOffset().yOffset !== top) {
       scroller.scrollTo({ xOffset: 0, yOffset: top, animation: { duration: 250, curve: Curve.EaseOut } });
     }
+    // 切出列表已隐藏，无动画复位回顶：两个列表均绑定标题栏滚动效果，
+    // 隐藏列表残留滚动偏移会影响模糊状态判定（下次切入时本也会回顶，无视觉差异）
+    const outgoing = showSubscribed ? this.sheetScroller : this.subscribedScroller;
+    if (outgoing.currentOffset().yOffset !== top) {
+      outgoing.scrollTo({ xOffset: 0, yOffset: top });
+    }
+    // 切到订阅 tab 时自动拉取式同步（每条 10 分钟节流）：页面常驻后 aboutToAppear 不再触发；
+    // 冷启动时插件未就绪的记录未消耗节流，进入订阅 tab 补一次同步即可拉到最新
+    if (showSubscribed) {
+      this.syncSubscribed(false);
+    }
   }
 
   /** 刷新歌单列表 */
@@ -1470,6 +1481,9 @@ export struct MySheetsPage {
       // 分段滑块常驻标题栏下方，不随滚动隐藏（否则上滑隐藏、下滑才重现）
       isSearchBarScroller: false,
       scroller: this.activeScroller(),
+      // 标题栏滚动效果绑定两个列表的稳定滚动器实例：scroller 实例随 tab 切换变化会触发
+      // bindToScrollable 重绑 → 标题栏底部插槽重建 → 滑块在位移动画中被卸载而瞬移无动画
+      bindScrollers: [this.sheetScroller, this.subscribedScroller],
       doubleTapToTop: true,
       scrollToTopYOffset: ScrollToTopYOffset(44 + (this.showSearchBox ? 56 : 0))
     }) {
