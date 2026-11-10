@@ -103,8 +103,8 @@ export default class EntryAbility extends UIAbility {
       return;
     }
     Continuation.pendingRepair = null;
-    if (data.current === null || !Bootstrap.isInited()) {
-      // Bootstrap 未初始化：onCreate 已写入 PersistStatus，冷恢复链自然生效
+    if (data.current === null || !Bootstrap.isReady()) {
+      // Bootstrap 核心域未就绪：onCreate 已写入 PersistStatus，冷恢复链自然生效
       return;
     }
     hilog.info(DOMAIN, 'testTag', 'apply pending continuation after repair: %{public}s', Continuation.describe(data));

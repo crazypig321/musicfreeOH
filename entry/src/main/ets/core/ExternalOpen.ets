@@ -68,12 +68,12 @@ export class ExternalOpen {
     const run = async (): Promise<void> => {
       try {
         const deadline = Date.now() + ExternalOpen.READY_TIMEOUT_MS;
-        while (!Bootstrap.isInited() && Date.now() < deadline) {
+        while (!Bootstrap.isReady() && Date.now() < deadline) {
           await Delay.wait(200);
         }
         const uri = ExternalOpen.pendingUri;
         ExternalOpen.pendingUri = null;
-        if (!Bootstrap.isInited()) {
+        if (!Bootstrap.isReady()) {
           return;
         }
         if (uri !== null) {
@@ -96,10 +96,10 @@ export class ExternalOpen {
   /** 内部通道（碰一碰沙箱接收等）直接投递文件 URI：等待核心数据域就绪后统一分发 */
   static async deliverFile(uri: string): Promise<void> {
     const deadline = Date.now() + ExternalOpen.READY_TIMEOUT_MS;
-    while (!Bootstrap.isInited() && Date.now() < deadline) {
+    while (!Bootstrap.isReady() && Date.now() < deadline) {
       await Delay.wait(200);
     }
-    if (!Bootstrap.isInited()) {
+    if (!Bootstrap.isReady()) {
       return;
     }
     await ExternalOpen.dispatch(uri);
@@ -338,6 +338,9 @@ export class ExternalOpen {
     };
     item.extras[INTERNAL_SERIALIZE_KEY] = extraRec;
     try {
+      // 等冷启动恢复链落定（旧曲加载/续播），避免与本次播放的引擎 load 并发互相 reset；
+      // 8s 兜底：旧曲拉源异常挂起时仍放行播放
+      await Promise.race<void>([trackPlayer.awaitRestore(), Delay.wait(8000)]);
       await trackPlayer.playWithReplacePlayList(item, [item]);
       ExternalOpen.toast('正在播放：' + item.title);
     } catch (e) {
@@ -407,6 +410,9 @@ export class ExternalOpen {
           item.artwork = rec !== null ? JsonUtil.recStr(rec, 'artwork') : '';
           item.duration = rec !== null ? JsonUtil.recNum(rec, 'duration') : 0;
           try {
+            // 等冷启动恢复链落定（旧曲加载/续播），避免与本次播放的引擎 load 并发互相 reset；
+            // 8s 兜底：旧曲拉源异常挂起时仍放行播放
+            await Promise.race<void>([trackPlayer.awaitRestore(), Delay.wait(8000)]);
             await trackPlayer.playWithReplacePlayList(item, [item]);
             ExternalOpen.toast('正在播放：' + title);
             return;

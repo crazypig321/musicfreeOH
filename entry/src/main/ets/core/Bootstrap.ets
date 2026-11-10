@@ -28,11 +28,22 @@ export class Bootstrap {
   private static readonly PLUGIN_UPDATE_INTERVAL_MS = 86400000;
 
   private static inited: boolean = false;
+  /** 首次完整初始化是否成功完成（插件/播放器等核心域全部就绪） */
+  private static ready: boolean = false;
   /** 首次完整初始化的 Promise（并发调用复用，避免重复初始化） */
   private static setupPromise: Promise<void> | null = null;
 
   static isInited(): boolean {
     return Bootstrap.inited;
+  }
+
+  /**
+   * 核心数据域初始化成功完成（插件已注册、播放器/媒体会话已就绪）。
+   * 外部打开（.mfsong 深链播放等）须等待此状态而非 isInited：
+   * isInited 在 setup 开始时即为 true，彼时插件列表尚未加载，直达播放会误落搜索页
+   */
+  static isReady(): boolean {
+    return Bootstrap.ready;
   }
 
   /**
@@ -55,6 +66,7 @@ export class Bootstrap {
     Bootstrap.inited = true;
     try {
       await Bootstrap.runSetup();
+      Bootstrap.ready = true;
     } finally {
       // 结束后清空：后续调用走 inited 分支（补建媒体会话），与原重复调用语义一致
       Bootstrap.setupPromise = null;

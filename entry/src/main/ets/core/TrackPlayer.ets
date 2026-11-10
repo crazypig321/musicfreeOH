@@ -211,7 +211,10 @@ export class TrackPlayer {
             }
             if (this.isCurrentMusic(track)) {
               const merged = newSource !== null ? this.mergeTrackSource(track, newSource) : track;
-              this.setTrackSource(merged, false).then(() => {
+              // 必须返回内层链：恢复链要等引擎加载/seek/续播全部完成才算落定，
+              // 否则 awaitRestore 的调用方（外部打开播放、桌面卡片控制）会在旧曲
+              // 加载中途就操作引擎，两条 load 并发在同一 AVPlayer 上互相 reset
+              return this.setTrackSource(merged, false).then((): Promise<void> => {
                 this.initRestoring = false;
                 if (progress > 0) {
                   this.seekTo(progress);
@@ -222,19 +225,18 @@ export class TrackPlayer {
                 this.continuationPlaying = false;
                 if (shouldAutoPlay && this.isCurrentMusic(track)) {
                   Log.debug('启动自动续播');
-                  this.play().catch(() => {
+                  return this.play().catch((): void => {
                   });
                 }
-              }).catch(() => {
-                this.initRestoring = false;
+                return Promise.resolve();
               });
-            } else {
-              this.initRestoring = false;
             }
+            this.initRestoring = false;
+            return Promise.resolve();
           })
           .catch(() => {
-            // 拉源失败（如无窗口后台模式下插件沙箱不可用）：恢复链落定，
-            // 当前曲仍保留持久化的 url/缓存源，后续 play() 走兜底
+            // 拉源失败（如无窗口后台模式下插件沙箱不可用）或恢复加载失败：
+            // 恢复链落定，当前曲仍保留持久化的 url/缓存源，后续 play() 走兜底
             this.initRestoring = false;
           });
       } else {
