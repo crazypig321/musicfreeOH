@@ -50,6 +50,7 @@ export class ConfigKeys {
   static readonly EQ_GAINS = 'eq.gains';
   static readonly EQ_USER_PRESETS = 'eq.userPresets';
   static readonly BACKUP_RESUME_MODE = 'backup.resumeMode';
+  static readonly BACKUP_INCLUDE_PLUGIN_DATA = 'backup.includePluginData';
   static readonly APPEARANCE_THEME_COLOR = 'appearance.themeColor';
   static readonly APPEARANCE_COLOR_MODE = 'appearance.colorMode';
   static readonly APPEARANCE_MATERIAL_TYPE = 'appearance.materialType';
@@ -408,6 +409,15 @@ export class AppConfig {
   getAppearanceOrientation(): string {
     const v = this.getString(ConfigKeys.APPEARANCE_ORIENTATION, 'system');
     return v === 'portrait' || v === 'landscape' ? v : 'system';
+  }
+
+  /** 备份时同时导出插件配置变量（含账号、Cookie 等敏感信息，默认关闭） */
+  getBackupIncludePluginData(): boolean {
+    return this.getBoolean(ConfigKeys.BACKUP_INCLUDE_PLUGIN_DATA, false);
+  }
+
+  setBackupIncludePluginData(enabled: boolean): void {
+    this.setConfig(ConfigKeys.BACKUP_INCLUDE_PLUGIN_DATA, enabled);
   }
 
   /** 本地音乐自动匹配音乐封面（导入时提取内嵌封面并回填网络封面） */

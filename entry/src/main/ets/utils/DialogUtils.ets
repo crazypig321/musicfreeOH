@@ -195,6 +195,13 @@ export class DialogManager {
     DialogManager.OpenDialog('发现新版本');
   }
 
+  /** 开启「同时备份插件配置数据」提醒弹窗：message 提示文案，onConfirm 点击「仍要开启」后才执行（取消/关闭不执行） */
+  public static ConfirmBackupPluginData(message: string, onConfirm: () => void): void {
+    DialogManager.confirmMessage = message;
+    DialogManager.confirmCallback = onConfirm;
+    DialogManager.OpenDialog('备份插件配置');
+  }
+
   /** 转换简洁命名确认弹窗：message 提示文案，onConfirm 点击「转换」后执行（取消/关闭不触发；
    *  回调内部负责显示 loading、执行重命名并手动关闭弹窗） */
   public static ConfirmSimpleRename(message: string, onConfirm: () => void): void {
@@ -332,6 +339,8 @@ export class DialogManager {
         return '免责声明';
       case '转换简洁命名':
         return '转换简洁命名';
+      case '备份插件配置':
+        return '备份插件配置数据';
       case '均衡器增益':
         return DialogManager.eqGainBandLabel + 'Hz 频段增益';
       case '编辑信息':
@@ -684,7 +693,8 @@ export class DialogManager {
       case '确认移出':
       case '确认导入':
       case '清空数据':
-      case '发现新版本': {
+      case '发现新版本':
+      case '备份插件配置': {
         const cancel: ButtonOptions = {
           value: '取消',
           fontColor: appState.accentColor,
@@ -818,6 +828,7 @@ export class DialogManager {
       case '确认移出':
       case '清空数据':
       case '发现新版本':
+      case '备份插件配置':
         if (DialogManager.confirmCallback !== null) {
           DialogManager.confirmCallback();
         }
@@ -933,7 +944,7 @@ export class DialogManager {
     }
     // 四个通用确认弹窗同理（取消或关闭弹窗不触发确认回调）
     if (key === '清除缓存' || key === '确认删除' || key === '确认移出' || key === '确认导入' ||
-      key === '清空数据' || key === '发现新版本') {
+      key === '清空数据' || key === '发现新版本' || key === '备份插件配置') {
       DialogManager.confirmMessage = '';
       DialogManager.confirmCallback = null;
     }
@@ -975,6 +986,9 @@ export class DialogManager {
     }
     if (key === '发现新版本') {
       return '下载';
+    }
+    if (key === '备份插件配置') {
+      return '仍要开启';
     }
     return '确定';
   }

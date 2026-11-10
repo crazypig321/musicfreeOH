@@ -4,6 +4,7 @@ import { musicSheet, SheetBackupEntry, backupEntriesFromRecord } from './MusicSh
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { Subscriptions } from '../plugin/Subscriptions';
+import { PluginMeta } from '../plugin/PluginMeta';
 import { appConfig } from './AppConfig';
 import { VersionCompare } from '../utils/VersionCompare';
 import { LegacyBackup } from './LegacyBackup';
@@ -16,6 +17,7 @@ import { Log } from '../utils/Log';
  * 结果：一份大的 json 文件 { musicSheets: [], plugins: [], appConfig: {}, subscriptions: {}, pluginFiles: {} }
  * - plugins：全部插件（含禁用）的 {srcUrl, version}
  * - pluginFiles：无 srcUrl 插件（本地导入）的源码内嵌（文件名 -> 源码），恢复时重新安装
+ * - pluginUserVariables：插件配置变量（插件名 -> 键值，含账号等敏感信息，仅开启「同时备份插件配置数据」时导出）
  * - resume 自动识别原版 MusicFree 备份（format=musicfree-backup）并转换
  */
 export class Backup {
@@ -48,7 +50,30 @@ export class Backup {
     if (pluginFiles !== null) {
       out['pluginFiles'] = pluginFiles;
     }
+    // 插件配置变量（含账号、Cookie 等敏感信息，仅在「同时备份插件配置数据」开启时导出）
+    if (appConfig.getBackupIncludePluginData()) {
+      const pluginVars = Backup.collectPluginUserVariables(plugins);
+      if (pluginVars !== null) {
+        out['pluginUserVariables'] = pluginVars;
+      }
+    }
     return JsonUtil.safeStringify(out);
+  }
+
+  /** 收集插件配置变量：插件名 -> 变量键值（仅含非空配置；无内容返回 null） */
+  private static collectPluginUserVariables(plugins: Array<Plugin>): JsonRecord | null {
+    const out: JsonRecord = {};
+    for (const p of plugins) {
+      const vars = PluginMeta.getUserVariables(p.name);
+      if (Object.keys(vars).length === 0) {
+        continue;
+      }
+      out[p.name] = JsonUtil.fromStringMap(vars);
+    }
+    if (Object.keys(out).length === 0) {
+      return null;
+    }
+    return out;
   }
 
   /** 收集无 srcUrl 插件（含禁用）的源码：文件名 -> 源码；无可内嵌内容返回 null */
@@ -185,6 +210,17 @@ export class Backup {
     const subsRec = JsonUtil.objToRecord(obj['subscriptions']);
     if (subsRec !== null) {
       Subscriptions.importData(subsRec);
+    }
+
+    // 插件配置变量（发送方开启「同时备份插件配置数据」时存在；插件未安装也先写入，安装后即生效）
+    const pluginVarsRec = JsonUtil.objToRecord(obj['pluginUserVariables']);
+    if (pluginVarsRec !== null) {
+      for (const pluginName of Object.keys(pluginVarsRec)) {
+        const vars = JsonUtil.toStringMap(JsonUtil.objToRecord(pluginVarsRec[pluginName]));
+        if (Object.keys(vars).length > 0) {
+          PluginMeta.setUserVariables(pluginName, vars);
+        }
+      }
     }
 
     await Promise.all(resumePluginTasks.concat([resumeMusicSheets]));

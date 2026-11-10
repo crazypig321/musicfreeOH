@@ -8,6 +8,10 @@ import { ResumeMode } from '../../common/Consts';
 import { DialogManager } from '../../utils/DialogUtils';
 import { showUiToast } from '../../utils/UiUtils';
 
+/** 连通性状态点颜色（无系统语义绿 token，状态色为固定色值）：连通绿 / 未连通红 */
+const DOT_CONNECTED: string = '#FF64BB5C';
+const DOT_DISCONNECTED: string = '#FFF44336';
+
 /**
  * WebDAV 备份与恢复页面
  * 服务器地址 / 备份路径 / 用户名 / 密码（实时保存）+ 退出时自动备份开关 + 备份保留数量 +
@@ -27,6 +31,65 @@ export struct WebDavSettingPage {
   @Local working: boolean = false;
   /** 备份保留数量展示文本（设置成功后刷新） */
   @Local maxBackupCountText: string = appConfig.getWebdavMaxBackupCount().toString() + ' 个';
+  /** 连通性状态：0 检测中 / 1 已连通 / 2 未连通（探测失败或未配置） */
+  @Local reachState: number = 0;
+  /** 输入防抖定时器句柄 */
+  private reachTimer: number = -1;
+
+  aboutToAppear(): void {
+    this.refreshReachable();
+  }
+
+  aboutToDisappear(): void {
+    if (this.reachTimer >= 0) {
+      clearTimeout(this.reachTimer);
+      this.reachTimer = -1;
+    }
+  }
+
+  /** 服务器配置变更后防抖重新探测连通性 */
+  @Monitor('url', 'path', 'username', 'password')
+  onWebdavConfigChanged(): void {
+    if (this.reachTimer >= 0) {
+      clearTimeout(this.reachTimer);
+    }
+    this.reachTimer = setTimeout((): void => {
+      this.reachTimer = -1;
+      this.refreshReachable();
+    }, 800);
+  }
+
+  /** 立即探测服务器连通性并刷新状态点 */
+  private refreshReachable(): void {
+    this.reachState = 0;
+    WebDav.checkConnectivity().then((ok: boolean): void => {
+      this.reachState = ok ? 1 : 2;
+    }).catch((): void => {
+      this.reachState = 2;
+    });
+  }
+
+  /** 连通性状态文本：检测中 / 已连通 / 未连通 */
+  private get reachStateText(): string {
+    if (this.reachState === 1) {
+      return '已连通';
+    }
+    if (this.reachState === 2) {
+      return '未连通';
+    }
+    return '检测中';
+  }
+
+  /** 连通性状态点颜色：连通绿 / 未连通红 / 检测中灰 */
+  private get reachDotColor(): ResourceColor {
+    if (this.reachState === 1) {
+      return DOT_CONNECTED;
+    }
+    if (this.reachState === 2) {
+      return DOT_DISCONNECTED;
+    }
+    return $r('sys.color.icon_tertiary');
+  }
 
   /** 备份目录相对服务器地址的路径（随配置实时刷新，备份文件名含时间戳与设备名不再固定展示） */
   get backupFileDisplay(): string {
@@ -50,6 +113,7 @@ export struct WebDavSettingPage {
     this.showToast('正在备份到 WebDAV…');
     WebDav.backup().then((ok: boolean): void => {
       this.working = false;
+      this.reachState = ok ? 1 : 2;
       this.showToast(ok ? '备份成功' : '备份失败，请检查地址与账号');
     });
   }
@@ -123,13 +187,22 @@ export struct WebDavSettingPage {
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {
-          // 小标题：服务器配置
+          // 小标题：服务器配置（右侧连通性状态点：绿=连通 / 红=未连通 / 灰=检测中）
           ListItem() {
-            Text('服务器配置')
-              .fontSize(14)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
+            Row() {
+              Text('服务器配置')
+                .fontSize(14)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_secondary'))
+                .layoutWeight(1)
+              Text(this.reachStateText)
+                .fontSize(12)
+                .fontColor($r('sys.color.font_tertiary'))
+              Circle({ width: 8, height: 8 })
+                .fill(this.reachDotColor)
+                .margin({ left: 6 })
+            }
+            .width('100%')
           }
 
           ListItem() {

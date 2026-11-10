@@ -255,6 +255,18 @@ export class WebDav {
     return resp.statusCode !== 401 && resp.statusCode !== 403;
   }
 
+  /** 连通性检测（设置页状态点）：未配置视为未连通；探测可达视为连通 */
+  static async checkConnectivity(): Promise<boolean> {
+    if (!WebDav.isConfigured()) {
+      return false;
+    }
+    try {
+      return await WebDav.isReachable();
+    } catch (e) {
+      return false;
+    }
+  }
+
   /** 彻底退出应用前自动备份（Ability onDestroy 触发）：开关开启 + 已配置服务器 + 服务器可达时执行，全程静默失败 */
   static async backupOnExit(): Promise<void> {
     if (WebDav.exitBackupRunning) {
