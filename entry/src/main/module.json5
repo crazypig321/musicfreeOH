@@ -56,6 +56,17 @@
           },
           {
             "actions": [
+              "ohos.want.action.viewData"
+            ],
+            "uris": [
+              {
+                "scheme": "musicfree",
+                "host": "song"
+              }
+            ]
+          },
+          {
+            "actions": [
               "ohos.want.action.viewData",
               "ohos.want.action.sendData"
             ],

@@ -7,7 +7,7 @@ import { FileUtils } from '../utils/FileUtils';
 import { Delay } from '../utils/Delay';
 import { CryptoUtil } from '../utils/CryptoUtil';
 import { ContextHolder } from '../common/ContextHolder';
-import { MUSICFREE_SONG_MARK } from '../utils/ShareUtils';
+import { ShareUtils, MUSICFREE_SONG_MARK } from '../utils/ShareUtils';
 import { PluginImport } from '../plugin/PluginImport';
 import { pluginManager } from '../plugin/PluginManager';
 import { appConfig } from './AppConfig';
@@ -34,15 +34,25 @@ import { ROUTE_SEARCH } from '../common/model/NavModels';
  */
 export class ExternalOpen {
   private static pendingUri: string | null = null;
+  private static pendingText: string | null = null;
   private static handling: boolean = false;
   private static readonly READY_TIMEOUT_MS = 20000;
 
-  /** Ability onCreate/onNewWant 入口：识别文件打开 Want 与分享导入 Want 并排队处理 */
+  /** Ability onCreate/onNewWant 入口：识别文件打开 Want、musicfree:// 歌曲分享深链与分享导入 Want 并排队处理 */
   static offer(want: Want | undefined): void {
     if (want !== undefined) {
       const uri = want.uri;
-      if (typeof uri === 'string' && uri.length > 0 && uri.startsWith('file://')) {
-        ExternalOpen.pendingUri = uri;
+      if (typeof uri === 'string' && uri.length > 0) {
+        if (uri.startsWith('file://')) {
+          ExternalOpen.pendingUri = uri;
+        } else {
+          // musicfree:// 歌曲分享深链（碰一碰/隔空手势发出，系统按 scheme 拉起本应用）：
+          // 转歌曲标记文本复用分享文本直达播放路径
+          const text = ShareUtils.parseSongLink(uri);
+          if (text.length > 0) {
+            ExternalOpen.pendingText = text;
+          }
+        }
       }
     }
     // 文件打开 / 分享导入 / 暂存目录残留清理，统一走串行处理
@@ -68,6 +78,11 @@ export class ExternalOpen {
         }
         if (uri !== null) {
           await ExternalOpen.dispatch(uri);
+        }
+        const text = ExternalOpen.pendingText;
+        ExternalOpen.pendingText = null;
+        if (text !== null) {
+          await ExternalOpen.handleSharedText(text);
         }
         await ExternalOpen.drainShareReceived();
       } finally {

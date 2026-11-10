@@ -1,12 +1,13 @@
 import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 import { fileUri } from '@kit.CoreFileKit';
+import { url } from '@kit.ArkTS';
 import { ContextHolder } from '../common/ContextHolder';
 import { PathConst } from '../common/PathConst';
 import { FileUtils } from './FileUtils';
 import { MediaUtils } from './MediaUtils';
 import { MusicItem } from '../common/model/MediaTypes';
-import { JsonRecord } from './JsonUtil';
+import { JsonUtil, JsonRecord } from './JsonUtil';
 import { SheetItem } from '../common/model/SheetTypes';
 import { musicSheet, SheetBackupEntry } from '../core/MusicSheet';
 
@@ -18,6 +19,10 @@ export const SONG_UTD: string = 'com.crazypig321.musicfreeoh.song';
 export const SHEETS_UTD: string = 'com.crazypig321.musicfreeoh.sheets';
 export const PLUGIN_UTD: string = 'com.crazypig321.musicfreeoh.plugin';
 export const SUB_UTD: string = 'com.crazypig321.musicfreeoh.sub';
+
+/** 歌曲分享深链 scheme/host（module.json5 skills 注册；仿 FQHouse fqhouse://open?d=<JSON>）：接收端系统按 scheme 拉起应用直达播放，应用未运行也可冷启动 */
+export const SONG_LINK_SCHEME: string = 'musicfree';
+export const SONG_LINK_HOST: string = 'song';
 
 /** 结构化歌曲数据（仅用于 JSON 序列化；album/artwork/duration 为增强字段，旧接收端自动忽略） */
 class SharedSongPayload {
@@ -177,7 +182,9 @@ export class ShareUtils {
     }
   }
 
-  /** 构造当前歌曲的跨设备分享数据（碰一碰/隔空手势直达，不拉面板）：本地歌曲→音频文件记录；网络歌曲→歌曲标记临时 txt 文件（接收端解析标记直接播放）。utd 按扩展名推导具体类型（抽象父类型如 general.text 会校验失败） */
+  /** 构造当前歌曲的跨设备分享数据（碰一碰/隔空手势直达，不拉面板）：本地歌曲→音频文件记录；
+    * 网络歌曲→musicfree://song 深链 HYPERLINK 记录（接收端系统按 scheme 直接拉起应用播放，
+    * 无需接收端应用已在运行；替代 .mfsong 文件——其仅覆盖接收端应用存活时的沙箱接收通道）。utd 按扩展名推导具体类型（抽象父类型如 general.text 会校验失败） */
   static buildMusicShare(item: MusicItem): MusicShareData {
     const r = new MusicShareData();
     const localPath = MediaUtils.getLocalPath(item);
@@ -189,18 +196,18 @@ export class ShareUtils {
           return r;
         }
       } catch (e) {
-        // 本地文件不可用，回落临时 txt
+        // 本地文件不可用，回落深链
       }
     }
     try {
-      const tempPath: string = ShareUtils.buildSongShareFile(item);
-      if (tempPath.length === 0) {
-        return r;
-      }
-      r.tempPath = tempPath;
-      r.data = new systemShare.SharedData(ShareUtils.fileRecord(item.title, tempPath, SONG_UTD));
+      const record: systemShare.SharedRecord = {
+        utd: utd.UniformDataType.HYPERLINK,
+        content: ShareUtils.buildSongLink(item),
+        title: item.title,
+        label: '链接'
+      };
+      r.data = new systemShare.SharedData(record);
     } catch (e) {
-      r.tempPath = '';
       r.data = null;
     }
     return r;
@@ -217,6 +224,34 @@ export class ShareUtils {
     payload.artwork = item.artwork;
     payload.duration = item.duration;
     return payload;
+  }
+
+  /** 构造歌曲分享深链：musicfree://song?d=<encodeURIComponent(JSON)>（仿 FQHouse fqhouse://open?d=<JSON>） */
+  static buildSongLink(item: MusicItem): string {
+    return SONG_LINK_SCHEME + '://' + SONG_LINK_HOST + '?d=' +
+      encodeURIComponent(JSON.stringify(ShareUtils.songPayload(item)));
+  }
+
+  /** 解析歌曲分享深链（EntryAbility onCreate/onNewWant 收到的 want.uri）：
+    * 命中返回歌曲标记文本（复用分享文本直达播放路径），否则返回空串 */
+  static parseSongLink(uri: string): string {
+    if (!uri.startsWith(SONG_LINK_SCHEME + '://')) {
+      return '';
+    }
+    try {
+      const parsed: url.URL = url.URL.parseURL(uri);
+      const d = parsed.params.get('d');
+      if (d === null || d.length === 0) {
+        return '';
+      }
+      const rec = JsonUtil.parseRecord(d);
+      if (rec === null || JsonUtil.recStr(rec, 'title').length === 0) {
+        return '';
+      }
+      return MUSICFREE_SONG_MARK + d;
+    } catch (e) {
+      return '';
+    }
   }
 
   /** 生成网络歌曲分享临时文件（.mfsong，内容为歌曲标记文本），失败返回空串 */

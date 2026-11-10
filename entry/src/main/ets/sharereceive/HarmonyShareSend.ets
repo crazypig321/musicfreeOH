@@ -8,8 +8,8 @@ import { MusicItem } from '../common/model/MediaTypes';
 /**
  * 碰一碰 / 隔空手势（一抓一放）跨设备分享当前歌曲（Share Kit 发送端）
  * 播放页可见期间注册监听：设备轻贴/抓放手势触发后把当前歌曲构造为分享数据
- * 直接发送（本地歌曲→音频文件；网络歌曲→歌曲标记临时 txt 文件），
- * 接收端 MusicFreeOH 经沙箱接收自动导入/播放；无歌曲时拒绝本次分享。
+ * 直接发送（本地歌曲→音频文件；网络歌曲→musicfree://song 深链记录），
+ * 接收端 MusicFreeOH 由系统按 scheme 直接拉起直达播放；无歌曲时拒绝本次分享。
  */
 export class HarmonyShareSend {
   private static registry: harmonyShare.SendCapabilityRegistry | null = null;
