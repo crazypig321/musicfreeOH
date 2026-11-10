@@ -12,6 +12,16 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v316: ChangelogEntry = new ChangelogEntry();
+  v316.version = '3.1.6';
+  v316.date = '2026-11-10';
+  v316.markdown = '- 网络歌曲分享升级为深链直达播放：经华为分享发送 musicfree://song 链接，接收端装有本应用时点开链接即可播放——装有相同插件按歌曲 ID 一步直达，未安装插件自动进入搜索页按「歌名 + 歌手」匹配；碰一碰 / 隔空投送等接收端非前台场景同样直达（原 .mfsong 文件通道保留，本地歌曲仍以音频文件分享）\n' +
+    '- 备份与恢复页新增「同时备份插件配置数据」开关（默认关闭）：开启后备份文件包含插件的配置变量（账号 / Cookie 等登录信息），恢复时自动写回对应插件；首次开启弹窗确认，提醒勿将备份文件发送给他人以免账号泄露\n' +
+    '- WebDAV 备份与恢复页「服务器配置」标题右侧新增连通性状态：实时探测显示 检测中 / 已连通 / 未连通（灰 / 绿 / 红状态点），修改服务器配置自动重新检测，备份结果同步刷新\n' +
+    '- 修复我的歌单页切换「我的歌单 / 订阅歌单」时分段滑块瞬移、丢失位移动画的问题：标题栏副标题与菜单改为动画结束后滞后更新，两个列表常驻挂载、各自保持滚动位置\n' +
+    '- 备份插件配置确认弹窗弹出时页面背景虚化，关闭后自动恢复';
+  list.push(v316);
+
   const v315: ChangelogEntry = new ChangelogEntry();
   v315.version = '3.1.5';
   v315.date = '2026-10-23';
