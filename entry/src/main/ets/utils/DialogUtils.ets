@@ -863,6 +863,9 @@ export class DialogManager {
       case '捐赠':
         appState.isForegroundBlur = true
         break
+      case '备份插件配置':
+        appState.isForegroundBlur = true
+        break
     }
   }
 
@@ -947,6 +950,10 @@ export class DialogManager {
       key === '清空数据' || key === '发现新版本' || key === '备份插件配置') {
       DialogManager.confirmMessage = '';
       DialogManager.confirmCallback = null;
+    }
+    // 备份插件配置弹窗出现时开启了背景模糊，关闭时恢复
+    if (key === '备份插件配置') {
+      appState.isForegroundBlur = false;
     }
     // 转换简洁命名同理（取消或关闭弹窗不触发转换）
     if (key === '转换简洁命名') {
