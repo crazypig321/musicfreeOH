@@ -61,6 +61,7 @@ export class ConfigKeys {
   static readonly APPEARANCE_SMART_REACH = 'appearance.smartReach';
   static readonly APPEARANCE_ORIENTATION = 'appearance.orientation';
   static readonly APPEARANCE_CAR_MODE = 'appearance.carMode';
+  static readonly HOME_SELECTED_PLUGIN = 'home.selectedPlugin';
   static readonly PLUGIN_SUBSCRIBE_URL = 'plugin.subscribeUrl';
   static readonly UPDATE_PROXY_DOWNLOAD = 'update.proxyDownload';
   static readonly UPDATE_LAST_CHANGELOG_VERSION = 'update.lastChangelogVersion';
@@ -261,6 +262,19 @@ export class AppConfig {
 
   getLazyLoadPlugin(): boolean {
     return this.getBoolean(ConfigKeys.LAZY_LOAD_PLUGIN, false);
+  }
+
+  /** 首页当前使用的插件（用户在首页右上角菜单选择；空串表示未选择、跟随默认） */
+  getHomeSelectedPlugin(): string {
+    return this.getString(ConfigKeys.HOME_SELECTED_PLUGIN, '');
+  }
+
+  setHomeSelectedPlugin(pluginName: string): void {
+    if (pluginName.length === 0) {
+      this.setConfig(ConfigKeys.HOME_SELECTED_PLUGIN, null);
+    } else {
+      this.setConfig(ConfigKeys.HOME_SELECTED_PLUGIN, pluginName);
+    }
   }
 
   getTryChangeSourceWhenPlayFail(): boolean {

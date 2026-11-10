@@ -19,6 +19,7 @@ import { pluginManager } from '../plugin/PluginManager';
 import { PluginAbility } from '../common/Consts';
 import { localMusicSheet } from '../core/LocalMusicSheet';
 import { trackPlayer } from '../core/TrackPlayer';
+import { appConfig } from '../core/AppConfig';
 import { moodMode } from '../core/MoodMode';
 import { MenuUtils } from '../utils/MenuUtils';
 import { sheetGridColumns, useSidebarLayout } from '../utils/BreakpointUtils';
@@ -78,6 +79,8 @@ export struct HomePage{
   }
 
   aboutToAppear(): void {
+    // 恢复持久化的首页插件选择（榜单 / 推荐歌单共用）
+    this.homePluginName = appConfig.getHomeSelectedPlugin();
     // 本地音乐列表 + 变更监听
     this.localMusic = localMusicSheet.musicList.slice();
     localMusicSheet.onLocalSheetUpdated((): void => {
@@ -419,6 +422,8 @@ export struct HomePage{
         MenuUtils.Dismiss();
         if (this.homePluginName !== name) {
           this.homePluginName = name;
+          // 持久化用户选择，冷启动后不再退回默认插件
+          appConfig.setHomeSelectedPlugin(name);
           this.refreshHome();
         }
       };
