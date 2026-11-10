@@ -13,7 +13,7 @@ import { SupportMediaType } from '../common/model/SheetTypes';
 import { appConfig } from '../core/AppConfig';
 import { MediaExtra } from '../core/MediaExtra';
 import { Plugin } from './Plugin';
-import { PluginState } from './PluginTypes';
+import { PluginState, PluginErrorReason } from './PluginTypes';
 import { InstallPluginResult, LazyProps } from './PluginTypes';
 import { PluginMeta } from './PluginMeta';
 import { LocalPluginExecutor } from './LocalPluginExecutor';
@@ -57,6 +57,7 @@ export class PluginManager {
       // 无窗口后台模式（桌面卡片冷启动）：沙箱不可用，全部按懒加载注册
       // （挂载会立即失败），保留插件记录待用户打开应用后补挂载
       const headless = WebPluginExecutor.getInstance().isHeadless();
+      const lazyLoadConfig = appConfig.getLazyLoadPlugin();
       for (let i = 0; i < names.length; ++i) {
         const name = names[i];
         if (!name.endsWith('.js')) {
@@ -64,21 +65,20 @@ export class PluginManager {
         }
         const pluginFilePath = PathConst.pluginPath + name;
         Log.info('初始化插件 ' + pluginFilePath);
-        let plugin: Plugin;
-        let isLazyLoad = false;
-        if (headless || (appConfig.getLazyLoadPlugin() && cacheStore.contains(pluginFilePath))) {
-          isLazyLoad = true;
-          const lazyProps = LazyProps.fromRecord(JsonUtil.parseRecord(cacheStore.get(pluginFilePath)) ?? {});
-          lazyProps.path = pluginFilePath;
-          lazyProps.loadFuncCode = (): Promise<string> => {
-            const content = FileUtils.readFileText(pluginFilePath);
-            return Promise.resolve(content === null ? '' : content);
-          };
-          plugin = Plugin.createLazy(lazyProps, WebPluginExecutor.getInstance());
-        } else {
+        // 统一按懒加载注册：挂载失败的插件也保留记录（插件页显示错误态，可重试），
+        // 避免瞬时失败（沙箱未就绪/解析失败）导致插件整个会话丢失
+        const cachedRec = cacheStore.contains(pluginFilePath)
+          ? JsonUtil.parseRecord(cacheStore.get(pluginFilePath)) : null;
+        const lazyProps = cachedRec !== null ? LazyProps.fromRecord(cachedRec) : new LazyProps();
+        lazyProps.path = pluginFilePath;
+        lazyProps.loadFuncCode = (): Promise<string> => {
           const content = FileUtils.readFileText(pluginFilePath);
-          const funcCode = content === null ? '' : content;
-          plugin = await Plugin.create(funcCode, pluginFilePath, WebPluginExecutor.getInstance());
+          return Promise.resolve(content === null ? '' : content);
+        };
+        const plugin = Plugin.createLazy(lazyProps, WebPluginExecutor.getInstance());
+        if (!headless && !lazyLoadConfig) {
+          // 非懒加载配置：注册时立即挂载（失败保留错误态待重试）
+          await plugin.ensureMounted();
         }
 
         if (plugin.hash.length > 0) {
@@ -94,21 +94,49 @@ export class PluginManager {
             continue;
           }
         }
-        if (plugin.state === PluginState.Mounted || isLazyLoad) {
-          allPlugins.push(plugin);
-        }
+        allPlugins.push(plugin);
       }
 
       this.setPlugins(allPlugins);
-      // 延迟初始化懒加载插件（必须 catch，否则未处理拒绝会导致 jscrash）；
+      // 延迟初始化/重试（必须 catch，否则未处理拒绝会导致 jscrash）：
+      // - 懒加载插件延迟挂载（挂载后 hash 已知，补一次重复检查）
+      // - 启动时立即挂载失败（非版本校验）的插件自动重试
       // 无窗口后台模式下跳过：挂载必失败，等沙箱就绪后由 onSandboxReady 补挂载
       if (!headless) {
         Delay.wait(10000).then(async (): Promise<void> => {
-          for (const plugin of allPlugins) {
-            if (plugin.state === PluginState.Initializing) {
-              await plugin.ensureMounted();
-              this.updatePluginCache(plugin);
+          let changed = false;
+          for (const plugin of allPlugins.slice()) {
+            const pending = plugin.state === PluginState.Initializing ||
+              (plugin.state === PluginState.Error &&
+                plugin.errorReason !== PluginErrorReason.VersionNotMatch);
+            if (!pending) {
+              continue;
             }
+            if (plugin.state === PluginState.Error) {
+              await plugin.retryMount();
+            } else {
+              await plugin.ensureMounted();
+            }
+            if (plugin.state === PluginState.Mounted) {
+              // 挂载后 hash 已知：与其他插件重复时移除当前插件
+              let dup = false;
+              for (const other of this.plugins) {
+                if (other !== plugin && other.hash.length > 0 && other.hash === plugin.hash) {
+                  dup = true;
+                  break;
+                }
+              }
+              if (dup) {
+                this.setPlugins(this.plugins.filter((_: Plugin): boolean => _ !== plugin));
+                changed = true;
+                continue;
+              }
+              this.updatePluginCache(plugin);
+              changed = true;
+            }
+          }
+          if (changed) {
+            this.ee.emit('order-updated', new PluginOrderUpdatedEvent());
           }
         }).catch((e: Object): void => {
           Log.error('懒加载插件延迟初始化失败: ' + (e instanceof Error ? e.message : ''));
@@ -126,11 +154,15 @@ export class PluginManager {
   /**
    * 插件沙箱就绪（WebPluginExecutor.markReady 回调）：
    * 补挂载未挂载/挂载失败的插件——覆盖无窗口后台冷启动（桌面卡片控制）
-   * 后用户首次打开应用的场景；正常运行时幂等无害
+   * 后用户首次打开应用的场景；正常运行时幂等无害。
+   * 版本校验不过的插件跳过（重试结果不会变化）
    */
   onSandboxReady(): void {
     for (const plugin of this.plugins) {
       if (plugin.state === PluginState.Mounted) {
+        continue;
+      }
+      if (plugin.state === PluginState.Error && plugin.errorReason === PluginErrorReason.VersionNotMatch) {
         continue;
       }
       plugin.retryMount().then((): void => {
@@ -142,6 +174,17 @@ export class PluginManager {
         // 单个插件补挂载失败忽略
       });
     }
+  }
+
+  /**
+   * 插件沙箱页面重建（窗口销毁重建后 Web 重新加载）：
+   * 沙箱内已挂载实例全部失效，所有插件复位后重新挂载
+   */
+  onSandboxReloaded(): void {
+    for (const plugin of this.plugins) {
+      plugin.prepareForSandboxReload();
+    }
+    this.onSandboxReady();
   }
 
   private setPlugins(plugins: Array<Plugin>): void {
@@ -194,7 +237,11 @@ export class PluginManager {
     const content = FileUtils.readFileText(pluginPath);
     const funcCode = content === null ? '' : content;
     if (funcCode.length > 0) {
-      const plugin = await Plugin.create(funcCode, pluginPath, WebPluginExecutor.getInstance());
+      // 统一懒加载创建：安装的插件同样可重试挂载（源码保留在闭包中）
+      const lazyProps = new LazyProps();
+      lazyProps.loadFuncCode = (): Promise<string> => Promise.resolve(funcCode);
+      const plugin = Plugin.createLazy(lazyProps, WebPluginExecutor.getInstance());
+      await plugin.ensureMounted();
       let allPlugins = this.plugins.slice();
 
       if (plugin.hash.length > 0) {
@@ -209,7 +256,10 @@ export class PluginManager {
           }
         }
       }
-      const oldVersionPlugin = this.findByName(allPlugins, plugin.name);
+      // 同名插件唯一时才做版本比较并在安装后替换旧版；
+      // 存在多个同名插件时不替换（避免误删），仅新增
+      const oldVersionPlugin = this.countByName(allPlugins, plugin.name) === 1
+        ? this.findByName(allPlugins, plugin.name) : null;
       if (oldVersionPlugin !== null && notCheckVersion !== true) {
         const oldVersion = oldVersionPlugin.instanceInfo !== null ? oldVersionPlugin.instanceInfo.version : '';
         const newVersion = plugin.instanceInfo !== null ? plugin.instanceInfo.version : '';
@@ -231,7 +281,7 @@ export class PluginManager {
           result.message = '插件文件写入失败';
           return result;
         }
-        plugin.path = newPluginPath;
+        plugin.setPluginPath(newPluginPath);
         allPlugins = allPlugins.concat([plugin]);
         if (oldVersionPlugin !== null) {
           allPlugins = allPlugins.filter((_: Plugin): boolean => _.hash !== oldVersionPlugin.hash);
@@ -242,6 +292,11 @@ export class PluginManager {
         result.success = true;
         result.pluginName = plugin.name;
         result.pluginHash = plugin.hash;
+        return result;
+      }
+      if (plugin.state === PluginState.Error && plugin.errorReason === PluginErrorReason.VersionNotMatch) {
+        result.success = false;
+        result.message = '插件版本不兼容';
         return result;
       }
       result.success = false;
@@ -269,7 +324,11 @@ export class PluginManager {
     }
     const funcCode = resp.body;
     if (funcCode.length > 0) {
-      const plugin = await Plugin.create(funcCode, '', WebPluginExecutor.getInstance());
+      // 统一懒加载创建：安装的插件同样可重试挂载（源码保留在闭包中）
+      const lazyProps = new LazyProps();
+      lazyProps.loadFuncCode = (): Promise<string> => Promise.resolve(funcCode);
+      const plugin = Plugin.createLazy(lazyProps, WebPluginExecutor.getInstance());
+      await plugin.ensureMounted();
       let allPlugins = this.plugins.slice();
 
       if (plugin.hash.length > 0) {
@@ -284,7 +343,10 @@ export class PluginManager {
           }
         }
       }
-      const oldVersionPlugin = this.findByName(allPlugins, plugin.name);
+      // 同名插件唯一时才做版本比较并在安装后替换旧版；
+      // 存在多个同名插件时不替换（避免误删），仅新增
+      const oldVersionPlugin = this.countByName(allPlugins, plugin.name) === 1
+        ? this.findByName(allPlugins, plugin.name) : null;
       if (oldVersionPlugin !== null && notCheckVersion !== true) {
         const oldVersion = oldVersionPlugin.instanceInfo !== null ? oldVersionPlugin.instanceInfo.version : '';
         const newVersion = plugin.instanceInfo !== null ? plugin.instanceInfo.version : '';
@@ -297,7 +359,9 @@ export class PluginManager {
         }
       }
 
-      if (plugin.hash.length > 0) {
+      // 仅在插件成功挂载后才写入文件并替换旧版本，
+      // 避免瞬时失败（沙箱未就绪/解析失败）时静默写坏文件并删除旧插件
+      if (plugin.state === PluginState.Mounted && plugin.hash.length > 0) {
         const fn = CryptoUtil.nanoid();
         const newPluginPath = PathConst.pluginPath + fn + '.js';
         // 先写入新文件，成功后再移除旧版本，避免写入失败导致插件丢失
@@ -306,7 +370,7 @@ export class PluginManager {
           result.message = '插件文件写入失败';
           return result;
         }
-        plugin.path = newPluginPath;
+        plugin.setPluginPath(newPluginPath);
         allPlugins = allPlugins.concat([plugin]);
         if (oldVersionPlugin !== null) {
           allPlugins = allPlugins.filter((_: Plugin): boolean => _.hash !== oldVersionPlugin.hash);
@@ -316,6 +380,11 @@ export class PluginManager {
         result.success = true;
         result.pluginName = plugin.name;
         result.pluginHash = plugin.hash;
+        return result;
+      }
+      if (plugin.state === PluginState.Error && plugin.errorReason === PluginErrorReason.VersionNotMatch) {
+        result.success = false;
+        result.message = '插件版本不兼容';
         return result;
       }
       result.success = false;
@@ -403,6 +472,17 @@ export class PluginManager {
       }
     }
     return null;
+  }
+
+  /** 统计同名插件数量（同名替换仅在唯一时执行，避免多个同名插件时误删） */
+  private countByName(plugins: Array<Plugin>, name: string): number {
+    let count = 0;
+    for (const p of plugins) {
+      if (p.name === name) {
+        count++;
+      }
+    }
+    return count;
   }
 
   /** 通过媒体项获取插件 */

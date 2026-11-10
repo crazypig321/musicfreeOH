@@ -107,6 +107,14 @@ export class WebPluginExecutor implements IPluginExecutor {
 
   markReady(): void {
     if (this.ready) {
+      // 沙箱页面被重建（窗口销毁重建后 Web 重新加载）：
+      // 页面内已挂载的插件实例全部失效，清空挂载记录并通知插件管理器全量重挂
+      this.mounted.clear();
+      try {
+        pluginManager.onSandboxReloaded();
+      } catch (e) {
+        // 插件管理器尚未初始化等场景忽略
+      }
       return;
     }
     this.ready = true;

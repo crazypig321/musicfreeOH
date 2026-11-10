@@ -856,8 +856,29 @@ export class Plugin {
     await this.ensureMounted();
   }
 
+  /**
+   * 沙箱页面重建后复位：已挂载/出错的插件复位为初始化待重挂
+   * （加载中的插件不动，由其进行中的挂载流程自行收敛）
+   */
+  prepareForSandboxReload(): void {
+    if (this.state === PluginState.Mounted || this.state === PluginState.Error) {
+      this.state = PluginState.Initializing;
+      this.errorReason = null;
+    }
+  }
+
+  /** 更新插件路径（安装流程写入文件后同步懒加载参数，保证后续重挂载/卸载使用新路径） */
+  setPluginPath(path: string): void {
+    this.path = path;
+    if (this.lazyProps !== null) {
+      this.lazyProps.path = path;
+    }
+  }
+
   private async mountPlugin(funcCode: string, pluginPath: string, presetHash?: string): Promise<void> {
     this.state = PluginState.Loading;
+    // 提前记录路径：挂载失败时保证缓存记录不被误清理、卸载流程可用
+    this.path = pluginPath;
     let hash = presetHash !== undefined ? presetHash : '';
     try {
       if (hash.length === 0) {
@@ -866,7 +887,6 @@ export class Plugin {
       this.hash = hash;
       const info = await this.executor.mount(hash, funcCode, AppMeta.appVersion);
       this.instanceInfo = info;
-      this.path = pluginPath;
       this.name = info.platform;
       this.supportedMethods = new Set<string>();
       for (const m of info.supportedMethods) {

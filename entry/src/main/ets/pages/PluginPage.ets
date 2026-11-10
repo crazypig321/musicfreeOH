@@ -1,7 +1,7 @@
 import { pluginManager } from '../plugin/PluginManager';
 import { Plugin } from '../plugin/Plugin';
 import { PluginState } from '../plugin/PluginTypes';
-import { PluginInstanceInfo } from '../plugin/PluginTypes';
+import { PluginInstanceInfo, PluginErrorReason } from '../plugin/PluginTypes';
 import { InstallPluginResult } from '../plugin/PluginTypes';
 import { musicSheet } from '../core/MusicSheet';
 import { MusicItem } from '../common/model/MediaTypes';
@@ -29,10 +29,13 @@ import { showUiToast, thickImmersiveMaterial, sheetImmersiveModifier,
   listItemGroupImmersiveModifier} from '../utils/UiUtils';
 
 interface PluginRow {
+  /** 展示名：插件名为空（挂载失败且无缓存）时回退为文件名 */
+  displayName: string;
   name: string;
   version: string;
   author: string;
   state: PluginState;
+  errorReason: PluginErrorReason | null;
   hash: string;
   enabled: boolean;
 }
@@ -52,6 +55,8 @@ interface DetailRow {
 
 const ADD_ANCHOR_ID = 'plugin_add_anchor';
 const MORE_ANCHOR_ID = 'plugin_more_anchor';
+/** 挂载失败角标颜色（系统无语义错误色 token，页面私有常量） */
+const ERROR_BADGE_COLOR = '#FFF44336';
 
 @ComponentV2
 export struct PluginPage {
@@ -84,6 +89,8 @@ export struct PluginPage {
   /** 说明文本刷新标记：懒加载插件挂载完成后 +1 触发重绘 */
   @Local pluginImportHintRev: number = 0;
   @Local batchSelected: Array<string> = [];
+  /** 是否正在重试挂载插件（防止重复触发，重试期间按钮显示进行中） */
+  @Local retrying: boolean = false;
   /** 标题栏搜索框：开启后按关键词过滤插件条目（点搜索/回车才应用关键词） */
   @Local showSearchBox: boolean = false;
   @Local searchKeyword: string = '';
@@ -121,10 +128,12 @@ export struct PluginPage {
     const plugins = pluginManager.getSortedPlugins();
     for (const p of plugins) {
       const row: PluginRow = {
+        displayName: p.name.length > 0 ? p.name : PluginPage.fallbackPluginName(p.path),
         name: p.name,
         version: p.instanceInfo !== null ? p.instanceInfo.version : '',
         author: p.instanceInfo !== null ? p.instanceInfo.author : '',
         state: p.state,
+        errorReason: p.errorReason,
         hash: p.hash,
         enabled: pluginManager.isPluginEnabled(p)
       };
@@ -133,16 +142,38 @@ export struct PluginPage {
     const localPlugin = pluginManager.getByName('本地');
     if (localPlugin !== null) {
       const row: PluginRow = {
+        displayName: localPlugin.name,
         name: localPlugin.name,
         version: localPlugin.instanceInfo !== null ? localPlugin.instanceInfo.version : '',
         author: '内置',
         state: localPlugin.state,
+        errorReason: localPlugin.errorReason,
         hash: localPlugin.hash,
         enabled: true
       };
       rows.push(row);
     }
     this.pluginRows = rows;
+  }
+
+  /** 插件名为空时的展示兜底：取路径末段文件名 */
+  private static fallbackPluginName(path: string): string {
+    if (path.length === 0) {
+      return '未命名插件';
+    }
+    const base = path.substring(path.lastIndexOf('/') + 1);
+    return base.length > 0 ? base : '未命名插件';
+  }
+
+  /** 插件状态角标文案（非挂载态展示） */
+  private static stateBadgeText(state: PluginState, errorReason: PluginErrorReason | null): string {
+    if (state === PluginState.Error) {
+      return errorReason === PluginErrorReason.VersionNotMatch ? '版本不兼容' : '挂载失败';
+    }
+    if (state === PluginState.Loading) {
+      return '加载中';
+    }
+    return '待加载';
   }
 
   /** 按关键词过滤插件条目（名称/作者，不区分大小写；空关键词返回全部） */
@@ -277,7 +308,9 @@ export struct PluginPage {
     this.detailHash = row.hash;
     this.detailSrcUrl = '';
     const fields: Array<PluginVarField> = [];
-    const plugin = pluginManager.getByName(row.name);
+    // hash 优先查找（挂载失败且无缓存的插件 name 为空，按名查找会命中错误对象）
+    const plugin = row.hash.length > 0 ? pluginManager.getByHash(row.hash)
+      : pluginManager.getByName(row.name);
     if (plugin !== null && plugin.instanceInfo !== null) {
       const info = plugin.instanceInfo;
       this.detailSrcUrl = info.srcUrl;
@@ -304,15 +337,60 @@ export struct PluginPage {
     }
     this.detailVars = fields;
     this.showDetailSheet = true;
-    // 懒加载插件：挂载完成后用新实例信息刷新详情
+    // 懒加载未挂载的插件：打开详情时按需挂载，
+    // 挂载成功后刷新列表并用新实例信息重开详情（挂载失败由「重试」按钮处理）
     if (plugin !== null && plugin.state === PluginState.Initializing) {
       plugin.ensureMounted().then((): void => {
-        if (this.detailName === row.name) {
+        this.refreshPlugins();
+        if (plugin.state === PluginState.Mounted && this.detailName === row.name) {
           this.openDetailSheet(row);
         }
       }).catch((_e: Object): void => {
       });
     }
+  }
+
+  /** 行内「重试」按钮：重新挂载失败的插件 */
+  private retryRowMount(row: PluginRow): void {
+    this.doRetryMount(row.hash, row.name, row.displayName);
+  }
+
+  /** 详情页「重新挂载」：重新挂载当前详情插件 */
+  private retryDetailMount(): void {
+    this.doRetryMount(this.detailHash, this.detailName, this.detailName);
+  }
+
+  /** 重试挂载失败的插件（重新走挂载流程，结果以轻提示反馈并刷新列表） */
+  private doRetryMount(hash: string, name: string, displayName: string): void {
+    if (this.retrying) {
+      this.showToast('正在重新挂载，请稍候');
+      return;
+    }
+    const plugin = hash.length > 0 ? pluginManager.getByHash(hash) : pluginManager.getByName(name);
+    if (plugin === null) {
+      this.showToast('插件不存在');
+      return;
+    }
+    if (plugin.state !== PluginState.Error) {
+      return;
+    }
+    this.retrying = true;
+    this.showToast('正在重新挂载...');
+    plugin.retryMount().then((): void => {
+      this.retrying = false;
+      this.refreshPlugins();
+      if (plugin.state === PluginState.Mounted) {
+        this.showToast('「' + displayName + '」挂载成功');
+      } else if (plugin.errorReason === PluginErrorReason.VersionNotMatch) {
+        this.showToast('插件版本不兼容，可在 设置-插件 中开启「忽略插件的应用版本要求」后重试');
+      } else {
+        this.showToast('挂载失败，请稍后重试');
+      }
+    }).catch((_e: Object): void => {
+      this.retrying = false;
+      this.refreshPlugins();
+      this.showToast('挂载失败，请稍后重试');
+    });
   }
 
   /** 使用说明弹窗 */
@@ -1157,7 +1235,8 @@ export struct PluginPage {
                 },
                 swipeActionOptions: this.swipeOptions(row)
               })
-            }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString() + '_' + row.enabled.toString() +
+            }, (row: PluginRow, index: number) => row.name + '_' + row.hash + '_' + index.toString() + '_' +
+              row.enabled.toString() + '_' + row.state.toString() +
               (appState.isBatchMode && this.isSelected(row) ? '_sel' : '') +
               '_' + appState.swipeResetTick.toString())
           } else {
@@ -1336,11 +1415,25 @@ export struct PluginPage {
         .justifyContent(FlexAlign.Center)
 
         Column({ space: 2 }) {
-          Text(row.name)
-            .fontSize(15)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Row({ space: 6 }) {
+            Text(row.displayName)
+              .fontSize(15)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
+            // 非挂载态状态角标：待加载/加载中/挂载失败/版本不兼容
+            if (row.state !== PluginState.Mounted) {
+              Text(PluginPage.stateBadgeText(row.state, row.errorReason))
+                .fontSize(10)
+                .fontColor(row.state === PluginState.Error
+                  ? ERROR_BADGE_COLOR : $r('sys.color.font_tertiary'))
+                .padding({ left: 5, right: 5, top: 2, bottom: 2 })
+                .borderRadius(4)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+            }
+          }
+          .width('100%')
           Text((row.version.length > 0 ? 'v' + row.version : '') +
             (row.author.length > 0 ? ' · ' + row.author : ''))
             .fontSize(12)
@@ -1352,12 +1445,27 @@ export struct PluginPage {
         .alignItems(HorizontalAlign.Start)
 
         if (!appState.isBatchMode && row.name !== '本地') {
-          Toggle({ type: ToggleType.Switch, isOn: row.enabled })
-            .selectedColor(appState.accentColor)
-            .transition(TransitionEffect.OPACITY)
-            .onChange((isOn: boolean) => {
-              this.togglePluginEnabled(row, isOn);
-            })
+          if (row.state === PluginState.Error) {
+            // 挂载失败的插件：提供重试按钮（替代启用开关，插件不可用时开关无意义）
+            Button(this.retrying ? '重试中...' : '重试')
+              .fontSize(13)
+              .height(32)
+              .padding({ left: 16, right: 16 })
+              .borderRadius(16)
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
+              .fontColor($r('sys.color.font_primary'))
+              .transition(TransitionEffect.OPACITY)
+              .onClick(() => {
+                this.retryRowMount(row);
+              })
+          } else {
+            Toggle({ type: ToggleType.Switch, isOn: row.enabled })
+              .selectedColor(appState.accentColor)
+              .transition(TransitionEffect.OPACITY)
+              .onChange((isOn: boolean) => {
+                this.togglePluginEnabled(row, isOn);
+              })
+          }
         }
       }
       .width('100%')
@@ -1589,16 +1697,22 @@ export struct PluginPage {
 
   /** 操作分组 */
   private detailActionRows(): DetailRow[] {
-    return [
-      { icon: $r('sys.symbol.arrow_clockwise'), title: '检查更新',
-        onClick: (): void => { this.checkDetailUpdate(); } },
-      { icon: $r('sys.symbol.share'), title: '分享插件', trailingUrl: this.detailSrcUrl,
-        onClick: (): void => { this.shareDetailSrc(); } },
-      { icon: $r('sys.symbol.square_and_arrow_down'), title: '导出插件文件',
-        onClick: (): void => { this.exportDetailFile(); } },
-      { icon: $r('sys.symbol.trash'), title: '卸载插件',
-        onClick: (): void => { this.uninstallDetail(); } }
-    ];
+    const rows: DetailRow[] = [];
+    // 插件挂载失败时提供「重新挂载」入口
+    const detailPlugin = this.detailHash.length > 0 ? pluginManager.getByHash(this.detailHash) : null;
+    if (detailPlugin !== null && detailPlugin.state === PluginState.Error) {
+      rows.push({ icon: $r('sys.symbol.arrow_clockwise'), title: '重新挂载', showChevron: true,
+        onClick: (): void => { this.retryDetailMount(); } });
+    }
+    rows.push({ icon: $r('sys.symbol.arrow_clockwise'), title: '检查更新',
+      onClick: (): void => { this.checkDetailUpdate(); } });
+    rows.push({ icon: $r('sys.symbol.share'), title: '分享插件', trailingUrl: this.detailSrcUrl,
+      onClick: (): void => { this.shareDetailSrc(); } });
+    rows.push({ icon: $r('sys.symbol.square_and_arrow_down'), title: '导出插件文件',
+      onClick: (): void => { this.exportDetailFile(); } });
+    rows.push({ icon: $r('sys.symbol.trash'), title: '卸载插件',
+      onClick: (): void => { this.uninstallDetail(); } });
+    return rows;
   }
 
   @Builder
