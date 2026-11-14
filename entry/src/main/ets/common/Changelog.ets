@@ -12,6 +12,12 @@ export class ChangelogEntry {
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
 
+  const v317: ChangelogEntry = new ChangelogEntry();
+  v317.version = '3.1.7';
+  v317.date = '2026-11-14';
+  v317.markdown = '- 外观设置新增「我的、设置页面显示样式」：可选「我的含设置入口」（我的置于最右，经我的页进入设置）、「设置含我的入口」（设置置于最右，经设置页进入我的，首页右上角补充下载入口）、「我的和设置单独显示」（默认，两者并列最右），手机底部 tab 与 PC 侧边栏同步生效';
+  list.push(v317);
+
   const v316: ChangelogEntry = new ChangelogEntry();
   v316.version = '3.1.6';
   v316.date = '2026-11-10';
