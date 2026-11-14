@@ -58,6 +58,7 @@ export class ConfigKeys {
   static readonly APPEARANCE_BAR_LAYOUT_MODE = 'appearance.barLayoutMode';
   static readonly APPEARANCE_PLAYER_EXPAND_ANIM = 'appearance.playerExpandAnim';
   static readonly APPEARANCE_TAB_SWITCH_ANIM = 'appearance.tabSwitchAnim';
+  static readonly APPEARANCE_MINE_SETTING_STYLE = 'appearance.mineSettingStyle';
   static readonly APPEARANCE_SMART_REACH = 'appearance.smartReach';
   static readonly APPEARANCE_ORIENTATION = 'appearance.orientation';
   static readonly APPEARANCE_CAR_MODE = 'appearance.carMode';
@@ -262,6 +263,16 @@ export class AppConfig {
 
   getLazyLoadPlugin(): boolean {
     return this.getBoolean(ConfigKeys.LAZY_LOAD_PLUGIN, false);
+  }
+
+  /** 我的、设置页面显示样式：0 = 我的含设置入口 / 1 = 设置含我的入口 / 2 = 我的相关和设置单独显示（默认） */
+  getMineSettingStyle(): number {
+    const v = this.getNumber(ConfigKeys.APPEARANCE_MINE_SETTING_STYLE, 2);
+    return v >= 0 && v <= 2 ? v : 2;
+  }
+
+  setMineSettingStyle(style: number): void {
+    this.setConfig(ConfigKeys.APPEARANCE_MINE_SETTING_STYLE, style >= 0 && style <= 2 ? style : 2);
   }
 
   /** 首页当前使用的插件（用户在首页右上角菜单选择；空串表示未选择、跟随默认） */

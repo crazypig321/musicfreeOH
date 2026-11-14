@@ -78,6 +78,20 @@ struct Index {
         // TODO: Implement error handling.
       }
     });
+    // 「我的、设置页面显示样式」切换后 tab 列表增删/重排：回到首页 tab，避免选中索引越界
+    appState.tabStyleChanged.on('changed', (): void => {
+      appState.currTabsIndex = 0;
+      try {
+        this.tabsController.changeIndex(0);
+      } catch (e) {
+        // HdsTabs 未就绪时忽略
+      }
+      try {
+        this.sideTabsController.changeIndex(0);
+      } catch (e) {
+        // PC 布局未挂载时忽略
+      }
+    });
     this.initApp();
   }
 

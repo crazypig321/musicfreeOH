@@ -436,7 +436,7 @@ export struct HomePage{
     });
   }
 
-  /** titleBar 菜单按钮：心动模式 + 下载 + 选择插件 */
+  /** titleBar 菜单按钮：心动模式 + 下载（我的无独立 tab 时） + 选择插件 */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
     const mood: HdsNavigationMenuItemOptions = {
       content: {
@@ -444,6 +444,16 @@ export struct HomePage{
         label: '心动模式',
         action: (): void => {
           this.startMoodMode();
+        }
+      }
+    };
+    // 「设置含我的入口」样式：我的页藏入设置页，下载管理入口补到首页右上角
+    const download: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.download'),
+        label: '下载',
+        action: (): void => {
+          NavPathUtils.push(ROUTE_DOWNLOAD);
         }
       }
     };
@@ -456,6 +466,9 @@ export struct HomePage{
         }
       }
     };
+    if (appState.mineSettingStyle === 1) {
+      return [mood, download, menu];
+    }
     return [mood, menu];
   }
 

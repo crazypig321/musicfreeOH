@@ -150,6 +150,8 @@ export class Bootstrap {
     }
     // 底部栏排列模式
     appState.hdsBarLayoutMode = appConfig.getAppearanceBarLayoutMode();
+    // 我的、设置页面显示样式（tab 列表组合依据）
+    appState.mineSettingStyle = appConfig.getMineSettingStyle();
     // 主题色
     appState.accentColor = themeColorOf(appConfig.getAppearanceThemeColor());
     // Tab 切换动画

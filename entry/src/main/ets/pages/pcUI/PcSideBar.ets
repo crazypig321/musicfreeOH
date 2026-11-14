@@ -1,4 +1,4 @@
-import { MenuItem, MENU_CONFIG } from '../../common/model/TabsModels';
+import { MenuItem, tabItemsOf } from '../../common/model/TabsModels';
 import { appState } from '../../entryability/AppState';
 
 /**
@@ -54,11 +54,11 @@ export struct PcSideBar {
 
   build() {
     Column() {
-      // 主页面导航项
+      // 主页面导航项（与手机底部 tab 同源同组合，「我的、设置页面显示样式」生效）
       Column({ space: 4 }) {
-        ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
+        ForEach(tabItemsOf(appState.mineSettingStyle), (item: MenuItem, i: number) => {
           this.NavItem(item, i)
-        }, (item: MenuItem, i: number) => 'pcside_' + i.toString())
+        }, (item: MenuItem) => 'pcside_' + item.key)
       }
       .width('100%')
       .alignItems(HorizontalAlign.Center)

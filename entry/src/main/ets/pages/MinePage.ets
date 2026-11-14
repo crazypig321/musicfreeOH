@@ -17,7 +17,7 @@ import { MusicItem } from '../common/model/MediaTypes';
 import { SheetItem } from '../common/model/SheetTypes';
 import { MusicDataSource } from '../common/model/MusicDataSource';
 import { NavPathUtils } from '../utils/NavPathUtils';
-import { ROUTE_LOCAL_MUSIC, ROUTE_DOWNLOAD } from '../common/model/NavModels';
+import { ROUTE_LOCAL_MUSIC, ROUTE_DOWNLOAD, ROUTE_SETTINGS } from '../common/model/NavModels';
 import { LOCAL_PLUGIN_PLATFORM } from '../common/Consts';
 import { DialogManager } from '../utils/DialogUtils';
 import { showUiToast, sheetImmersiveModifier } from '../utils/UiUtils';
@@ -46,8 +46,10 @@ class TopPlayRow {
  */
 @ComponentV2
 export struct MinePage {
-  /** 当前所处 tab 序号（由 Index 传入；插入在「设置」之前） */
-  @Param hostTabIndex: number = 2;
+  /** 当前所处 tab 序号（由 Index 传入；「我的含设置入口/单独显示」样式下我的在最右侧 = 4） */
+  @Param hostTabIndex: number = 4;
+  /** 以路由页方式挂载（「设置含我的入口」样式经设置页进入）：显示返回键、非内嵌 tab */
+  @Param pushed: boolean = false;
   /** 标题栏搜索框：开启后按关键词过滤历史记录（点搜索/回车才应用关键词） */
   @Local showSearchBox: boolean = false;
   @Local searchKeyword: string = '';
@@ -85,13 +87,13 @@ export struct MinePage {
   /** 切换到其他 tab 时收起搜索框并清空关键词；切回本 tab 时刷新乐库统计 */
   @Monitor('hostTabIndex')
   onTabIndexChanged(): void {
-    if (this.hostTabIndex !== 2 && this.showSearchBox) {
+    if (this.hostTabIndex !== 4 && this.showSearchBox) {
       this.showSearchBox = false;
       this.searchKeyword = '';
       this.searchInput = '';
       appState.tabSearchClose = null;
     }
-    if (this.hostTabIndex === 2) {
+    if (this.hostTabIndex === 4) {
       this.refreshLibraryStats();
     }
   }
@@ -170,8 +172,18 @@ export struct MinePage {
     this.subscriptionSourceCount = Subscriptions.getSources().length;
   }
 
-  /** titleBar 右上角菜单：本地音乐/下载管理入口 + 搜索按钮 */
+  /** titleBar 右上角菜单：本地音乐/下载管理入口 + 搜索按钮；
+   *  「我的含设置入口」样式额外提供设置按钮（设置不再有独立 tab） */
   private titleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const settings: HdsNavigationMenuItemOptions = {
+      content: {
+        icon: $r('sys.symbol.gearshape'),
+        label: '设置',
+        action: (): void => {
+          NavPathUtils.push(ROUTE_SETTINGS);
+        }
+      }
+    };
     const local: HdsNavigationMenuItemOptions = {
       content: {
         icon: $r('sys.symbol.music_note_phone'),
@@ -199,6 +211,10 @@ export struct MinePage {
         }
       }
     };
+    // 「我的含设置入口」样式：右上角设置按钮直达设置页
+    if (appState.mineSettingStyle === 0) {
+      return [settings, local, download, search];
+    }
     return [local, download, search];
   }
 
@@ -583,10 +599,18 @@ export struct MinePage {
   build() {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_mine'), this.subTitleText(), this.titleMenus(),
-        (this.hostTabIndex === 2) ?
+        (this.hostTabIndex === 4) ?
           { builder: (): void => { this.TitleExtraBuilder() }, height: this.showSearchBox ? 56 : 0 } : undefined),
-      isHideBackButton: true,
-      embedded: true,
+      isHideBackButton: !this.pushed,
+      embedded: !this.pushed,
+      // 以路由页进入时返回手势优先收起搜索框
+      backPressed: (): boolean => {
+        if (this.pushed && this.showSearchBox) {
+          this.toggleSearchBox();
+          return true;
+        }
+        return false;
+      },
       // 搜索框常驻标题栏下方，不随滚动隐藏（否则上滑隐藏、下滑才重现）
       isSearchBarScroller: false,
       scroller: this.scroller,
@@ -596,6 +620,12 @@ export struct MinePage {
       // Stack 承载列表 + 批量模式底栏 + 「添加到歌单」选择器锚点
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 12 }) {
+        // 「我的含设置入口」样式：列表最上面提供设置条目（设置不再有独立 tab）
+        if (appState.mineSettingStyle === 0) {
+          ListItem() {
+            this.SettingsEntryBuilder()
+          }
+        }
         // 搜索中隐藏乐库/听歌数据卡，仅展示结果列表
         if (this.searchKeyword.trim().length === 0 && this.historySource.totalCount() > 0) {
           ListItem() {
@@ -738,6 +768,47 @@ export struct MinePage {
       onPick: (sheet: SheetItem): void => {
         this.batchAddToSheet(sheet);
       }
+    })
+  }
+
+  /** 设置条目（「我的含设置入口」样式下列表最顶部；行样式同设置页条目） */
+  @Builder
+  SettingsEntryBuilder() {
+    Row({ space: 12 }) {
+      Column() {
+        SymbolGlyph($r('sys.symbol.gearshape'))
+          .fontSize(22)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      .width(40)
+      .height(40)
+      .borderRadius(10)
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .justifyContent(FlexAlign.Center)
+
+      Column({ space: 2 }) {
+        Text('设置')
+          .fontSize(15)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text('外观、播放与插件等设置')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(14)
+        .fontColor([$r('sys.color.icon_tertiary')])
+    }
+    .width('100%')
+    .height(56)
+    .onClick(() => {
+      NavPathUtils.push(ROUTE_SETTINGS);
     })
   }
 

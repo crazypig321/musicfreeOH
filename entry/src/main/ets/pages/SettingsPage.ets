@@ -2,7 +2,7 @@ import { CommonNav, ScrollToTopYOffset, titleBarOf } from '../view/CommonNav';
 import { appState } from '../entryability/AppState';
 import { BarScrollHelper, IsApiVersion_24 } from '../utils/BarScrollHelper';
 import { NavPathUtils } from '../utils/NavPathUtils';
-import { ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_APPEARANCE_SETTING } from '../common/model/NavModels';
+import { ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING, ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING, ROUTE_APPEARANCE_SETTING, ROUTE_MINE } from '../common/model/NavModels';
 import { UpdateChecker } from '../utils/UpdateChecker';
 import { showUiToast } from '../utils/UiUtils';
 
@@ -19,6 +19,8 @@ interface SettingRow {
  */
 @ComponentV2
 export struct SettingsPage {
+  /** 以路由页方式挂载（「我的含设置入口」样式经我的页进入）：显示返回键、非内嵌 tab */
+  @Param pushed: boolean = false;
   scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -48,14 +50,55 @@ export struct SettingsPage {
   build() {
     CommonNav({
       titleBarOp: titleBarOf($r('app.string.tab_settings')),
-      isHideBackButton: true,
-      embedded: true,
+      isHideBackButton: !this.pushed,
+      embedded: !this.pushed,
       scroller: this.scroller,
       doubleTapToTop: true,
       scrollToTopYOffset: ScrollToTopYOffset()
     }) {
       Stack({ alignContent: Alignment.Top }) {
         List({ scroller: this.scroller, space: 16 }) {
+          // 「设置含我的入口」样式：列表最上面提供「我的」条目（我的不再有独立 tab）
+          if (appState.mineSettingStyle === 1) {
+            ListItem() {
+              Row({ space: 12 }) {
+                Column() {
+                  SymbolGlyph($r('sys.symbol.person'))
+                    .fontSize(22)
+                    .fontColor([$r('sys.color.icon_secondary')])
+                }
+                .width(40)
+                .height(40)
+                .borderRadius(10)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .justifyContent(FlexAlign.Center)
+
+                Column({ space: 2 }) {
+                  Text('我的')
+                    .fontSize(15)
+                    .fontColor($r('sys.color.font_primary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text('听歌数据与最近收听')
+                    .fontSize(12)
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(14)
+                  .fontColor([$r('sys.color.icon_tertiary')])
+              }
+              .width('100%')
+              .height(56)
+            }.ListItemStyle()
+            .onClick(() => {
+              NavPathUtils.push(ROUTE_MINE);
+            })
+          }
           ForEach(SettingsPage.rows(), (row: SettingRow) => {
             ListItem() {
               Row({ space: 12 }) {

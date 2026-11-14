@@ -1,5 +1,6 @@
 import { HdsBarStyle, hdsMaterial } from "@kit.UIDesignKit";
 import { OrientationUtils } from "../utils/OrientationUtils";
+import { EventEmitter } from "../common/EventBus";
 
 /** 主题色预设（value 为空串表示跟随系统强调色） */
 export class ThemeColorOption {
@@ -76,6 +77,21 @@ class AppState{
   @Trace swipeResetTick: number = 0;
   // 静默检查更新发现的 GitHub 新版本号（空 = 暂无更新；设置页「关于」红点与关于页新版本标签共用）
   @Trace latestVersion: string = '';
+
+  // 我的、设置页面显示样式：0 = 我的含设置入口 / 1 = 设置含我的入口 / 2 = 我的相关和设置单独显示（默认）
+  // （启动时由 Bootstrap 从配置恢复；外观设置页切换时经 setMineSettingStyle 更新并广播）
+  @Trace mineSettingStyle: number = 2;
+  // 显示样式变化事件（Index 监听后重置 tab 选中态，避免选中索引越界）
+  tabStyleChanged: EventEmitter = new EventEmitter();
+
+  /** 更新显示样式（唯一入口：改状态并广播，供 tab 栏/侧边栏即时重建） */
+  setMineSettingStyle(style: number): void {
+    if (style === this.mineSettingStyle) {
+      return;
+    }
+    this.mineSettingStyle = style;
+    this.tabStyleChanged.emit('changed');
+  }
 
   /**
    * 屏幕避让及断点

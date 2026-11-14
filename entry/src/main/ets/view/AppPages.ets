@@ -1,10 +1,10 @@
-import { MENU_CONFIG, MenuItem, tabBarSymbolOf } from '../common/model/TabsModels';
+import { MenuItem, tabItemsOf, tabBarSymbolOf, TAB_KEY_HOME, TAB_KEY_SHEETS, TAB_KEY_MINE, TAB_KEY_PLUGIN, TAB_KEY_SUBSCRIPTION } from '../common/model/TabsModels';
 import { appState } from '../entryability/AppState';
 import {
   ROUTE_SEARCH, ROUTE_DOWNLOAD, ROUTE_LOCAL_MUSIC, ROUTE_RECOMMEND_SHEETS, ROUTE_SHEET_DETAIL,
   ROUTE_ALBUM_DETAIL, ROUTE_ARTIST_DETAIL, ROUTE_ABOUT, ROUTE_CACHE, ROUTE_PLAY_SETTING,
   ROUTE_DOWNLOAD_SETTING, ROUTE_LYRIC_SETTING, ROUTE_PLUGIN_SETTING, ROUTE_BACKUP_SETTING,
-  ROUTE_WEBDAV_SETTING, ROUTE_APPEARANCE_SETTING
+  ROUTE_WEBDAV_SETTING, ROUTE_APPEARANCE_SETTING, ROUTE_MINE, ROUTE_SETTINGS
 } from '../common/model/NavModels';
 import { HomePage } from '../pages/HomePage';
 import { MySheetsPage } from '../pages/MySheetsPage';
@@ -41,27 +41,28 @@ function tabBarOf(item: MenuItem): BottomTabBarStyle {
   return style;
 }
 
-/** 主页面 TabContent 装配（手机底部 tab 与 PC 侧边栏内容区共用） */
+/** 主页面 TabContent 装配（手机底部 tab 与 PC 侧边栏内容区共用；
+ *  tab 列表按「我的、设置页面显示样式」动态组合，key 用页面键保证增删 tab 时正确差分） */
 @Builder
 export function MainTabPagesBuilder() {
-  ForEach(MENU_CONFIG, (item: MenuItem, i: number) => {
+  ForEach(tabItemsOf(appState.mineSettingStyle), (item: MenuItem, _i: number) => {
     TabContent() {
-      if (i === 0) {
+      if (item.key === TAB_KEY_HOME) {
         HomePage({ bootReady: appState.bootReady })
-      } else if (i === 1) {
+      } else if (item.key === TAB_KEY_SHEETS) {
         MySheetsPage({ hostTabIndex: appState.currTabsIndex })
-      } else if (i === 2) {
+      } else if (item.key === TAB_KEY_MINE) {
         MinePage({ hostTabIndex: appState.currTabsIndex })
-      } else if (i === 3) {
+      } else if (item.key === TAB_KEY_PLUGIN) {
         PluginPage({ hostTabIndex: appState.currTabsIndex })
-      } else if (i === 4) {
+      } else if (item.key === TAB_KEY_SUBSCRIPTION) {
         SubscriptionPage({ hostTabIndex: appState.currTabsIndex })
       } else {
         SettingsPage()
       }
     }
     .tabBar(tabBarOf(item))
-  }, (item: MenuItem, i: number) => 'tab_' + i.toString())
+  }, (item: MenuItem) => 'tab_' + item.key)
 }
 
 /** 二级路由页装配（由 HdsNavigation.navDestination 调用） */
@@ -97,5 +98,11 @@ export function PageMapBuilder(name: string) {
     WebDavSettingPage()
   } else if (name === ROUTE_APPEARANCE_SETTING) {
     AppearanceSettingPage()
+  } else if (name === ROUTE_MINE) {
+    // 设置含我的入口样式：设置页「我的」条目进入（非 tab 挂载，显示返回键）
+    MinePage({ pushed: true })
+  } else if (name === ROUTE_SETTINGS) {
+    // 我的含设置入口样式：我的页「设置」条目/按钮进入（非 tab 挂载，显示返回键）
+    SettingsPage({ pushed: true })
   }
 }

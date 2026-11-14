@@ -16,6 +16,7 @@ import { thickImmersiveMaterial, sheetImmersiveModifier } from '../../utils/UiUt
 /**
  * 外观设置页面
  * 卡片一：主题色（HdsColorPicker 取色器内嵌条目右侧）/ 深色模式 / 沉浸光感材质 / 动画
+ * 卡片一·五：我的、设置页面显示样式（底部 tab 组合：我的含设置入口 / 设置含我的入口 / 单独显示）
  * 卡片二：智感握姿 / 屏幕方向
  * 选择类条目点击弹出 Menu 菜单（当前项带勾选标记，UI 参考 ting_reader；
  * 智感握姿开启且左手握持时菜单从左侧弹出，否则默认条目右侧下方）
@@ -37,6 +38,9 @@ export struct AppearanceSettingPage {
   @Local showMaterialMenu: boolean = false;
   @Local showOrientationMenu: boolean = false;
   @Local showAnimMenu: boolean = false;
+  @Local showMineStyleMenu: boolean = false;
+  /** 我的、设置页面显示样式当前项文案 */
+  @Local mineStyleText: string = '';
   /** 低于 26 API 的取色器半模态开关（三方库 HSBColorPicker） */
   @Local showColorSheet: boolean = false;
 
@@ -49,6 +53,7 @@ export struct AppearanceSettingPage {
     this.refreshMaterialText();
     this.refreshOrientationText();
     this.refreshAnimText();
+    this.refreshMineStyleText();
   }
 
   /** 菜单弹出位置：智感握姿开启且左手握持 → 左侧（拇指可达），否则条目右侧下方 */
@@ -146,7 +151,10 @@ export struct AppearanceSettingPage {
     OptionsMenuBuilder(entries, (value: string): void => {
       this.onMenuPick(kind, value);
     }, (): void => {
-      this.reopenMenu(kind);
+      // 「我的、设置页面显示样式」切换即重建全局 tab 布局，菜单不回弹；其余选项回弹便于连续调整
+      if (kind !== 'mineStyle') {
+        this.reopenMenu(kind);
+      }
     })
   }
 
@@ -160,6 +168,8 @@ export struct AppearanceSettingPage {
       this.showOrientationMenu = true;
     } else if (kind === 'anim') {
       this.showAnimMenu = true;
+    } else if (kind === 'mineStyle') {
+      this.showMineStyleMenu = true;
     }
   }
 
@@ -173,6 +183,8 @@ export struct AppearanceSettingPage {
       this.applyOrientation(value);
     } else if (kind === 'anim') {
       this.applyAnim(value);
+    } else if (kind === 'mineStyle') {
+      this.applyMineStyle(value);
     }
   }
 
@@ -310,6 +322,47 @@ export struct AppearanceSettingPage {
   private applyThemeColor(hex: string): void {
     appConfig.setConfig(ConfigKeys.APPEARANCE_THEME_COLOR, hex);
     appState.accentColor = themeColorOf(hex);
+  }
+
+  /** 我的、设置页面显示样式：标签与选项 */
+  private static mineStyleLabel(style: number): string {
+    if (style === 0) {
+      return '我的含设置入口';
+    }
+    if (style === 1) {
+      return '设置含我的入口';
+    }
+    return '我的和设置单独显示';
+  }
+
+  private refreshMineStyleText(): void {
+    this.mineStyleText = AppearanceSettingPage.mineStyleLabel(appState.mineSettingStyle);
+  }
+
+  @Builder
+  private mineStyleMenu(): void {
+    this.menuOf(this.mineStyleEntries(), 'mineStyle')
+  }
+
+  private mineStyleEntries(): Array<MenuOptionEntry> {
+    // 与其他条目一致读非响应式的 appConfig：若读 @Trace 的 appState.mineSettingStyle，
+    // 选中瞬间菜单内容会随状态重建而回弹重显（此时 onDisappear 尚未把 isShow 置 false）
+    const cur = appConfig.getMineSettingStyle();
+    return [
+      new MenuOptionEntry('0', '我的含设置入口', cur === 0),
+      new MenuOptionEntry('1', '设置含我的入口', cur === 1),
+      new MenuOptionEntry('2', '我的和设置单独显示', cur === 2)
+    ];
+  }
+
+  private applyMineStyle(value: string): void {
+    const style = value === '0' ? 0 : (value === '1' ? 1 : 2);
+    // 一次性选择：选中即显式收起菜单，不回弹（区别于深色模式等可连续调整的选项）
+    this.showMineStyleMenu = false;
+    appConfig.setMineSettingStyle(style);
+    // 状态唯一入口：更新 appState 并广播，tab 栏/侧边栏即时重建
+    appState.setMineSettingStyle(style);
+    this.refreshMineStyleText();
   }
 
   /** 低于 26 API 的取色器半模态：三方库 HSBColorPicker（含透明度通道 + 预设色） */
@@ -582,6 +635,72 @@ export struct AppearanceSettingPage {
               })
             }
             .width('100%')
+          }.ListItemStyle()
+
+          // 卡片一·五：我的、设置页面显示样式（tab 栏组合）
+          ListItem() {
+            Row({ space: 12 }) {
+              if (appState.holdingHand === 'left') {
+                Row({ space: 4 }) {
+                  Text(this.mineStyleText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
+              }
+              if (appState.holdingHand !== 'left') {
+                SymbolGlyph($r('sys.symbol.rectangle_grid_1x2'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+              }
+              Column({ space: 2 }) {
+                Text('我的、设置页面显示样式')
+                  .fontSize(15)
+                  .fontColor($r('sys.color.font_primary'))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+                Text('「我的」「设置」在底部 tab 的组合方式')
+                  .fontSize(12)
+                  .fontColor($r('sys.color.font_tertiary'))
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+                  .textAlign(appState.holdingHand === 'left' ? TextAlign.End : TextAlign.Start)
+              }
+              .layoutWeight(1)
+              .alignItems(appState.holdingHand === 'left' ? HorizontalAlign.End : HorizontalAlign.Start)
+              if (appState.holdingHand !== 'left') {
+                Row({ space: 4 }) {
+                  Text(this.mineStyleText)
+                    .fontSize(11)
+                    .fontColor($r('sys.color.font_tertiary'))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(14)
+                    .fontColor([$r('sys.color.icon_tertiary')])
+                }
+              }
+              if (appState.holdingHand === 'left') {
+                SymbolGlyph($r('sys.symbol.rectangle_grid_1x2'))
+                  .fontSize(20)
+                  .fontColor([$r('sys.color.icon_secondary')])
+              }
+            }
+            .width('100%')
+            .padding({ top: 16, bottom: 16 })
+            .onClick(() => {
+              this.showMineStyleMenu = true;
+            })
+            .bindMenu(this.showMineStyleMenu, this.mineStyleMenu, {
+              placement: this.menuPlacement(),
+              systemMaterial: thickImmersiveMaterial(),
+              onDisappear: (): void => {
+                this.showMineStyleMenu = false;
+              }
+            })
           }.ListItemStyle()
 
           // 卡片二：智感握姿 / 屏幕方向
