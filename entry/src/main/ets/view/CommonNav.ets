@@ -4,6 +4,7 @@ import { BlurStrategy,
   HdsNavigationMenuItemOptions,
   HdsTabs,
   HdsTabsController,
+  HdsBarWidthRangeOptions,
   ScrollEffectType,
   TitleBarContentOptions,
   BottomBuilderParams,
@@ -122,7 +123,7 @@ export struct CommonNav{
         // 避免 if/else 分支切换整树重建导致列表滚动位置丢失）
         .barHeight(appState.isBatchMode ? 0 : 56)
         .barFloatingStyle({
-          barWidth: { smallWidth: 330, mediumWidth: 480, largeWidth: 560 },
+          barWidth: this.cappedBarWidth(),
           barBottomMargin: 28,
           systemMaterialEffect: {
             materialType: appState.materialType,
@@ -207,6 +208,18 @@ export struct CommonNav{
       hideBottomBuilder: this.isSearchBarScroller,
       mode: HideMode.SCROLL_UP_TO
     })
+  }
+
+  /** 底部悬浮栏宽度档位：按窗口宽钳制。
+   *  HDS 档位边界为 440vp——窗口恰为 440vp 的宽设备会踩中 medium(480) 档，
+   *  栏体比屏幕还宽导致左右溢出；预留左右各 15vp 边距（对齐 360vp 手机 330 档的留白）。 */
+  private cappedBarWidth(): HdsBarWidthRangeOptions {
+    const avail: number = appState.screenWidth > 0 ? appState.screenWidth - 30 : Number.MAX_VALUE;
+    return {
+      smallWidth: Math.min(330, avail),
+      mediumWidth: Math.min(480, avail),
+      largeWidth: Math.min(560, avail),
+    };
   }
 
   /** 自适应内容容器：lg 断点限宽居中，保持手机端视觉宽度；其余断点铺满 */
