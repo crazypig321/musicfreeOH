@@ -11,6 +11,11 @@ export class ChangelogEntry {
 
 function buildChangelogs(): Array<ChangelogEntry> {
   const list: Array<ChangelogEntry> = [];
+  const v318: ChangelogEntry = new ChangelogEntry();
+  v318.version = '3.1.8';
+  v318.date = '2026-11-26';
+  v318.markdown = '- 修复pxv等设备tabbar超过屏幕显示宽度的问题\n' +
+  list.push(v318);
 
   const v317: ChangelogEntry = new ChangelogEntry();
   v317.version = '3.1.7';
